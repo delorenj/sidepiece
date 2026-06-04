@@ -1,0 +1,24 @@
+**/.claude/settings.local.json
+~/DevCloud/.gitignore_global
+node_modules
+dist
+*.mp4
+*.mp3
+*.zip
+*.aab
+.lastagent
+
+# Secrets — .env is materialized by `op inject -i .env.op > .env` on mise enter.
+# NEVER commit it. .env.op holds only op:// references and IS committed.
+.env
+.env.*
+!.env.op
+
+# Hermes agent runtime submodules (agents/hermes/<role>/runtime) are tracked as
+# git submodules (gitlinks) — their contents live in their own repos, so do NOT
+# ignore the path here or `git submodule add` will refuse it.
+
+# BMAD personal/local overrides
+_bmad/config.user.toml
+_bmad/custom/config.user.toml
+__pycache__
