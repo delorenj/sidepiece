@@ -1,26 +1,26 @@
 installation:
   version: 6.8.0
   installDate: 2026-06-04T17:15:36.879Z
-  lastUpdated: 2026-06-04T17:15:36.879Z
+  lastUpdated: 2026-06-10T17:44:34.720Z
 modules:
   - name: core
     version: 6.8.0
     installDate: 2026-06-04T17:15:36.831Z
-    lastUpdated: 2026-06-04T17:15:36.877Z
+    lastUpdated: 2026-06-10T17:44:34.717Z
     source: built-in
     npmPackage: null
     repoUrl: null
   - name: bmm
     version: 6.8.0
     installDate: 2026-06-04T17:15:36.844Z
-    lastUpdated: 2026-06-04T17:15:36.878Z
+    lastUpdated: 2026-06-10T17:44:34.718Z
     source: built-in
     npmPackage: null
     repoUrl: null
   - name: bmb
     version: v1.8.1
     installDate: 2026-06-04T17:15:36.854Z
-    lastUpdated: 2026-06-04T17:15:36.878Z
+    lastUpdated: 2026-06-10T17:44:34.719Z
     source: external
     npmPackage: bmad-builder
     repoUrl: https://github.com/bmad-code-org/bmad-builder
@@ -29,16 +29,28 @@ modules:
   - name: cis
     version: v0.2.1
     installDate: 2026-06-04T17:15:36.858Z
-    lastUpdated: 2026-06-04T17:15:36.879Z
+    lastUpdated: 2026-06-10T17:44:34.720Z
     source: external
     npmPackage: bmad-creative-intelligence-suite
     repoUrl: https://github.com/bmad-code-org/bmad-module-creative-intelligence-suite
     channel: stable
     sha: 07a8dd03d196a762f21c241d985293fe5b0f90e7
+  - name: automator
+    version: main
+    installDate: 2026-06-10T17:44:34.696Z
+    lastUpdated: 2026-06-10T17:44:34.720Z
+    source: external
+    npmPackage: bmad-story-automator
+    repoUrl: https://github.com/bmad-code-org/bmad-automator
+    channel: next
+    sha: f332173a692ffbabb24734c31dedadfcf78b9ed1
 ides:
   - claude-code
   - codex
+  - auggie
   - gemini
   - opencode
-  - crush
-  - auggie
+  - github-copilot
+  - antigravity
+  - mistral-vibe
+  - openclaw
