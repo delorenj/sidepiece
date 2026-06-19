@@ -1,6 +1,3 @@
 [submodule "agents/hermes/pm/runtime"]
 	path = agents/hermes/pm/runtime
 	url = git@github.com:delorenj/agent-hm-sidepiece-pm.git
-[submodule "agents/hermes/scrum-master/runtime"]
-	path = agents/hermes/scrum-master/runtime
-	url = git@github.com:delorenj/agent-hm-sidepiece-scrum-master.git
