@@ -15,11 +15,10 @@ _.file = [".env"]
 # TODO: Ensure this works for all levels of nesting.
 # i.e. All linked agent files MUST be siblings at
 # any given level of nesting.
-[hooks]
-enter = [
-  "{{config_root}}/.mise/scripts/link-agentfiles.sh",
-  "op inject -i .env.op > .env",
-]
+[[hooks.enter]]
+script = "{{config_root}}/.mise/scripts/link-agentfiles.sh"
+[[hooks.enter]]
+script = "'{{config_root}}/.mise/scripts/materialize-env.sh'"
 
 [[watch_files]]
 patterns = ["AGENTS.md"]
