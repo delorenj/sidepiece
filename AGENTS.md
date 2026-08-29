@@ -32,7 +32,7 @@ braindumps (`BRAINDUMP.md`, `BRAINDUMP-REFINED.md`) are kept as source of record
 | Board URL | https://plane.delo.sh/33god/projects/96725b78-df0b-436a-8b45-c871264fe25d/issues/ |
 | PM agent | `sidepiece-pm` → `agents/hermes/pm/` |
 | Scrum Master (Ticket Sentinel) | `sidepiece-scrum-master` → `agents/hermes/scrum-master/` (systemd timer, 1-min cadence) |
-| Bloodbank namespace | `bloodbank.evt.v1.repo.sidepiece.>` (events) · `bloodbank.cmd.v1.agent.<agent_id>.>` (commands) |
+| Bloodbank namespace | `bloodbank.evt.repo.>` (events) · `bloodbank.cmd.agent.invocation.start` (commands) — subjects are 5 tokens, `bloodbank.<kind>.<domain>.<entity>.<action>`, with **no version segment and no repo/agent slug**; this repo is `data.repo` and the target agent is `actor.agent_id` in the payload |
 | Runtime repos | `gh:delorenj/agent-hm-sidepiece-{pm,scrum-master}` (each agent's HERMES_HOME submodule) |
 
 `.project.json` is canonical for board + agent bindings. There is **one board per
