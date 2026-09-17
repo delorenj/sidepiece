@@ -196,8 +196,6 @@ The PM is being asked about a page it cannot see. A Turn that omits the page is 
 - The operator can see what context is attached before sending.
 - Context attachment survives the classification in FR-6 — both Streamed Exchanges and Dispatched Commands carry it.
 
-**Out of Scope:** Sending page *body* content or screenshots. Those are §9.
-
 #### FR-11: Per-Project conversation continuity
 
 Chat history is scoped to the Project and survives the panel closing.
@@ -208,7 +206,7 @@ Chat history is scoped to the Project and survives the panel closing.
 - History survives a Chrome restart and an extension service worker termination.
 - History is appended per Turn rather than rewritten wholesale, so two Cockpits on the same Project (see §5, multiple windows) cannot clobber each other.
 
-**Out of Scope:** Chatting with any Agent other than the Project's PM. Multi-turn tool approval flows. Attaching files.
+**Out of Scope:** Chatting with any Agent other than the Project's PM. Multi-turn tool approval flows. Attaching files. Sending page *body* content or screenshots. Those are §9.
 
 ### 4.3 Tickets
 
@@ -225,6 +223,7 @@ Chat history is scoped to the Project and survives the panel closing.
 - An empty Board renders as empty, distinct from both of the above.
 - Each Ticket links to its Plane URL, opening in a new tab.
 - The list is fetched fresh on Project resolution, not served from a prior Project's cache, and offers a user-initiated refetch.
+- Board reads complete within the §5 budget, or render a timeout state.
 
 #### FR-13: Create a Ticket
 
@@ -234,9 +233,6 @@ Chat history is scoped to the Project and survives the panel closing.
 - The Ticket is created on the resolved Project's Board and no other — the Board is never chosen by the user.
 - On success, the new Ticket appears in the list without a manual refresh.
 - On failure, the entered text is preserved and the error is shown.
-
-**Feature-specific NFRs:**
-- Board reads complete within the §5 budget, or render a timeout state.
 
 **Out of Scope for v1:** Editing an existing Ticket. Moving a Ticket between states. Assigning, labelling, commenting, or deleting. These belong to the PM and to `px`.
 
@@ -282,7 +278,6 @@ Chat history is scoped to the Project and survives the panel closing.
 - **Latency budget, measured over the tailnet.** Detection ≤500ms (local to the browser, unaffected by the network). Resolution ≤1s p95; board read ≤2s p95; first chat token ≤2s; dispatch acknowledgement ≤2s. These are end-to-end from the laptop and must hold with the laptop on the same LAN as `big-chungus`. Budgets are explicitly **not** guaranteed when the tailnet falls back to a DERP relay; that case renders a degraded-connection indicator rather than silently missing the budget. Missing a budget renders a timeout state, never an indefinite pending one.
 - **Cost of being wrong.** Sidepiece must never act against the wrong Project. Each resolution carries a monotonic generation number (FR-2); every mutating call carries `(pjid, generation)`, and both the panel and the Bridge refuse a mutation whose generation is stale. Comparing the pjid against the Board it targets would be a tautology — the Bridge derives the Board *from* the pjid — so the generation is what actually catches a Project that changed under an in-flight action. A confidently wrong ticket is worse than a failed one.
 - **Local network access is a moving target, and the tailnet makes it less certain, not more.** Chrome's Private Network Access rules have shipped in stages and continue to. The Bridge is no longer on loopback but on a tailnet address in `100.64.0.0/10` (CGNAT), whose PNA address-space classification is *less* clearly documented than loopback's. A Bridge call that works today can start failing after an unrelated Chrome auto-update. Mitigations are unconditional: the Bridge answers preflights with the private-network CORS headers from day one, and serving it over HTTPS with a real certificate removes an entire class of this problem. Reachability is re-verified on Chrome version bumps rather than assumed solved. See §12 Q7.
-- **Observability.** Bridge request logs are readable from the `big-chungus` journal without a log aggregator.
 
 ## 6. Integration and Dependencies
 
