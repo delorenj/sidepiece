@@ -128,10 +128,13 @@ earlier draft assumption, the correction is noted.
   `setOptions({tabId, ...})` overrides; that is available but loads a *distinct
   document* per tab and is prone to override drift, where a stale per-tab
   override silently diverges from the global default and produces "correct on
-  some tabs, stale on others". The better shape is one global panel document
-  that receives tab and URL updates by message. This is good news for FR-8: chat
-  state survives tab switching without persistence work, and only needs
-  persisting across the panel *closing*.
+  some tabs, stale on others". Per-tab `setOptions` is for "a different panel
+  per tab, or no panel on some tabs" — a different product shape than one
+  cockpit re-rendering for a new Project. The right pattern here is a single
+  global panel document, with the service worker listening on
+  `tabs.onActivated` / `tabs.onUpdated` and messaging that long-lived document
+  to re-render. Good news for FR-8: chat state survives tab switching with no
+  persistence work, and only needs persisting across the panel *closing*.
 
 - **The service worker dies after ~30s idle**, taking in-memory state and open
   connections with it. Sharper than the earlier draft: WebSocket traffic is
@@ -144,7 +147,7 @@ earlier draft assumption, the correction is noted.
 
 - **Reading the declaration wants a narrow match, but the model wants a broad
   one.** A manifest-declared `content_scripts` entry is the right mechanism —
-  it fires automatically on every navigation with no gesture or message
+  it injects automatically on every *document load* with no gesture or message
   round-trip, unlike `chrome.scripting.executeScript` + `activeTab`, which only
   fires on demand. The tension is in the match pattern: scoping to known hosts
   (`*://*.delo.sh/*`, `http://localhost/*`) avoids the runtime warning, but
@@ -154,11 +157,21 @@ earlier draft assumption, the correction is noted.
   broad match and the permission prompt, valid only while the extension stays
   personally loaded (PRD §5, §7).
 
-- **SPA navigation needs explicit handling.** Content scripts fire on document
-  load. A client-side route change that replaces the page without a document
-  load will not re-trigger one, so FR-1's SPA requirement needs either
-  `chrome.webNavigation.onHistoryStateUpdated` (which needs host permissions
-  regardless) or in-page history observation. Not automatic either way.
+- **SPA navigation needs explicit handling, and the permission scope is
+  unrelated to it.** A content script is injected once per *document load*. A
+  history-API transition (`pushState` / `replaceState`) never unloads the
+  document, so it does not re-inject — and widening the host match does nothing
+  to change that, because the match pattern is a permission knob, not a
+  re-injection trigger. Confusing the two is easy and wastes a permission
+  decision on the wrong problem. FR-1's SPA requirement needs one of:
+  - a `MutationObserver` on `<head>` in the already-injected content script —
+    cheapest, needs no additional permission, and the recommended default;
+  - monkey-patching `history.pushState` / `replaceState`. Note that `popstate`
+    alone is insufficient: it fires on back/forward, not on a `pushState` call;
+  - `chrome.webNavigation.onHistoryStateUpdated` in the service worker, which
+    then messages the content script. Reserve this for when the service worker
+    itself needs to know about the transition — it costs the `webNavigation`
+    permission for a signal the content script can usually observe itself.
 
 - **`captureVisibleTab` is viewport-only and rate-limited** — a handful of calls
   per second, no full-page stitching, and blocked on `chrome://` and other
@@ -234,6 +247,13 @@ Corrections the research made to the first draft:
 5. **The gesture constraint is a silent failure.** The draft had the restriction
    but not the failure mode. Silent no-op on a broken gesture chain is worth
    knowing before it is debugged the hard way.
+6. **Host match scope and SPA re-injection are unrelated problems.** A second
+   research pass caught this in the draft's wording: widening the content-script
+   match does not make it re-run on a history-API transition, because the match
+   pattern governs *where* a script may inject, not *when* it re-injects. They
+   are now separate bullets in §C with separate mechanisms, and the recommended
+   SPA default is a `MutationObserver` on `<head>` rather than the
+   `webNavigation` permission.
 
 Primary sources: `chrome.sidePanel` reference and Chromium issue 355266358
 (gesture chain); content scripts and `chrome.scripting` references; Private
