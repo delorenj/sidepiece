@@ -32,27 +32,29 @@ Project must emit the declaration before it is visible (§12 Q4).
 
 No port, no CORS surface, no private-network-access exposure, and the helper's
 lifetime is tied to Chrome's. Rejected on debuggability: stdio framing cannot be
-exercised with `curl`, and FR-12 makes out-of-band inspection a hard requirement.
+exercised with `curl`, and FR-15 makes out-of-band inspection a hard requirement.
 A component that can only be driven through the extension makes every bug a
 two-variable bug. Registration is also per-browser-profile, which is friction on
 every reinstall.
 
 ### A.3 Bridge transport: extend an existing 33GOD service (rejected)
 
-Extending holocene or candystore to expose resolve/chat/tickets avoids a new
+Extending holocene or Candystore to expose resolve/chat/tickets avoids a new
 process to supervise. Rejected on coupling: it binds Sidepiece's release cadence
 to a service with unrelated consumers, and it puts filesystem and pjangler
 execution into a service that currently has no business doing either.
 
 ### A.4 Chat: streaming-only, and dispatch-only (both rejected)
 
-Streaming-only was the June D-epic model. It has no answer for a turn that takes
+Streaming-only was the June D-epic model. It has no answer for a Turn that takes
 twenty minutes; the panel appears hung, and a progress story gets bolted on later
 in the worst possible place. Dispatch-only is architecturally cleanest and fits
 the existing command gateway exactly, but a tool you cannot ask a quick question
-of stops being a cockpit. The split (FR-5/FR-6) costs a classifier — the
-classification is a heuristic, and FR-6's assumption biases it toward dispatch
-because that failure direction is merely mildly annoying rather than blocking.
+of stops being a cockpit. The split (FR-7/FR-8) costs a classifier, which FR-6
+now owns outright rather than leaving as a footnote. It biases toward dispatch
+because that failure direction is the cheaper one to be wrong in — but only
+because FR-9 renders a dispatched command's result content. Without that, a
+misclassified question would be a dead end on the classifier's preferred side.
 
 ### A.5 Bridge on loopback, one machine (rejected 2026-09-17)
 
@@ -193,7 +195,7 @@ earlier draft assumption, the correction is noted.
   cockpit re-rendering for a new Project. The right pattern here is a single
   global panel document, with the service worker listening on
   `tabs.onActivated` / `tabs.onUpdated` and messaging that long-lived document
-  to re-render. Good news for FR-8: chat state survives tab switching with no
+  to re-render. Good news for FR-11: chat state survives tab switching with no
   persistence work, and only needs persisting across the panel *closing*.
 
 - **The service worker dies after ~30s idle**, taking in-memory state and open
@@ -202,7 +204,7 @@ earlier draft assumption, the correction is noted.
   documented exemption** — an SSE connection held in the service worker cannot
   be trusted to survive. Live streams belong in the panel document (alive while
   open), or an offscreen document if they must outlive panel visibility. This
-  shapes PRD §5 and FR-7: outcomes arriving while the panel is closed are
+  shapes PRD §5 and FR-9: outcomes arriving while the panel is closed are
   reconciled on next open rather than streamed to a listener that isn't there.
 
 - **Reading the declaration wants a narrow match, but the model wants a broad
@@ -297,7 +299,7 @@ Corrections the research made to the first draft:
    overrides as the mechanism for following the active tab. The research showed
    that a global panel document persists across tab switches and that per-tab
    overrides carry a drift failure mode. Changed the recommended shape and
-   relaxed FR-8's persistence burden accordingly.
+   relaxed FR-11's persistence burden accordingly.
 2. **SSE vs. WebSocket in the service worker.** The draft said "long-lived
    connections don't survive the service worker". True, but the research
    sharpened it: WebSocket traffic resets the idle timer; EventSource has no
@@ -338,7 +340,7 @@ single-operator tool, but two of these are instructive.
   production deployments, it shows the current branch and commit, and lets you
   comment on a DOM location and jump to source. It validates the core premise:
   the running-page → source link is genuinely useful. It is first-party and
-  Vercel-hosted only, which is exactly the generality Sidepiece is buying with
+  Vercel-hosted only — precisely the generality it lacks and Sidepiece buys with
   the pjid declaration.
 - **Sourcegraph browser extension** — overlaid code intelligence on code hosts
   by matching a URL to an indexed repo. Its extensibility framework was
