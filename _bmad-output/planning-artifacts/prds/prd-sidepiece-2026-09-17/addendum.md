@@ -44,6 +44,39 @@ process to supervise. Rejected on coupling: it binds Sidepiece's release cadence
 to a service with unrelated consumers, and it puts filesystem and pjangler
 execution into a service that currently has no business doing either.
 
+### A.5 Bridge on loopback, one machine (rejected 2026-09-17)
+
+The first draft of this PRD assumed Chrome and the repos shared a machine, called
+it "the workstation", and made loopback-only binding a hard NFR. That was an
+assumption made silently, and it was wrong: Chrome runs on a laptop and the
+repos, the Hermes fleet and the Bridge live on `big-chungus`. `BRAINDUMP.md` said
+so all along — "the cleanest bridge between the Chrome extension and local Big
+Chungus paths" presupposes exactly this gap — and the draft answered a generic
+version of the question that collapsed it.
+
+What the correction costs, all of it now in the PRD rather than discovered later:
+
+- Loopback binding would make the Bridge unreachable from the machine that needs
+  it. It binds to the tailnet interface instead — and explicitly not `0.0.0.0`,
+  which would be the lazy way to make the symptom go away.
+- The trust boundary moves from "nothing can reach it but this machine" to "the
+  tailnet gates who can reach it". WireGuard device authentication is real
+  authentication, so no app-level token scheme is warranted on a single-user
+  tool — but the boundary is now *stated* rather than silently absent, which is
+  the part that matters if it is ever revisited.
+- Every latency budget absorbs network RTT. Negligible on-LAN, materially worse
+  through a DERP relay, which is why §5 scopes the budgets to the LAN case and
+  requires a degraded-connection indicator rather than silently missing them.
+- The Private Network Access risk gets *worse*, not better — see §C.
+- EPIC K5, "Remote access (optional)", stops being optional. It is the transport.
+
+Rejected alternative within the correction: exposing the Bridge through Traefik
+at a `delo.sh` name. It would inherit working TLS and the existing routing, but
+it puts a filesystem-touching, credential-holding daemon on a public hostname to
+solve a problem the tailnet already solves. PRD §7 makes this an explicit
+non-goal. A Tailscale-issued certificate for a MagicDNS name gets the TLS benefit
+without the exposure (§12 Q8).
+
 ### A.4 Chat: streaming-only, and dispatch-only (both rejected)
 
 Streaming-only was the June D-epic model. It has no answer for a turn that takes
@@ -87,13 +120,40 @@ retired 2026-08-28 because it embedded a repo slug in the type *and* used an
 entity outside the allowlist. It had no correct migration target, so it was
 deleted rather than renamed.
 
+**Illegal forms still live in this repo as of 2026-09-17** — found while
+fact-checking the PRD, and worth fixing before anything is built against them:
+
+| Location | Form | Why illegal |
+|---|---|---|
+| `agents/hermes/pm/role.yaml:53` | `bloodbank.evt.repo.sidepiece.>` | repo slug as a subject token |
+| `agents/hermes/pm/role.yaml:54` | `bloodbank.cmd.agent.sidepiece-pm.>` | agent slug as a subject token |
+| `docs/product-brief.md:102` | `bloodbank.evt.v1.repo.sidepiece.>` | version token *and* slug |
+
+The `role.yaml` entries matter operationally, not just editorially: that file is
+the live manifest of the PM which FR-7 and FR-8 target, and a subscription to an
+illegal subject receives nothing. The dispatch path is the fleet gateway
+(`bloodbank.cmd.agent.invocation.start`, with the target agent in
+`actor.agent_id`), not a per-agent subject — which is the same mistake in
+miniature.
+
 ### B.2 Credentials
 
-Plane credentials resolve from 1Password by item UUID, not by title — the vault
-contains duplicate titles and a title-based `op://` reference to a duplicated
-name cannot resolve. The Sidepiece board's key is
-`op://DeLoSecrets/dlxun2xmwhkt54ns77l4gagrdq/apiKey`; the other item titled
-"Plane" returns 403.
+**Corrected 2026-09-17 — an earlier draft of this section was false and would
+have sent FR-16 work to "repair" a working reference.**
+
+The 33god Plane key is `op://DeLoSecrets/Plane/apiKey`, and that title resolves
+unambiguously. Exactly one vault item is titled `Plane`
+(`dlxun2xmwhkt54ns77l4gagrdq`). Other items merely *start* with the word —
+`Plane (AutomaticAI / HelloSubconscious)`, `Plane (Intelliforia)`,
+`PlaneWebhook-33GOD` — but none share the exact title, so there is nothing to
+disambiguate. The repo's committed `.env.op` states this outright and uses the
+title form.
+
+The earlier claim — that the vault "contains duplicate titles", that a
+title-based reference "cannot resolve", and that "the other item titled Plane
+returns 403" — was stale. The duplicate was renamed. The UUID form still works
+and is reasonable hardening against future re-duplication, but it is not a fix
+for a present failure, and nothing should be rewritten on the belief that it is.
 
 ### B.3 Ticket provider indirection
 
@@ -195,20 +255,26 @@ earlier draft assumption, the correction is noted.
   that went stale after a redeploy. This is why the deferred element-picker
   payload carries context rather than relying on the selector alone (PRD §9).
 
-- **Private Network Access is unsettled and can break loopback calls on a Chrome
-  update.** Extension pages run at `chrome-extension://`, a potentially-trustworthy
-  context, so ordinary mixed-content blocking does not apply and
-  `fetch`/`EventSource` to `http://localhost:PORT` is architecturally fine given
-  host permissions. The hazard is PNA/LNA: Chrome has been sending a CORS
+- **Private Network Access is unsettled, and the two-machine correction makes it
+  less certain rather than more.** Extension pages run at `chrome-extension://`,
+  a potentially-trustworthy context, so ordinary mixed-content blocking does not
+  apply and `fetch`/`EventSource` to a private address is architecturally fine
+  given host permissions. The hazard is PNA/LNA: Chrome has been sending a CORS
   preflight (`Access-Control-Request-Private-Network: true`) ahead of
   private-network subresource fetches, phased toward enforcement around Chrome
   130, with a broader Local Network Access gate landing around Chrome 142.
   **Whether extension-context fetches receive the same treatment as
-  page-context ones is not clearly documented** — unverified, and worth testing
-  against current stable before locking the transport (PRD §12 Q7).
-  Unconditional mitigation: have the Bridge answer preflights with
-  `Access-Control-Allow-Private-Network: true` alongside normal CORS headers
-  now, so it survives whichever way enforcement lands.
+  page-context ones is not clearly documented** — unverified either way.
+  Since §A.5, the target is no longer loopback but a tailnet address in
+  `100.64.0.0/10` (the CGNAT range). Loopback at least has an unambiguous place
+  in PNA's address-space taxonomy; CGNAT does not, so the uncertainty is strictly
+  greater than the earlier draft assumed. Two unconditional mitigations, both
+  cheap: have the Bridge answer preflights with
+  `Access-Control-Allow-Private-Network: true` alongside normal CORS headers, and
+  serve it over HTTPS with a real certificate — Tailscale issues one for a
+  MagicDNS name — which removes an entire class of this problem rather than
+  negotiating with it. Verify empirically against current stable, and re-verify
+  on Chrome version bumps (PRD §12 Q7, Q8).
 
 - **Dev-loop friction, for whoever builds this.** The `chrome://extensions`
   reload button invalidates content-script contexts exactly as a real update
