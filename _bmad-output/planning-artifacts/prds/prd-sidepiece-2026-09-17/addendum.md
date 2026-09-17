@@ -44,6 +44,16 @@ process to supervise. Rejected on coupling: it binds Sidepiece's release cadence
 to a service with unrelated consumers, and it puts filesystem and pjangler
 execution into a service that currently has no business doing either.
 
+### A.4 Chat: streaming-only, and dispatch-only (both rejected)
+
+Streaming-only was the June D-epic model. It has no answer for a turn that takes
+twenty minutes; the panel appears hung, and a progress story gets bolted on later
+in the worst possible place. Dispatch-only is architecturally cleanest and fits
+the existing command gateway exactly, but a tool you cannot ask a quick question
+of stops being a cockpit. The split (FR-5/FR-6) costs a classifier — the
+classification is a heuristic, and FR-6's assumption biases it toward dispatch
+because that failure direction is merely mildly annoying rather than blocking.
+
 ### A.5 Bridge on loopback, one machine (rejected 2026-09-17)
 
 The first draft of this PRD assumed Chrome and the repos shared a machine, called
@@ -76,16 +86,6 @@ it puts a filesystem-touching, credential-holding daemon on a public hostname to
 solve a problem the tailnet already solves. PRD §7 makes this an explicit
 non-goal. A Tailscale-issued certificate for a MagicDNS name gets the TLS benefit
 without the exposure (§12 Q8).
-
-### A.4 Chat: streaming-only, and dispatch-only (both rejected)
-
-Streaming-only was the June D-epic model. It has no answer for a turn that takes
-twenty minutes; the panel appears hung, and a progress story gets bolted on later
-in the worst possible place. Dispatch-only is architecturally cleanest and fits
-the existing command gateway exactly, but a tool you cannot ask a quick question
-of stops being a cockpit. The split (FR-5/FR-6) costs a classifier — the
-classification is a heuristic, and FR-6's assumption biases it toward dispatch
-because that failure direction is merely mildly annoying rather than blocking.
 
 ---
 
@@ -233,6 +233,27 @@ earlier draft assumption, the correction is noted.
     itself needs to know about the transition — it costs the `webNavigation`
     permission for a signal the content script can usually observe itself.
 
+- **Private Network Access is unsettled, and the two-machine correction makes it
+  less certain rather than more.** Extension pages run at `chrome-extension://`,
+  a potentially-trustworthy context, so ordinary mixed-content blocking does not
+  apply and `fetch`/`EventSource` to a private address is architecturally fine
+  given host permissions. The hazard is PNA/LNA: Chrome has been sending a CORS
+  preflight (`Access-Control-Request-Private-Network: true`) ahead of
+  private-network subresource fetches, phased toward enforcement around Chrome
+  130, with a broader Local Network Access gate landing around Chrome 142.
+  **Whether extension-context fetches receive the same treatment as
+  page-context ones is not clearly documented** — unverified either way.
+  Since §A.5, the target is no longer loopback but a tailnet address in
+  `100.64.0.0/10` (the CGNAT range). Loopback at least has an unambiguous place
+  in PNA's address-space taxonomy; CGNAT does not, so the uncertainty is strictly
+  greater than the earlier draft assumed. Two unconditional mitigations, both
+  cheap: have the Bridge answer preflights with
+  `Access-Control-Allow-Private-Network: true` alongside normal CORS headers, and
+  serve it over HTTPS with a real certificate — Tailscale issues one for a
+  MagicDNS name — which removes an entire class of this problem rather than
+  negotiating with it. Verify empirically against current stable, and re-verify
+  on Chrome version bumps (PRD §12 Q7, Q8).
+
 - **`captureVisibleTab` is viewport-only and rate-limited** — a handful of calls
   per second, no full-page stitching, and blocked on `chrome://` and other
   extensions' pages without `activeTab`. Full-page capture requires manual
@@ -254,27 +275,6 @@ earlier draft assumption, the correction is noted.
   path, with fallback text and role stored so a human can re-match a selector
   that went stale after a redeploy. This is why the deferred element-picker
   payload carries context rather than relying on the selector alone (PRD §9).
-
-- **Private Network Access is unsettled, and the two-machine correction makes it
-  less certain rather than more.** Extension pages run at `chrome-extension://`,
-  a potentially-trustworthy context, so ordinary mixed-content blocking does not
-  apply and `fetch`/`EventSource` to a private address is architecturally fine
-  given host permissions. The hazard is PNA/LNA: Chrome has been sending a CORS
-  preflight (`Access-Control-Request-Private-Network: true`) ahead of
-  private-network subresource fetches, phased toward enforcement around Chrome
-  130, with a broader Local Network Access gate landing around Chrome 142.
-  **Whether extension-context fetches receive the same treatment as
-  page-context ones is not clearly documented** — unverified either way.
-  Since §A.5, the target is no longer loopback but a tailnet address in
-  `100.64.0.0/10` (the CGNAT range). Loopback at least has an unambiguous place
-  in PNA's address-space taxonomy; CGNAT does not, so the uncertainty is strictly
-  greater than the earlier draft assumed. Two unconditional mitigations, both
-  cheap: have the Bridge answer preflights with
-  `Access-Control-Allow-Private-Network: true` alongside normal CORS headers, and
-  serve it over HTTPS with a real certificate — Tailscale issues one for a
-  MagicDNS name — which removes an entire class of this problem rather than
-  negotiating with it. Verify empirically against current stable, and re-verify
-  on Chrome version bumps (PRD §12 Q7, Q8).
 
 - **Dev-loop friction, for whoever builds this.** The `chrome://extensions`
   reload button invalidates content-script contexts exactly as a real update
