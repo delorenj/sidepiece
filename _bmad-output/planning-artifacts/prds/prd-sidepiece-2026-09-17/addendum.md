@@ -58,8 +58,8 @@ because that failure direction is merely mildly annoying rather than blocking.
 
 The first draft of this PRD assumed Chrome and the repos shared a machine, called
 it "the workstation", and made loopback-only binding a hard NFR. That was an
-assumption made silently, and it was wrong: Chrome runs on a laptop and the
-repos, the Hermes fleet and the Bridge live on `big-chungus`. `BRAINDUMP.md` said
+assumption made silently, and it was wrong: Chrome runs on a laptop; the repos,
+the Hermes fleet and the Bridge live on `big-chungus`. `BRAINDUMP.md` said
 so all along — "the cleanest bridge between the Chrome extension and local Big
 Chungus paths" presupposes exactly this gap — and the draft answered a generic
 version of the question that collapsed it.
@@ -67,8 +67,8 @@ version of the question that collapsed it.
 What the correction costs, all of it now in the PRD rather than discovered later:
 
 - Loopback binding would make the Bridge unreachable from the machine that needs
-  it. It binds to the tailnet interface instead — and explicitly not `0.0.0.0`,
-  which would be the lazy way to make the symptom go away.
+  it. The Bridge binds to the tailnet interface instead — and explicitly not
+  `0.0.0.0`, which would be the lazy way to make the symptom go away.
 - The trust boundary moves from "nothing can reach it but this machine" to "the
   tailnet gates who can reach it". WireGuard device authentication is real
   authentication, so no app-level token scheme is warranted on a single-user
@@ -295,12 +295,12 @@ Corrections the research made to the first draft:
 
 1. **Panel document persistence.** The draft assumed per-tab `setOptions`
    overrides as the mechanism for following the active tab. The research showed
-   a global panel document persists across tab switches and that per-tab
+   that a global panel document persists across tab switches and that per-tab
    overrides carry a drift failure mode. Changed the recommended shape and
    relaxed FR-8's persistence burden accordingly.
 2. **SSE vs. WebSocket in the service worker.** The draft said "long-lived
    connections don't survive the service worker". True, but the research
-   sharpened it: WebSocket traffic resets the idle timer, EventSource has no
+   sharpened it: WebSocket traffic resets the idle timer; EventSource has no
    documented equivalent. Relevant if a stream ever must live outside the panel.
 3. **Host permission scope.** The draft treated the broad host match as an
    obvious default with an irrelevant prompt. The research surfaced that a
@@ -335,7 +335,7 @@ Deliberately brief — competitive positioning is not a concern for a
 single-operator tool, but two of these are instructive.
 
 - **Vercel Toolbar** — the closest existing analog. Injected into preview and
-  production deployments, shows the current branch and commit, and lets you
+  production deployments, it shows the current branch and commit, and lets you
   comment on a DOM location and jump to source. It validates the core premise:
   the running-page → source link is genuinely useful. It is first-party and
   Vercel-hosted only, which is exactly the generality Sidepiece is buying with
