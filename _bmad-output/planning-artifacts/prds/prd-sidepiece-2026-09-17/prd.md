@@ -77,11 +77,12 @@ Sidepiece reads the active tab's declared `pjid` on initial load and on every su
 
 **Consequences (testable):**
 - A page declaring a `pjid` is detected within 500ms of navigation completing.
-- A client-side route change that replaces the page without a document load re-triggers detection.
+- A client-side route change that replaces the page without a document load re-triggers detection. A declarative content script alone does not satisfy this — history transitions must be observed explicitly.
 - A page declaring no `pjid` yields the unrecognized state, never a stale previous Project.
-- Switching browser tabs re-evaluates against the newly active tab.
+- Switching browser tabs re-evaluates against the newly active tab, and the panel document is updated in place rather than reloaded.
+- Detection works on a page served from any origin, including one never seen before.
 
-`[ASSUMPTION: the declaration is a meta tag in <head>. Exact attribute naming is an architecture concern, but "in the served HTML, readable without executing page JS" is a product requirement — it must work on a static page.]`
+`[ASSUMPTION: the declaration is a meta tag in <head>. Exact attribute naming is an architecture concern, but "in the served HTML, readable without executing page JS" is a product requirement — it must work on a static page with scripting disabled.]`
 
 #### FR-2: Resolve a pjid to a Project Record
 
@@ -223,8 +224,10 @@ Chat history is scoped to the Project and survives the panel closing.
 
 - **Trust boundary.** The Bridge binds to loopback only and performs no authentication of its caller. Any process on the workstation can call it. This is deliberate and correct for a single-operator tool; encoding an auth scheme here would be cost with no corresponding risk reduction. Revisit only if the Bridge ever binds beyond loopback.
 - **Failure posture.** Every pane fails independently and says why. A dead Bloodbank must not take down tickets; an unreachable Plane must not take down chat. No pane may render a failure as an empty state or a permanent spinner.
-- **Panel lifetime.** All long-lived connections — chat streams, event subscriptions — live in the panel document, never in the extension service worker, which is terminated aggressively when idle. State that must outlive the panel is persisted explicitly. `[ASSUMPTION: confirmed against the MV3 capability research in addendum.md.]`
-- **Opening the panel.** Chrome requires a user gesture to open a side panel; Sidepiece cannot auto-open on navigation. The panel updates its contents per-tab once open, and the extension icon reflects whether the current tab is resolvable so opening it is an informed click rather than a guess.
+- **Panel lifetime.** All long-lived connections — chat streams, event subscriptions — live in the panel document, never in the extension service worker, which is terminated after roughly 30s idle. The panel document stays alive across tab switches while open, so in-panel state survives navigation; it does not survive the panel closing, so anything that must outlive it is persisted explicitly. Work whose outcome arrives while the panel is shut is reconciled on next open rather than streamed to a listener that isn't there.
+- **Opening the panel.** Chrome requires a genuine user gesture to open a side panel, and the open call must be the first synchronous call in the gesture handler — anything awaited first silently no-ops with no error. Sidepiece therefore cannot auto-open on detection; the extension icon carries the "this tab is resolvable" signal so opening it is an informed click.
+- **Origin reach vs. permission scope.** Declaration-based resolution is origin-independent by design (§4.1), but the content script that reads the declaration is bound by its host match pattern. A narrow allowlist reintroduces exactly the origin coupling the model was chosen to remove. Sidepiece takes the broad match and accepts the permission prompt — it is a personally-loaded extension, the prompt is a one-time cost, and no store review applies. `[ASSUMPTION: this stays a personally-loaded extension. If §7's portability non-goal is ever revisited, this decision is the first thing that breaks.]`
+- **Local network access is a moving target.** Chrome's Private Network Access rules have shipped in stages and continue to; whether extension-context requests to loopback are subject to the same preflight enforcement as page-context ones is **not documented**. A Bridge call that works today can start failing after an unrelated Chrome auto-update. The Bridge therefore answers preflights with the private-network CORS headers from day one regardless of current enforcement, and Bridge reachability is re-verified on Chrome version bumps rather than assumed solved. See §12 Q7.
 - **Latency budget.** Detection ≤500ms; resolution ≤1s p95; board read ≤2s p95; first chat token ≤2s. Missing a budget renders a timeout state — never an indefinite pending one.
 - **Cost of being wrong.** Sidepiece must never act against the wrong Project. Every mutating call carries the resolved pjid, and the Bridge rejects a mutation whose pjid does not match the Board it targets. A confidently wrong ticket is worse than a failed one.
 - **Observability.** Bridge request logs are readable without a log aggregator — the workstation's journal is sufficient.
@@ -331,6 +334,7 @@ Single-operator tool; the only honest measures are behavioural.
 4. **What emits the `pjid` declaration into served pages?** Out of scope here, but v1 is useless until some number of Projects actually declare one. Is that a pjangler recipe, a per-project template change, or manual? **Sequencing risk, not a design risk.**
 5. **`.project.json` renamed `project_slug` → `project_id` on 2026-09-17, but `_bmad/custom/workflows/ticket-lifecycle/data/event-schemas.md` still reads `slug` from `project_slug`.** One of the two is now wrong, and the Bridge will read whichever survives. Unrelated to Sidepiece's design; it will bite the Bridge regardless.
 6. **Is the element-picker payload enough for the PM to act without seeing the page?** Affects §9 only.
+7. **Are extension-context requests to loopback subject to Private Network Access preflight enforcement?** Undocumented, and the rules are still shipping in stages. The mitigation in §5 is cheap and unconditional, so this does not block — but it wants verifying against current stable Chrome before the Bridge's transport is locked, and re-verifying on version bumps. **Verify empirically; do not resolve from documentation.**
 
 ## 13. Assumptions Index
 
@@ -338,6 +342,7 @@ Single-operator tool; the only honest measures are behavioural.
 - §4.1 FR-1 — The pjid declaration is readable from served HTML without executing page JS.
 - §4.1 FR-4 — v1 states the provisioning command; it does not run it.
 - §4.2 FR-6 — Sidepiece classifies stream-vs-dispatch itself, biasing toward dispatch when uncertain.
-- §5 — Service worker lifetime forces long-lived connections into the panel document.
-- §5 — Chrome requires a user gesture to open a side panel; auto-open is impossible.
+- §5 — Sidepiece stays a personally-loaded extension, which is what makes the broad host permission acceptable.
 - §9 — Element-picker payload carries context alongside the selector, not a bare selector.
+
+**Verified, no longer assumptions** *(confirmed against the MV3 capability research in `addendum.md` §D)*: service worker idle termination forcing streams into the panel document; the user-gesture requirement and its synchronous-call constraint; per-tab panel scoping and panel-document persistence across tab switches; `captureVisibleTab` viewport-only capture.
