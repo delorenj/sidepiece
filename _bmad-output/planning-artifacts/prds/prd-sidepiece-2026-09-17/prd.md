@@ -9,7 +9,7 @@ updated: 2026-09-17
 
 ## 0. Document Purpose
 
-This PRD is the contract between the Sidepiece brain dump and everything downstream — `bmad-ux`, `bmad-create-architecture`, and `bmad-create-epics-and-stories`. It is written for one reader who is also the only user, so it spends its length on requirements that constrain implementation and almost none on justification.
+This PRD is the contract between the Sidepiece braindump and everything downstream — `bmad-ux`, `bmad-create-architecture`, and `bmad-create-epics-and-stories`. It is written for one reader who is also the only user, so it spends its length on requirements that constrain implementation and almost none on justification.
 
 Structure: vocabulary is fixed in §3 Glossary and used verbatim everywhere else; features are grouped in §4 with globally-numbered FRs nested under them; inferences are tagged `[ASSUMPTION]` inline and indexed in §13.
 
@@ -219,7 +219,7 @@ Chat history is scoped to the Project and survives the panel closing.
 **Consequences (testable):**
 - Tickets render grouped by Board state, in the Board's own state order, not alphabetically.
 - Each Ticket shows its human key, title, and state.
-- **A Project with no Board binding renders the Tickets pane as unavailable with the reason stated — distinct from an empty Board and distinct from a failed fetch — names the command that binds one, and disables create rather than failing it. Chat stays fully usable.** This mirrors FR-5's treatment of a missing Agent and is not an edge case: the majority of Projects in the live Registry currently have no `board_id`.
+- **A Project with no Board binding renders the Tickets pane as unavailable with the reason stated (distinct from an empty Board and distinct from a failed fetch), names the command that binds one, and disables create rather than failing it. Chat stays fully usable.** This mirrors FR-5's treatment of a missing Agent and is not an edge case: the majority of Projects in the live Registry currently have no `board_id`.
 - An empty Board renders as empty, distinct from both of the above.
 - Each Ticket links to its Plane URL, opening in a new tab.
 - The list is fetched fresh on Project resolution, not served from a prior Project's cache, and offers a user-initiated refetch.
@@ -350,7 +350,7 @@ Shape locked now so v2 does not re-litigate it.
 
 ## 10. Reconciliation with the SIDE Board
 
-The board holds 44 tickets from 2026-06-23, all in backlog, none started, written against the superseded Traefik-registry model. Verdict per epic, for `bmad-create-epics-and-stories` to act on. Note that FR-1, FR-2, FR-3, FR-4 and FR-14 have **no existing board lineage** — they are new work regardless of what happens to these epics.
+The board holds 44 tickets from 2026-06-23, all in backlog, none started, written against the superseded Traefik-registry model. Verdict per epic, for `bmad-create-epics-and-stories` to act on. Note that FR-1, FR-2, FR-3, FR-4, and FR-14 have **no existing board lineage** — they are new work regardless of what happens to these epics.
 
 | Epic | Verdict |
 |---|---|
