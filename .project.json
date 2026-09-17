@@ -1,7 +1,6 @@
 {
   "project_name": "Sidepiece",
   "project_description": "Project-aware Chrome sidebar that resolves the active Traefik-served tab to its local repo, Hermes PM agent, Plane board, and Bloodbank stream.",
-  "project_slug": "sidepiece",
   "repo_path": "/home/delorenj/code/sidepiece",
   "ticket_provider": {
     "type": "plane",
@@ -19,5 +18,6 @@
       "role": "scrum-master",
       "role_dir": "agents/hermes/scrum-master"
     }
-  }
+  },
+  "project_id": "sidepiece"
 }

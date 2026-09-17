@@ -1,15 +1,74 @@
----
-pipeline-status:
-  - new
----
-# Transcription: sidepiece-braindump.mp3
+# Sidepiece project brief
 
-- **Source**: `/home/delorenj/audio/inbox/sidepiece-braindump.mp3`
-- **Date**: 2026-06-04 12:09
-- **Duration**: 5m 0s
-- **Language**: en
-- **Model**: base (faster-whisper)
+Sidepiece is a personal Chrome sidebar that recognizes when the current tab is
+served by one of my projects, resolves that site back to the matching local
+repository and project metadata, and gives me an immediate control surface for
+the project's agent, ticket board, and operational context.
 
----
+## Core idea
 
-All right, this is what I want to make. I want a custom personal Chrome sidebar implementation that is always watching my URLs and There is a registry That it's matching against and that registry is all of my personal repositories So if I'm on any website whether it's production Or staging as long as it's served by my traffic Label right so it doesn't get confused with local host port 3,000 I mean that could have a dozen different sites that are like developed like that but my traffic sites which actually it could infer Somehow right we can have it import all my traffic sites so when I go to let's say holocene dot d low dot sh That sidebar will open and I'll have a chat box where I can talk to The projects registered Hermes agent project manager It should also be able to Find that projects Plain ticket board and show me like what tickets are being worked on or something on the right or Or maybe Have a box where I can add a ticket so I could either talk to the project manager and have him add to ticket tickets Or I can Click add a ticket myself and add a ticket and it knows which board to go to Also what would be handy is if there's a button for a Snapshot where I can click it and then draw on top of it like an overlay Which gets attached to the message that I send to the Agent bot Man, this would be amazing I think if I just start with those three functionalities like being able to add a ticket and Resolve the ticket board Talk to the registered agent and Also be able to resolve That agent or if there isn't an agent so if if You know the local cloned repo Doesn't have an agent's directory then there is no agent yet so I Could either go deploy it or even better yet there could be a button. I click that automatically uses P jangler Hermes agent to deploy the agent in a non-interactive way Hello, so yeah, and if it wasn't obvious That registry where it finds my traffic labels would have to also Relate that traffic label To the currently viewed URL to the local Big Chungus code Path to the locally cloned repo And We can assume that it's already cloned if it's not cloned Something's weird. I have all my Projects cloned so just having that relation so it could resolve where my locally cloned repo is And even further it could show Using candy store It could filter for all blood bank messages Related to that repo Which I believe is like bloodbank dot V1 dot repo dot repo name So I could see all of the blood bank messages related to it. There's just so much to do. I could do there But yeah, that's what I want
+The extension watches the active tab URL and detects whether it's one of my registered pjangler-backed projects. As soon as it does, it shows a sidebar that gives me a quick view of the project's status, a chat box linked to the project's agent, it's ticket board, agent activity, and an annotation tool that let's me select html elements to associate with a message to the agent. Instead of passing screenshots, I can pass unique selectors.
+
+## The PJangler Registry
+
+All my projects are registered in a PJangler registry. To enable Sidepiece, all pjangler-backed projects must advertise their pjid in the html `<head>`. The extension can then resolve the linked metadata by running `pj info [pjid]` and parsing the output.
+
+## Sidebar experience
+
+When Sidepiece recognizes the current site, it shows a compact project dashboard
+for that repo.
+
+The first useful version has three primary capabilities:
+
+1. Talk to the project's registered Hermes project manager agent.
+2. View and add tickets on the project's Plane board.
+3. Capture a snapshot of the current page, draw on it, and attach the annotated
+   image to a message sent to the agent.
+4. Select an html element to annotate to the agent.
+5. Provide a Candystore feed of the project's most recent bloodbank events.
+6. Provide a list of all agent sessions in reverse chronological order (claude, codex, kimi, etc).
+
+## Agent resolution
+
+For each matched project, Sidepiece checks whether the local repo has a
+registered Hermes agent.
+
+If an agent exists, Sidepiece connects the chat UI to that agent.
+
+If an agent doesn't exist, Sidepiece surfaces that clearly and gives me a path
+to create one. Ideally, there is a one-click action that uses `pjangler` or the
+Hermes agent tooling to deploy the project manager agent non-interactively.
+
+## Operational context
+
+Sidepiece can also show project activity from Candystore and Bloodbank. Once it
+knows the repo, it can filter Bloodbank messages for the related namespace, such
+as `bloodbank.repo.<repo-name>`, and show the relevant event stream beside
+the ticket and agent context.
+
+This would turn the sidebar into a live project cockpit: current URL, local
+repo, agent, tickets, screenshots, and repo-specific operational messages all in
+one place.
+
+## MVP scope
+
+Build the first version around the highest-value loop:
+
+1. Resolve the current Traefik-served URL to a project registry entry.
+2. Show the matched repo, local path, Hermes agent status, and Plane board.
+3. Provide a Hermes agent chat box.
+4. Let me add a Plane ticket from the sidebar.
+5. Capture and annotate a page snapshot, then attach it to the agent message.
+6. Show a clear "no agent found" state with a deploy-agent action.
+7. The tray icon should have a settings page, and below that, a list of the most recent projects in reverse chronological order they exibited activity from.
+
+## Open questions
+
+service, a checked-in config file, or a generated artifact from Traefik?
+
+- What is the cleanest bridge between the Chrome extension and local Big Chungus
+  paths?
+- How should Sidepiece authenticate to Hermes, Plane, Candystore, and
+  Bloodbank?
+- What payload shape should annotated snapshots use when they are attached to
+  agent messages or tickets?
