@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3]
+stepsCompleted: [1, 2, 3, 4]
 inputDocuments:
   - _bmad-output/planning-artifacts/prds/prd-sidepiece-2026-09-17/prd.md
   - _bmad-output/planning-artifacts/prds/prd-sidepiece-2026-09-17/addendum.md
@@ -153,3 +153,167 @@ Two concrete integration facts, both verified 2026-09-20:
 **`[NOTE FOR PM: adopt shadcn primitives one at a time, as a component actually needs one.]`** Running the full `add` surface up front would drop dozens of components carrying a visual identity we are discarding, and SM-C2 counts feature surface as a cost. The Cockpit's real inventory is small — a composer, a list, a grouped list, a notice, a switch — and several of them are simpler hand-written than rethemed.
 
 **Note:** project initialization using these commands should be the first implementation story.
+
+---
+
+## Core Architectural Decisions
+
+*Step 4. Versions verified by web search on 2026-09-20. Where a claim is about code on this machine, it was read rather than recalled and the path is given.*
+
+### Scope note — which of the standard categories actually apply
+
+Four of step 4's five categories are largely pre-resolved or genuinely absent here, and saying so is more useful than filling them in:
+
+- **Authentication & Security** — *not applicable by decision, not by omission.* PRD §5 makes the tailnet the trust boundary and specifies no app-level auth. There is one operator, no tenancy, no public surface (§7). The only security-shaped decision left is credential handling, which is FR-16 and lives under Infrastructure below.
+- **API & Communication** — *fixed upstream.* FR-15 requires every Bridge capability be `curl`-inspectable, which is why the downstream is SSE rather than a WebSocket, and PRD §12 Q1 closed the upstream as JSON-RPC over WebSocket to `tui_gateway`. Rate limiting and API versioning have no constituency at one operator.
+- **Infrastructure & Deployment** — *shaped by `systemd --user` on `big-chungus` and nothing else.* No CI/CD, no cloud, no scaling story.
+- **Frontend Architecture** — *mostly decided in step 3 and by `EXPERIENCE.md`.* What remains is state ownership, below.
+
+What is genuinely open is the set this document's own **Cross-Cutting Concerns** named, and those are decided here.
+
+### Decision Priority Analysis
+
+**Critical — block implementation**
+
+| # | Decision | Choice |
+|---|---|---|
+| D1 | Turn store | `node:sqlite` on Node 24 LTS |
+| D2 | Registry fallback | Last-good snapshot on disk, served with a staleness marker |
+| D3 | Session eviction | LRU, small N (3–5 warm) |
+| D4 | FR-9 result content | Fix the Bloodbank gateway first — cross-repo prerequisite |
+| D5 | pjid orphan recovery | Key on pjid, carry clone path + board UUID as recovery metadata |
+| D6 | Client state ownership | `EXPERIENCE.md` Rule 4 — Bridge owns correctness, `chrome.storage.local` owns convenience |
+
+**Important — shape the architecture**
+
+D7 schema versioning · D8 warm-session registry shape · D9 staleness threshold for D2 · D10 generation-stamp invalidation (FR-2)
+
+**Deferred — post-MVP**
+
+Everything in PRD §9. Note that the `[v2]` annotation batch's persistence was already decided by `EXPERIENCE.md` (`chrome.storage.local`, keyed by pjid and page URL, discharge being the only network crossing), so it does **not** become a Bridge storage decision later.
+
+---
+
+### Data Architecture
+
+**D1 — The Turn store is `node:sqlite`, on Node 24 (Active LTS).**
+
+FR-7's reopen guarantee, FR-9's closed-panel reconciliation and FR-11's per-Project history all force durable Turn state on the Bridge — this document's step 2 called that "the single fact that shapes more of this design than every latency budget combined." One daemon, one writer, one operator; there is no concurrency story that wants a server.
+
+**The version detail is the whole reason this is a clean decision.** `node:sqlite` reached Stability 2 in Node **24.12.0** and has been on by default since 22.18, embedded in the Node binary. **There is no native module to compile.** That retires the cost this document booked against the Node runtime in step 3 — "a `node_modules` deployment on `big-chungus` [that] needs more care than a static binary" — because the one dependency that would have needed a toolchain on that box no longer exists. `better-sqlite3` and `sqlite3` are both unnecessary.
+
+`[ASSUMPTION: pin Node 24 in the systemd unit rather than tracking latest. Node 26 becomes LTS on 2026-10-28 and there is no reason to ride that boundary for a single-operator daemon.]`
+
+**D5 — What the store keys on, and why a rename must not be silent.**
+
+The pjid is the join key, so rows are keyed by pjid. But this document's own dependency list records that **the pjid is mutable, author-controlled plain text, and renaming it deletes and re-keys the registry row** — so anything persisted by pjid orphans silently. That is recorded as a risk everywhere and answered nowhere.
+
+Every persisted row therefore also carries **the clone path and the board UUID** at the time of write. Neither is a key; both are recovery metadata. A row whose pjid no longer resolves in the registry is not deleted and not silently ignored — it is *detectable*, and re-linkable by matching either field against the current registry. `[ASSUMPTION: this is cheap — two columns — and it converts a silent data-loss mode into a recoverable one. It does not make renames safe, it makes them survivable.]`
+
+**D7 — Schema versioning is required even at one user.** A single operator does not excuse an unversioned schema, because the failure mode is not multi-user conflict, it is a Bridge that starts against a store it cannot read and has no vocabulary to say so. A `user_version` pragma and forward-only migrations at startup; a version the binary does not recognise is a named FR-14 health state, not a crash.
+
+**D10 — FR-2's cache and its generation stamp.** The registry is a single ~33KB object measured at 2.4ms p50, so the cache exists for outage resilience and request amplification, not latency. Invalidated on: the generation stamp advancing, an explicit re-resolve from any FR-3 state, and the unreachable→reachable transition. `[NOTE FOR IMPLEMENTATION: that last trigger is what makes FR-15's "a Bridge restart does not require reloading the extension" true in practice.]`
+
+---
+
+### Resolution and Degradation
+
+**D2 — The registry fallback is a last-good snapshot on disk.**
+
+PRD §12 Q3 closed that the PRD's own named fallback does not work: `pj info <pjid>` calls the same HTTP service and exits 1 when it is down, failing in precisely the outage it was meant to cover. The replacement: the Bridge writes the registry payload to disk on **every successful fetch**, and serves that copy when the service does not answer.
+
+Why this over reading `.project.json` off the filesystem directly — which *was* the more independent failure domain, and was rejected on drift grounds: it would reimplement pjangler's own indexing, including `normalizeProjectId` and the `project_id` / `project_slug` alias handling that PRD §12 Q5 already shows is subtle. Two implementations of one index diverge, and the divergence would surface as a wrong Project, which SM-3 makes the one unacceptable outcome.
+
+Two things this decision requires:
+
+- **The snapshot is never served silently.** It carries its fetch time, and a resolution served from it is marked stale in the same frame as the identity — FR-3 gains a state for it. A cache that looks healthy while the service is down is the failure this product's whole failure posture exists to refuse.
+- **D9 — a staleness threshold.** Nineteen projects that change rarely means a day-old snapshot is almost certainly correct and a month-old one is a different claim. `[ASSUMPTION: surface the age rather than expiring the snapshot. Expiry turns a working degraded state into a broken one for no gain, and the operator is the only reader — he can judge "cached 3 days ago" better than a threshold can.]`
+
+---
+
+### Agent Session Management
+
+**D3 — LRU, 3–5 warm sessions.**
+
+The gateway enforces an active-session limit (error 4090) against ~37 profiles, and each warm session carries an agent with a large system prompt plus its own MCP children. This document already recorded that an eviction policy is **required, not optional**; this is that policy.
+
+The tradeoff is against the product's worst wait. A cold session measures **7.1–17.1s** and must render the explicit `warming up the PM` state — the longest wait anywhere in Sidepiece. Holding exactly one warm session would pay that on *every* Project switch, which is the most common transition. Holding 3–5 keeps the two or three Projects actually in flight warm, and makes the cold start a first-visit cost rather than a per-switch one.
+
+Cascading requirements this creates:
+
+- **D8 — a warm-session registry keyed by pjid**, tracking last-Turn time and liveness. The Bridge owns it; it is in-memory, because a warm session does not survive a Bridge restart anyway.
+- **Eviction must never take a session with a Turn in flight**, whether streaming or awaiting a dispatch outcome. Least-recently-used among *idle* sessions, and if every session is busy the new request waits rather than evicting live work.
+- **4090 must still be handled, not merely avoided.** A count cap makes hitting the ceiling unlikely, not impossible — other Hermes consumers share those ~37 profiles. `[NOTE FOR IMPLEMENTATION: 4090 is a named FR-14 failure state with its own wording, not a retry loop.]`
+
+---
+
+### FR-9 and the Cross-Repo Prerequisite
+
+**D4 — Fix the Bloodbank gateway before building FR-9.**
+
+FR-9 requires a Dispatched Command to render its **result content**. It cannot today. Verified by reading the source on 2026-09-20:
+
+`33GOD/bloodbank/services/hermes-gateway/bloodbank_hermes_gateway/adapter.py`, `send()` at line 684:
+
+```python
+async def send(self, chat_id, content, reply_to=None, metadata=None) -> SendResult:
+    del chat_id, content, reply_to, metadata          # line 691
+    return SendResult(success=True, message_id=str(uuid.uuid4()))
+```
+
+It `del`s the agent's response text and reports success. Correlation genuinely works — `correlationid`, `command_id` and `idempotency_key` are all copied onto outcome events — but the content was never carried.
+
+The decision is to fix it at the source rather than ship around it. The reasoning that makes this the right call rather than the slow one: **FR-6 biases classification toward Dispatched Command when uncertain, and that bias is only safe because FR-9 promises the result comes back.** Shipping status-only would leave the classifier's *preferred* branch as its *degraded* branch — a product that quietly gets worse the more often it guesses the way it was designed to guess.
+
+`[NOTE FOR PM: this puts a second repo on Sidepiece's critical path and bmad-create-epics-and-stories must carry it as an explicit prerequisite story against 33GOD/bloodbank, sequenced before any FR-9 story. It is also not Sidepiece-specific — every Bloodbank consumer that dispatches to an agent has been silently losing response text — so the fix has value beyond this project and should not be scoped as a Sidepiece patch.]`
+
+`[NOTE FOR ARCHITECTURE: the third option — having the Bridge observe the dispatched command's output directly through its own tui_gateway session — was considered and not chosen, because dispatch travels the command gateway and chat travels the session, and they are not the same path. It was never verified either way. If the Bloodbank fix proves harder than it looks, that investigation is the fallback and it is worth an hour before accepting a status-only v1.]`
+
+---
+
+### Frontend Architecture
+
+**D6 — State ownership is already settled, and is restated here because it is an architectural boundary, not a UI preference.**
+
+`EXPERIENCE.md`'s Rule 4 draws it with a test that survives contact: **if losing the state would make the product *wrong*, it is the Bridge's; if losing it would only make the product *annoying*, it may be the client's.**
+
+- **Bridge (system of record):** Turns, stream state, dispatch outcomes and their correlation, Ticket reads, the Project Record, resolution generation.
+- **`chrome.storage.local` (per-operator continuity, no authority):** an unsent composer draft, pane selection, Ticket group collapse state, and the `[v2]` annotation batch pre-discharge.
+
+This matters architecturally because PRD §5 says client state is "not persisted client-side", and Rule 4 is the reconciliation: that directive governs *system-of-record* state, not UI continuity. Both documents now say the same thing; a reader of one will not be surprised by the other.
+
+Remaining frontend decisions are unremarkable and fall out of step 3: React state local to the panel document with no global store (the panel dies on collapse, so there is nothing long-lived to manage), and no router — the Cockpit is one Project and a pane switch, not a navigable surface.
+
+---
+
+### Infrastructure & Deployment
+
+- **Runtime:** Node 24 LTS, pinned in the unit. No native modules, therefore no build toolchain on `big-chungus`.
+- **Supervision:** `systemd --user`, matching every other service on that box, with an explicit restart policy.
+- **Transport:** `tailscale serve` with a MagicDNS certificate. Recorded honestly in PRD §12 Q8 as *not* an LNA mitigation — it is worth having for the older mixed-content class and for ordinary reasons, and must not be mistaken for having closed Q7.
+- **Credentials (FR-16):** resolved from the 1Password vault at startup, never written to a file. FR-14 must additionally detect **silent credential degradation** — a Hermes process without vault auth falls through to unresolved `op://` literals and downgrades to a fallback model, producing correct-looking answers at the wrong cost and latency. This is not hypothetical: `hermes-dashboard.service` ran in exactly that state from 2026-09-09 to 2026-09-17. **Nothing else will detect it, so FR-14 must.**
+- **`X-Forwarded-For`:** `tailscale serve` rewrites the client address to `127.0.0.1`. Any logging or future origin check must read the forwarded header or it will see one client forever.
+
+---
+
+### Decision Impact Analysis
+
+**Implementation sequence.** The ordering is forced by dependency, not preference:
+
+1. **The Bloodbank gateway fix (D4)** — different repo, no Sidepiece dependency, and it unblocks FR-9. Start it first precisely because it is not on this repo's own path.
+2. **`contract/`** — the sixteen-state taxonomy, Project Record, Turn envelope, classification enum, correlation id. Everything else imports it.
+3. **Bridge skeleton + `node:sqlite` store (D1, D5, D7)** — schema, versioning, recovery metadata.
+4. **Registry client + snapshot fallback (D2, D9, D10)** — this is what makes FR-1 through FR-4 possible and it is where SM-3 is won or lost.
+5. **Hermes session manager (D3, D8)** — warm-session registry, LRU eviction, 4090 handling.
+6. **Extension shell** — WXT init, the identity header, the FR-3 state surface.
+7. **Chat and Tickets panes** — last, because both sit on everything above.
+
+Note this inverts EPIC A's June plan, which put scaffolding and a UI kit first; PRD §10 already directed sequencing it behind a working Bridge, and the dependency graph agrees.
+
+**Cross-component dependencies worth stating explicitly:**
+
+- **D1 → D5 → D7.** The store choice, its key strategy and its versioning are one decision wearing three hats; changing any forces the others.
+- **D2 → FR-3.** The snapshot adds a rendered state. A fallback that does not surface itself violates the failure posture, so this is a contract change, not an internal optimisation.
+- **D3 → FR-7's budget.** Eviction policy directly determines how often the operator meets `warming up the PM`. It is a UX decision implemented in the Bridge, and it should be tuned against SM-C1 rather than against resource usage alone.
+- **D4 → epics.** The only decision here that creates work outside this repository.
+- **D6 → both spines.** Already reconciled; the value is that it stays reconciled.
