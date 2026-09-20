@@ -10,6 +10,7 @@ sources:
   - .working/research-mv3-platform.md
   - .working/research-annotation-prior-art.md
   - .working/research-house-design-language.md
+  - .working/direction-foreign.html
 ---
 
 # Sidepiece — Experience Spine
@@ -35,13 +36,18 @@ so v1's information architecture can reserve the seats it needs, and it is label
 nobody builds it in v1. No `[v2]` element ships in v1. Every reserved seat is named in
 **Version Seam and Reserved Seats**.
 
-No `mockups/`, `wireframes/` or `imports/` artifacts exist in this run at the time of
-writing. `.working/` holds four rendered visual directions at true panel width
+**The visual direction is chosen.** On 2026-09-20 Jarad picked direction 04, **"Deliberately
+Foreign"** — [`.working/direction-foreign.html`](.working/direction-foreign.html) — from four
+rendered at true panel width and shown side by side
+([`.working/directions-compare.html`](.working/directions-compare.html)). The other three
 (`direction-chrome-native.html`, `direction-inherited.html`,
-`direction-severity-ladder.html`, `direction-foreign.html`, plus
-`directions-compare.html`); those are material for **Gaps** item 2 and belong to
-`DESIGN.md`, not to this spine. When key-screen mocks are rendered at Finalize they are
-linked inline from the sections they illustrate.
+`direction-severity-ladder.html`) are retained as the rejected alternatives. Its palette,
+type and shape belong to `DESIGN.md` and are not restated here. Three of its consequences are
+*behavioral* and are therefore this spine's, and they are taken in **Foundation**: the usable
+column, the travelling register, and the one PRD literal the mock could not fit. No
+`mockups/`, `wireframes/` or `imports/` artifacts exist yet; the picked direction is the
+promotion candidate at Finalize, and when key-screen mocks are rendered they are linked
+inline from the sections they illustrate.
 
 ---
 
@@ -54,8 +60,8 @@ Sidepiece controls.
 
 | Surface | What it is | Lifetime | Who owns the pixels |
 |---|---|---|---|
-| **Cockpit** | The Chrome side panel document, ~320px minimum, scoped to exactly one resolved Project (PRD §3) | Destroyed on close **and on collapse** — the document is fully torn down and reloaded each time the panel is collapsed (`research-mv3-platform.md` §1.3) | Sidepiece, entirely |
-| **In-page layer** `[v2]` | Hover outline, comment bubble, freehand markup, annotation pins, drawn into the live page by the content script | Dies on page reload and on navigation; survives Cockpit collapse | The page owns the pixels; Sidepiece is a guest in a closed shadow root |
+| **Cockpit** | The Chrome side panel document, ~320px minimum, scoped to exactly one resolved Project (PRD §3) | Destroyed on close **and on collapse** — the document is fully torn down and reloaded each time the panel document is collapsed (`research-mv3-platform.md` §1.3) | Sidepiece, entirely |
+| **In-page layer** `[v2]` | Hover outline, comment bubble, freehand markup, annotation pins, drawn into the live page by the content script | Dies on page reload and on navigation; survives Cockpit collapse | The page owns the pixels; Sidepiece is a guest in a closed shadow root — and the guest must still be **identifiable as Sidepiece** against a page whose own colours are unknown, which is what `{colors.overlay.signature}` is for |
 | **Extension icon** | The `"this tab is resolvable"` signal (PRD §5) — FR-3's only always-on affordance, and the one gesture that both opens and closes the Cockpit | Always present, in browser chrome, on every tab — **once it is pinned**; see **Responsive & Platform § First run** | Chrome owns the frame; Sidepiece owns the glyph and the title |
 
 ### What each surface owns, and what it must never own
@@ -90,9 +96,17 @@ annotations — a reminder to leave, never a count of inbound work.
 
 - **~320px is a hard floor**, current as of Chrome 149, hard-coded with no flag and no
   override, and **the extension can neither set, suggest, nor read the width**
-  (`research-mv3-platform.md` §8). Every layout claim in this document must survive that
-  column. The width is not a breakpoint the design chooses; it is a floor the design is
-  handed.
+  (`research-mv3-platform.md` §8). The width is not a breakpoint the design chooses; it is a
+  floor the design is handed.
+- **The usable column is narrower than the floor, and the usable column is what layout claims
+  are written against.** The chosen visual direction pays a fixed horizontal cost on every
+  surface for its signature; its own author measured the result at **roughly 300 CSS pixels
+  of usable column inside a 340px panel** and recorded that cost as the strongest argument
+  against the direction. The floor is Chrome's and cannot be negotiated; the usable column is
+  `DESIGN.md`'s consequence of the pick and could be. Until `DESIGN.md` says otherwise,
+  **every layout claim in this document is written to hold in the usable column, not in the
+  floor** — it is the stricter of the two and the one that actually decides whether a line
+  wraps.
 - **The Cockpit cannot open itself. It has no in-document control that can close it — but
   the icon closes it.** `sidePanel.open()` requires a genuine user gesture and must be the
   first synchronous call in the handler; an `await` before it silently no-ops (PRD §5).
@@ -113,13 +127,17 @@ annotations — a reminder to leave, never a count of inbound work.
   pull against each other and **State Patterns § Reopen cold start** is where that is paid
   for.
 
-### No UI system is chosen
+### No component library, and no inherited design language
 
 Sidepiece has **zero frontend code today** — no `package.json`, no `src/`, no
 `manifest.json`, no CSS (`research-house-design-language.md` §5). There is no house design
 language to inherit: not one hex value is shared between any two Jarad-authored projects
 (§3 of the same note). What repeats is posture only — dark-first, monospace reserved for
-machine data, structure from 1px borders, no drop shadows.
+machine data, structure from 1px borders, no drop shadows — and the chosen direction keeps
+exactly one of those four (mono for machine data) and breaks the other three on purpose. That
+argument is `DESIGN.md`'s to make and it is made in the direction's own self-critique; this
+spine only records that the house posture is no longer something a reader of this file should
+assume.
 
 **Consequence for `DESIGN.md`:** it cannot be an override layer over a component library's
 defaults. It must carry the full primitive set from zero — surfaces, borders, text roles, a
@@ -132,22 +150,47 @@ The primitives this spine names, and which `DESIGN.md` must therefore define:
 | Group | Tokens | Behavioral load they carry here |
 |---|---|---|
 | Surfaces | `{colors.surface.panel}` · `{colors.surface.raised}` · `{colors.surface.sunken}` · `{colors.surface.overlay}` | The Cockpit body, the pinned header and action bar, the collapsed group interiors, and `[v2]`'s in-page layer. Layering is surface lightness plus a hairline rule, never a shadow |
-| Structure | `{colors.border.hairline}` · `{colors.border.strong}` | Every region boundary in a 320px column. `strong` is reserved for the seam between a pinned region and the scrolling body, so the operator can always see what will not move |
+| Structure | `{colors.border.hairline}` · `{colors.border.strong}` | Every region boundary in the usable column. `strong` is reserved for the seam between a pinned region and the scrolling body, so the operator can always see what will not move |
 | Text roles | `{colors.text.primary}` · `{colors.text.muted}` · `{colors.text.machine}` | `machine` is the third role, not a shade of `muted`: pjid, clone path, Board identifier, correlation identifier and command strings are machine data and are separated by role, not by weight |
 | State | `{colors.state.ok}` · `{colors.state.pending}` · `{colors.state.degraded}` · `{colors.state.failed}` · `{colors.state.unknown}` | The five values the health marker, the pane-switch markers and every state notice resolve to. **Each must ship with a paired glyph** — State Patterns Rule 3 makes the glyph part of the state's identity, not decoration |
 | Action | `{colors.action.primary}` | Exactly one: the current pane's submit. A second action colour would make "which control writes" a guess |
-| Overlay `[v2]` | `{colors.overlay.outline}` · `{colors.overlay.scrim}` | The hover outline and the freehand stroke, drawn over a page whose own colours are unknown; both must read against an arbitrary background |
+| Overlay | `{colors.overlay.outline}` `[v2]` · `{colors.overlay.scrim}` `[v2]` · `{colors.overlay.signature}` | The hover outline and the freehand stroke, drawn over a page whose own colours are unknown; both must read against an arbitrary background. `signature` is **not** `[v2]` and is the one token shared by the Cockpit and the in-page layer: it is what makes a mark identifiable as Sidepiece's on a white docs site and a black dashboard alike, and the chosen direction's whole argument rests on it being one treatment rather than three |
 | Type | `{typography.heading}` · `{typography.body}` · `{typography.label}` · `{typography.micro}` · `{typography.mono}` | Sans for people, mono for machines, never mixed within one value. `micro` is the floor for static chrome only; anything variable sits at `label` or above, because density comes from leading rather than from shrinking type |
 | Shape | `{rounded.control}` · `{rounded.panel}` · `{rounded.pill}` | `pill` is reserved for state markers so a state is never shaped like a control |
-| Rhythm | `{spacing.gutter}` · `{spacing.stack}` · `{spacing.inset}` · `{spacing.row}` | `gutter` is the only horizontal inset in the column and it is what makes 320px survivable; `row` is the list-row rhythm the Accessibility Floor's 32px minimum is expressed against |
+| Rhythm | `{spacing.gutter}` · `{spacing.stack}` · `{spacing.inset}` · `{spacing.row}` | `gutter` is the only horizontal inset in the column and it is what makes the usable column survivable; `row` is the list-row rhythm the Accessibility Floor's 32px minimum is expressed against |
 | Focus | `{colors.focus.ring}` | One ring, on every interactive element, including the clone-path region |
-| **Components** | **The 25 `{components.*}` names enumerated in Component Patterns** | Every row in **Component Patterns** is a `DESIGN.md.Components` key as well as a behavioral spec. The count is stated so the `DESIGN.md` author can check it off: **25 components, 19 of them v1 and 6 marked `[v2]`.** A component with a behavioral row here and no visual row there is an incomplete handoff, and `references/validate.md` Pass 1 #3 checks exactly that |
+| **Components** | **The 25 `{components.*}` names enumerated in Component Patterns** | Every `{components.*}` name in **Component Patterns** is a `DESIGN.md.Components` key as well as a behavioral spec. The count is stated so the `DESIGN.md` author can check it off: **25 components — 17 v1 and 8 marked `[v2]`.** (Component Patterns has 26 rows: the 25 keys plus the clone-path line, which is a sub-element of `{components.identityHeader}` and not a key of its own.) A component with a behavioral row here and no visual row there is an incomplete handoff, and `references/validate.md` Pass 1 #3 checks exactly that |
 
-`DESIGN.md` also owns an unresolved fork this spine deliberately does not touch:
-whether the Cockpit looks native to **Chrome** (the precedent is `kapture`'s
-`extension/panel.css`, which is the VS Code / DevTools dark theme) or native to **33GOD**.
-That fork is Jarad's, it has been open since the abandoned 2026-08-25 DeloHQ run, and the
-four directions in `.working/` exist to close it.
+### The visual fork is closed, and three of its consequences are behavioral
+
+Whether the Cockpit looks native to **Chrome** (the precedent is `kapture`'s
+`extension/panel.css`, the VS Code / DevTools dark theme) or native to **33GOD** was parked
+by the abandoned 2026-08-25 DeloHQ `bmad-ux` run as "pending Jarad's decision on visual
+inheritance," never answered, and hit again here. Jarad's answer, on 2026-09-20, is
+**neither**: direction 04, *"Deliberately Foreign"* — a printed instrument, a sheet laid **on**
+the page rather than a chrome panel beside it. Its palette, type, shape and the defence of
+its two deliberate house-rule breaks are `DESIGN.md`'s. This spine takes three consequences
+from it and nothing else, because all three change behavior rather than appearance:
+
+1. **The usable column** (above). Every layout claim is written against it, not against the
+   320px floor.
+2. **The register travels, and that is a behavioral guarantee.** The direction's carrying
+   argument is that the Cockpit, the `[v2]` hover tooltip and the `[v2]` comment bubble wear
+   one signature, so a Sidepiece mark reads as Sidepiece's on a white docs site and a black
+   dashboard alike. That is not decoration. It is the only thing that tells the operator
+   which marks on someone else's page belong to his tool, on a surface **Sidepiece does not
+   own the pixels of**. It is named `{colors.overlay.signature}` so `DESIGN.md` owes it as
+   one token shared across surfaces rather than as three per-surface treatments.
+3. **One PRD literal did not fit, and this spine does not let it shrink.** The mock's own
+   self-critique records that `Dispatched Command` would not set in the composer's flip
+   control at the usable width, and set it as `DISPATCHED CMD` — "the one string in the mock
+   that is not the PRD's literal, and it is a real finding, not a preference." **The finding
+   is upheld and the abbreviation is refused.** PRD §3 makes the glossary verbatim and an
+   abbreviation is a synonym; a classification control that renders a term the Glossary does
+   not contain is the same discipline violation as writing "sidebar" for Cockpit. Making the
+   complete term fit is `DESIGN.md`'s problem and it has options this spine does not take
+   away — wrap it, stack the two values rather than setting them side by side, or spend
+   leading rather than characters. See `{components.classificationControl}`.
 
 ---
 
@@ -155,7 +198,7 @@ four directions in `.working/` exist to close it.
 
 ### The column, top to bottom
 
-At the 320px floor, with a pinned identity header, there is not room for the Tickets pane
+In the usable column, with a pinned identity header, there is not room for the Tickets pane
 and the Chat pane to be simultaneously present *and* for each to have its own pinned input.
 The Ticket create box and the Turn composer are both bottom-anchored single-line-first
 inputs; stacking them puts two inputs in one bottom region and pins neither. So:
@@ -278,7 +321,7 @@ cheap, quiet and non-accusatory — it is the wallpaper, not an error — and **
 written down.
 
 **(e) The fourth switch slot is not reserved, and two §9 panes want it.** v1 lays the switch
-out so a **third** item fits at 320px without wrapping; it makes no claim about a fourth.
+out so a **third** item fits in the usable column without wrapping; it makes no claim about a fourth.
 The Candystore live event feed and the Agent-session list both land naturally as panes and
 both would take that slot. Recorded as an unresolved v2 contention rather than silently
 double-booked: when the first of them is built, the switch's layout at four items is a real
@@ -293,7 +336,7 @@ not build the occupant.
 
 | `[v2]` element | Reserved seat in v1 | What v1 builds | What v1 does not build |
 |---|---|---|---|
-| Annotations pane (the running list) | **Third slot in the pane switch.** The switch is built as an n-item control with two items rendered | The switch, sized and laid out so a third item fits at 320px without wrapping | The pane, the list, the slot's label |
+| Annotations pane (the running list) | **Third slot in the pane switch.** The switch is built as an n-item control with two items rendered | The switch, sized and laid out so a third item fits in the usable column without wrapping | The pane, the list, the slot's label |
 | Attachment on a Turn | **Leading slot in the Turn composer's action row**, left of the classification control | The action row as a row, with the leading slot empty | Any attachment affordance or payload |
 | Attachment on a Ticket | **Leading slot in the Ticket create box's submit row** | The submit row as a row, with the leading slot empty — stated in `{components.ticketCreateBox}`, not only here | Any attachment affordance or payload |
 | Batch create — one Ticket per annotation | **Secondary slot beside the create box's primary submit**, in the same submit row | That row holding a primary control and one empty secondary slot — stated in `{components.ticketCreateBox}` | The secondary control |
@@ -403,7 +446,7 @@ times and the *sentence* five times; the five are literal and are never paraphra
 |---|---|---|
 | `"the PM has your turn"` | Turn card, within 500ms of send (FR-7) | Exact. Distinct from a response. Never "Sending…" |
 | `"warming up the PM"` | Turn card, cold session (FR-7) | Exact. Replaces the first-token budget; never shown warm |
-| `"this tab is resolvable"` | Extension icon title (§5) | Exact, and it is the icon's title **in the resolvable state**. The icon carries four titles in total plus one transient — the other four are ours and are required to be distinct by FR-2 and FR-3. See **State Patterns § Extension icon states** |
+| `"this tab is resolvable"` | Extension icon title (§5) | Exact, and it is the icon's title **in the resolvable state**. The icon carries four titles in total plus one transient — the other three are ours and are required to be distinct by FR-2 and FR-3. See **State Patterns § Extension icon states** |
 | `"declared but unknown"` | Resolution state notice (FR-2) | Exact. Names the state, in the state |
 | degraded-connection indicator | Identity header (§5) | The *thing* is named by the PRD; its sentence is ours. Rendered, not suppressed |
 
@@ -480,8 +523,10 @@ times and the *sentence* five times; the five are literal and are never paraphra
 
 ## Component Patterns
 
-Behavioral. Visual specs live in `DESIGN.md.Components` — **every `Component` name below is
-also a `DESIGN.md.Components` key**, and there are 25 of them: 19 v1 and 6 marked `[v2]`.
+Behavioral. Visual specs live in `DESIGN.md.Components` — **every `{components.*}` name below
+is also a `DESIGN.md.Components` key**, and there are 25 of them: **17 v1 and 8 marked
+`[v2]`**. The table has 26 rows; the extra one is the clone-path line, which is a sub-element
+of `{components.identityHeader}` and carries behavior of its own without being a key.
 
 | Component | Job | Persists, and where | On every failure path |
 |---|---|---|---|
@@ -494,7 +539,7 @@ also a `DESIGN.md.Components` key**, and there are 25 of them: 19 v1 and 6 marke
 | `{components.stateNotice}` | The one block every degraded state renders into: a headline sentence, an optional detail line, an optional command string, and a recovery control | — | It **is** the failure path. It never renders as an empty region and never as a spinner (P1, P2). It always contains at least one control. **DS-1 is the single state that does not use it**, and DS-21 follows DS-1 — both are facts about the tab rather than faults in the product, and dressing the browser's most common condition as a failure is how a tool starts feeling like it is scolding you |
 | `{components.reResolveControl}` | Re-runs detection and resolution for the active tab, bypassing the FR-2 cache | — | Present in **every** state notice (FR-2, FR-3), including ones it cannot fix — a Plane outage does not resolve by re-resolving, but the operator does not have to know that to reach for it. While running it disables and says so; when it returns the same state it says the state again rather than flashing. Two states render it demoted or absent and say why: DS-1 and DS-21 |
 | `{components.turnComposer}` | Collects a Turn. Holds the classification control, the context chip, and the reserved attachment slot `[v2]` | Draft text debounced to `chrome.storage.local` keyed by pjid (Rule 4); restored on open | Disabled with a distinct reason in both degraded Agent states (FR-5); the draft is kept while disabled. When only the *dispatch* half is down (DS-18) it stays live and says which half. On send failure the text stays in the box. If storage throws or returns empty, the box renders empty and works |
-| `{components.classificationControl}` | Shows the Turn's classification **before commit** and flips it in one control (FR-6) | Override lives for this Turn only and is discarded on send (FR-6, P14) | Renders the glossary term verbatim — **Streamed Exchange** / **Dispatched Command** — plus one plain line of consequence. It is never absent: an unclassifiable Turn classifies as Dispatched Command, per FR-6's stated bias, and says so rather than showing nothing. Its corpus and its recompute rule are below this table |
+| `{components.classificationControl}` | Shows the Turn's classification **before commit** and flips it in one control (FR-6) | Override lives for this Turn only and is discarded on send (FR-6, P14) | Renders the glossary term **verbatim and complete** — **Streamed Exchange** / **Dispatched Command** — plus one plain line of consequence. **Neither term is ever abbreviated, at any width.** The chosen direction's mock could not fit `Dispatched Command` in the usable column and set `DISPATCHED CMD`; its author flagged that as a real finding and it is upheld here — an abbreviation is a synonym and PRD §3 forbids one. The control wraps, stacks its two values, or spends leading; it does not shorten the word. It is never absent either: an unclassifiable Turn classifies as Dispatched Command, per FR-6's stated bias, and says so rather than showing nothing. Its corpus and its recompute rule are below this table |
 | `{components.contextChip}` | Shows what FR-10 will attach: the active tab's title, with the URL on focus or hover | — | If the tab's title or URL cannot be read, the chip says which one is missing and the Turn still sends — a Turn with partial context beats a blocked Turn |
 | `{components.turnCard}` | Renders one Turn. Two visibly distinct variants: Streamed Exchange and Dispatched Command (FR-8) | Turn state lives in the **Bridge**, keyed by pjid and Turn id (FR-15, P26). The card holds nothing | Streamed: a dead stream renders as failed with the partial text kept (FR-7). Dispatched: rejection is surfaced with its reason (FR-8); no outcome inside the window renders as unknown (FR-9); an unreachable Candystore renders as *unobservable*, worded differently (DS-19); a completed outcome renders its result content, or says the gateway returned none (see IA note (a)). Never a bare checkmark |
 | `{components.jumpToLatest}` | Appears in the Chat pane when the operator has scrolled up away from a streaming Turn; returns to the bottom and re-arms bottom-anchoring | — | Appears only while the anchor is broken and something is arriving. It never appears on a quiet thread, because a control that offers to move you somewhere is a control that pulls |
@@ -1552,11 +1597,13 @@ Each item names its source. These are what to steal and what to refuse, not a su
 - **The extension can neither set, suggest, nor read the width.** There is no API, and the
   open feature requests (issues 378404989, 40926440, samples#1011) have no movement. **There
   are no breakpoints in this product**, because there is no way to observe one. Every layout
-  claim in this spine is written to hold at 320px and to degrade gracefully upward — extra
-  width buys longer unwrapped clone paths and more visible Turn text, never a second column
-  and never a revealed pane.
+  claim in this spine is written to hold in the **usable column** — the floor less whatever
+  the chosen direction's signature costs, measured at roughly 300 CSS pixels in the mock (see
+  **Foundation § Form factor consequences**) — and to degrade gracefully upward. Extra width
+  buys longer unwrapped clone paths and more visible Turn text, never a second column and
+  never a revealed pane.
 - **The user's resize may not stick.** One source reports that closing and reopening resets
-  the panel to its default width; unverified on current Chrome. `[ASSUMPTION: treat 320px as
+  the panel document to its default width; unverified on current Chrome. `[ASSUMPTION: treat 320px as
   the design target on every open, not as a worst case. If geometry resets on close the way
   state does, designing for a comfortable 480px would be designing for a width he rarely
   sees.]`
@@ -1597,7 +1644,7 @@ a flow.
 | **Bridge restart** | The Bridge goes away and comes back; **nothing in Chrome is reloaded**. FR-15: "Restarting the Bridge does not require reloading the extension." While it is down the Cockpit renders DS-4 or DS-5 (or DS-3 if the tailnet went with it); when it returns, **one re-resolve** is the whole recovery | No tab reload, no extension reload, and DS-16's "reload this tab" sentence must never appear for this cause — it would teach the wrong reflex for the most routine Bridge event there is. The FR-2 cache is invalidated on the unreachable→reachable transition, so what comes back is fresh |
 | **Window switch / multi-window** | Chrome's side panel is per-window: two windows are two Cockpit documents with independent caches and independent resolution state. v1 does not synchronize them (§5) | Two Cockpits may legitimately disagree, and **no sync indicator is rendered** — inventing one would imply a guarantee v1 does not make. FR-11's append-per-Turn rule keeps them from clobbering each other. The pane-selection preference is a single global key, so a switch in one window follows to the next open of the other; accepted `[ASSUMPTION: not worth a per-window key for a two-item toggle.]` |
 | **SPA navigation** | The panel document is unaffected; the *content script* is the problem. A history-API transition never unloads the document, so a declarative content script does not re-inject. FR-1 requires detection anyway | Detection is re-triggered by an explicit observer, not by injection. UX-visible consequence: a route change inside a SPA re-resolves exactly like a navigation, including into DS-1 if the new route declares nothing |
-| **Chrome restart** | **Preserved:** Turn history, because the Bridge holds it keyed by pjid and Turn id (FR-11, FR-15); drafts, pane selection and group-collapse state, because Rule 4 puts them in `chrome.storage.local`. **Not preserved:** anything in the panel document, the SSE subscription, the resolution cache's in-memory copy. **Unknown:** whether Chrome reopens the side panel at all, and whether it restores the resized width | `[ASSUMPTION: assume the Cockpit is closed after a restart and that the first open is a full cold start. Designing for a restored panel would be designing for behavior nothing in the sweep confirms.]` |
+| **Chrome restart** | **Preserved:** Turn history, because the Bridge holds it keyed by pjid and Turn id (FR-11, FR-15); drafts, pane selection and group-collapse state, because Rule 4 puts them in `chrome.storage.local`. **Not preserved:** anything in the panel document, the SSE subscription, the resolution cache's in-memory copy. **Unknown:** whether Chrome reopens the side panel at all, and whether it restores the resized width | `[ASSUMPTION: assume the Cockpit is closed after a restart and that the first open is a full cold start. Designing for a restored panel document would be designing for behavior nothing in the sweep confirms.]` |
 | **Extension reload (dev)** | Content-script contexts are invalidated exactly as a real update does, throwing "Extension context invalidated" in open tabs. The side panel document **does not hot-reload** — it must be closed and reopened | DS-16 exists for this, because in a repo with one operator who is also the developer, a dev-loop failure is a user-facing failure. It is the **only** state that tells the operator to reload anything |
 
 ### Local Network Access as a UX-visible event
@@ -1631,13 +1678,25 @@ discovery to confirmation.]`
 - **The concrete failure:** a light OS with a dark Chrome theme produces a light Cockpit
   sitting flush against dark browser chrome, with a seam the extension can neither detect nor
   correct.
-- **Resolution here, for `DESIGN.md` to carry:** the Cockpit is **dark-first**, matching every
-  Jarad-authored surface (`color-scheme: dark` in Holocene and Candystore; "Dark-first.
-  Operator lives in a terminal"), and it follows `prefers-color-scheme` for the light case.
-  A manual theme override is **not** built in v1 `[ASSUMPTION: whether Jarad actually runs a
-  Chrome theme that diverges from his OS setting is unknown and is in **Gaps**. If he does
-  not, this is a non-problem and should be recorded as one rather than designed around; if he
-  does, the override is a one-line preference and a token-set swap, not a redesign.]`
+- **The seam got wider, not narrower, and that was chosen knowingly.** The dark-first default
+  this section carried until 2026-09-20 no longer holds: direction 04 is a **light, warm
+  paper ground**, and its own author names that as a bet against four years of dark-first
+  behavior across every surface Jarad owns. So the common case is now a light Cockpit against
+  dark browser chrome — the seam described above, by construction rather than by accident.
+  The direction's answer is that the seam *is* the semantics: a sheet laid **on** the page is
+  supposed to look laid on, and a panel that blends into the chrome would be camouflage. This
+  spine records the trade and does not re-open it.
+- **What dark mode is remains open, and it is `DESIGN.md`'s to answer**, not this spine's.
+  The direction ships one ground; the pick's own carried tensions list "DESIGN.md must still
+  answer what dark mode is" as unresolved. It is **Gaps** item 3. Two things are behavioral
+  and hold whichever way it lands: the Cockpit honors `prefers-color-scheme` and the live
+  `change` event rather than sampling once at load, and **`{colors.overlay.signature}` must
+  survive both grounds unchanged** — the register's whole job is being recognizable on
+  someone else's page, so a signature that needs a theme to be legible is not a signature.
+- A manual theme override is **not** built in v1 `[ASSUMPTION: a single operator on a single
+  machine does not need a per-surface theme switch, and one is a preference screen the
+  product otherwise does not have. If the light ground proves wrong in daily use, the fix is
+  a token-set swap in `DESIGN.md`, not a control in the Cockpit.]`
 
 ---
 
@@ -1651,12 +1710,22 @@ changes what gets built rather than how it is worded.
    debugging this browser" infobar on **every tab, on every activation**, suppressible only
    by a Chrome launch flag or enterprise policy. The alternative is a closed shadow root that
    some pages will break. This is the only open question that changes UJ-4's first beat.
-2. **Visual identity.** Native to Chrome (kapture's DevTools-dark precedent) or native to
-   33GOD? This has been open since the 2026-08-25 DeloHQ run died on the same question. Four
-   directions are rendered at true panel width in `.working/`; picking one closes this.
-   `DESIGN.md` cannot be written without it.
-3. **Do you run a Chrome theme that diverges from your OS setting?** If no, the dark-mode seam
-   is a non-problem and gets recorded as one. If yes, v1 needs a manual override.
+2. **The light ground — do you want to live with it?** *Closed as a decision, open as a
+   trade.* Direction 04 was picked on 2026-09-20 and the visual fork that blocked two BMAD
+   runs is shut. But the direction's author recorded three tensions with it, and two are
+   yours rather than `DESIGN.md`'s: a light Cockpit is a bet against four years of dark-first
+   behavior on every other surface you own, and the spot hue is simultaneously the whole
+   argument and the whole risk — it cannot be de-risked by quietening it, because a quieter
+   spot stops being unmistakable on white *and* black. The third tension is a standing cost
+   rather than a question: the direction inherits nothing, so it is a second visual world to
+   maintain beside Holocene's. None of the three changes what this spine specifies. All three
+   change whether you still like it in a week.
+3. **What is dark mode, given a light-ground direction?** The pick ships one ground and its
+   own tension list says `DESIGN.md` must still answer this. Three answers are coherent — no
+   dark mode at all, an inverted paper, or a genuine second token set — and they cost
+   different amounts. The one behavioral constraint from this spine:
+   `{colors.overlay.signature}` must be the same mark in both, because it has to be
+   recognizable on a page whose theme Sidepiece does not control.
 4. **Is "selector + comment" the whole element-anchored payload, or the PRD §9 payload
    (selector + tag + text snippet + `outerHTML` + URL)?** This spine assumes the larger one
    because a lost anchor has to degrade rather than die — but it changes what the comment
