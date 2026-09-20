@@ -235,35 +235,86 @@ earlier draft assumption, the correction is noted.
     itself needs to know about the transition — it costs the `webNavigation`
     permission for a signal the content script can usually observe itself.
 
-- **Private Network Access is unsettled, and the two-machine correction makes it
-  less certain rather than more.** Extension pages run at `chrome-extension://`,
-  a potentially-trustworthy context, so ordinary mixed-content blocking does not
-  apply and `fetch`/`EventSource` to a private address is architecturally fine
-  given host permissions. The hazard is PNA/LNA: Chrome has been sending a CORS
-  preflight (`Access-Control-Request-Private-Network: true`) ahead of
-  private-network subresource fetches, phased toward enforcement around Chrome
-  130, with a broader Local Network Access gate landing around Chrome 142.
-  **Whether extension-context fetches receive the same treatment as
-  page-context ones is not clearly documented** — unverified either way.
-  Since §A.5, the target is no longer loopback but a tailnet address in
-  `100.64.0.0/10` (the CGNAT range). Loopback at least has an unambiguous place
-  in PNA's address-space taxonomy; CGNAT does not, so the uncertainty is strictly
-  greater than the earlier draft assumed. Two unconditional mitigations, both
-  cheap: have the Bridge answer preflights with
-  `Access-Control-Allow-Private-Network: true` alongside normal CORS headers, and
-  serve it over HTTPS with a real certificate — Tailscale issues one for a
-  MagicDNS name — which removes an entire class of this problem rather than
-  negotiating with it. Verify empirically against current stable, and re-verify
-  on Chrome version bumps (PRD §12 Q7, Q8).
+- **Local Network Access almost certainly does not affect us.** *(Rewritten
+  2026-09-20 during `bmad-ux`. The previous text said the tailnet move made PNA
+  "strictly greater" uncertainty than loopback and left it unverified either
+  way. **Four of its factual claims were wrong**; full sourcing in
+  `../../ux-designs/ux-sidepiece-2026-09-20/.working/research-mv3-platform.md` §6.)*
 
-- **`captureVisibleTab` is viewport-only and rate-limited** — a handful of calls
-  per second, no full-page stitching, and blocked on `chrome://` and other
-  extensions' pages without `activeTab`. Full-page capture requires manual
-  scroll-and-stitch or `chrome.debugger` + CDP
+  Extension pages run at `chrome-extension://`, a potentially-trustworthy
+  context, so ordinary mixed-content blocking does not apply and
+  `fetch`/`EventSource` to a private address is architecturally fine given host
+  permissions. That part stood. The four corrections:
+
+  1. **`100.64.0.0/10` is not ambiguous — the spec classifies it explicitly as
+     `local`.** The WICG Local Network Access address-space taxonomy names CGNAT
+     (RFC 6598) alongside `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` and
+     `169.254.0.0/16`. Loopback is its own class (`127.0.0.0/8`, `::1/128`).
+     The claim that "loopback has an unambiguous place and CGNAT does not" was
+     backwards: both are classified, just differently. The tailnet move did
+     **not** increase this uncertainty.
+  2. **Extensions with host permissions are stated to be exempt.** Chrome's
+     Patrick Kettner, on chromium-extensions: *"as long as an extension has the
+     correct host permissions, then they will not be impacted by this."* Two bugs
+     once broke that guarantee — crbug.com/435246545 (fixed 5 November, requires
+     Chrome ≥ 144.0.7512.0) and issue 456078996, fixed shortly after. This
+     tailnet spans Chrome 151–155, so **both fixes are already in on every
+     machine**.
+  3. **LNA shipped in Chrome 142, not 153.** Launched 29 September 2025;
+     Chrome 138 had it behind `chrome://flags#local-network-access-check`. The
+     PRD's "Chrome 153+ ships Local Network Access" was off by eleven milestones
+     — it has been shipping for nearly a year, across the whole fleet, without
+     this having been noticed as a problem.
+  4. **HTTPS is a precondition for asking, not an exemption from asking.**
+     Verbatim: *"The ability to request this permission is restricted to secure
+     contexts."* So a real certificate does not buy an exemption — though it
+     remains worth having for the older mixed-content class, which *is* exempted
+     for known local destinations.
+
+  **Trending more granular, not less:** Chrome 146+ splits the permission into
+  **"Local Network"** and **"Loopback Network"**, and upcoming releases extend
+  the model to **WebSockets, WebTransport and WebRTC**. That last clause would
+  matter if the upstream WebSocket leg ever ran browser-side. It does not — it
+  is the Bridge's, server to server — but any future design that moves a socket
+  into the extension inherits this.
+
+  **If a prompt does appear**, it is a standard Chrome permission bubble anchored
+  to the omnibox reading **"Look for and connect to any device on your local
+  network."** The Chrome documentation is **silent on what happens on denial**
+  and on the recovery path, so the UX cannot be specified from documentation —
+  see `EXPERIENCE.md`, which renders a denial as an ordinary fetch failure until
+  proven otherwise.
+
+  The mitigations stay, because they are cheap and unconditional: have the Bridge
+  answer preflights with `Access-Control-Allow-Private-Network: true` alongside
+  normal CORS headers, and serve over HTTPS with a Tailscale-issued MagicDNS
+  certificate. **Net effect on PRD §12 Q7: it drops from a discovery to a
+  confirmation.** Still worth one empirical check on `carries-macbook-air`
+  before the transport is locked, but the expected result is now *no prompt at
+  all*, and a prompt would be the surprise rather than the base case.
+
+- **`captureVisibleTab` is viewport-only and rate-limited to exactly two calls
+  per second** — `MAX_CAPTURE_VISIBLE_TAB_CALLS_PER_SECOND = 2`, not "a handful";
+  no full-page stitching; and it returns **physical** pixels on a HiDPI display,
+  so any coordinate travelling with a capture must be relative or it will not
+  survive the mismatch. *(Corrected 2026-09-20. The earlier text also had the
+  permission backwards: `activeTab` is **strictly more capable** than
+  `<all_urls>` here — it is what unlocks capture on `chrome://` and other
+  extensions' pages, which a broad host match alone does not.)* Full-page capture
+  requires manual scroll-and-stitch or `chrome.debugger` + CDP
   `Page.captureScreenshot({captureBeyondViewport: true})`; the latter needs the
-  `debugger` permission and its alarming "debug your browser" warning. A real
-  tradeoff for the deferred snapshot feature (PRD §9), not an implementation
-  detail.
+  `debugger` permission and its alarming "debug your browser" warning.
+
+  **This bullet is now largely moot, and that is worth stating rather than
+  leaving for someone to rediscover.** `bmad-ux` closed the question on
+  2026-09-20: the freehand annotation's image is **not load-bearing**. Strokes
+  render as SVG over the live DOM and the payload is stroke geometry in relative
+  coordinates plus the selectors of the elements those strokes cross. Nothing is
+  captured. That decision deletes `captureVisibleTab`, this rate limit, the HiDPI
+  problem and the `activeTab` permission from the deferred annotation feature
+  entirely (PRD §9). The facts above are kept because the constraint is real and
+  a future full-page-capture idea will run into it — not because anything
+  currently planned depends on it.
 
 - **Stable selector generation** has known libraries — `css-selector-generator`
   (configurable priority order, explicit Shadow DOM support), `optimal-select`
@@ -284,6 +335,67 @@ earlier draft assumption, the correction is noted.
   scripts should detect and swallow the dead-context error rather than spam the
   console. The side panel document does not hot-reload on extension reload — it
   must be closed and reopened to pick up new code.
+
+### C.1 Facts this section was missing *(added 2026-09-20)*
+
+Surfaced by the `bmad-ux` platform sweep. None contradicts anything above; all
+four change what is buildable, and the first changes it substantially. Sourcing
+in `../../ux-designs/ux-sidepiece-2026-09-20/.working/research-mv3-platform.md`.
+
+- **A click inside the page can open the Cockpit.** Chrome *curries* a user
+  gesture across a `runtime.sendMessage` hop: a content-script click that
+  messages the service worker, whose `onMessage` handler calls
+  `chrome.sidePanel.open({windowId})`, **works** — demonstrated empirically on
+  chromium-extensions (thread `d5ky9SiZlqQ`). Three hard edges: the curried
+  gesture is *restricted*, so **one hop only** and it cannot be re-forwarded; the
+  chain must be **callbacks with zero `await`s**, or the gesture is lost to the
+  same silent no-op as above; and `sidePanel.open()` has a known bug
+  (issues.chromium.org/415694848) where it throws on the *second* click after the
+  panel was manually closed, unverified against 151–155.
+
+  This is the most consequential fact in the sweep and neither this document nor
+  the PRD had it. It is what makes the deferred in-page annotation flow (§9) able
+  to summon the Cockpit at the moment of discharge, rather than requiring the
+  operator to go and open it. Also PRD-silent and simpler:
+  `setPanelBehavior({openPanelOnActionClick: true})` makes the icon open the
+  panel with **no service-worker gesture handling at all** — and it is a
+  **toggle**, so the same click closes it.
+
+- **The panel document is torn down on *collapse*, not only on close.** The PRD's
+  "does not survive the panel closing" is right but understates it: collapsing
+  the panel is the same event. Anything held in the panel document dies at that
+  moment, which is why FR-15's Bridge-as-system-of-record is load-bearing rather
+  than tidy. **New since the 2026-09-17 pass:** `chrome.sidePanel.onOpened` /
+  `onClosed` exist (Chrome 141+, fleet runs 151–155), as does
+  `runtime.getContexts({contextTypes:['SIDE_PANEL']})` — a save/restore hook this
+  document did not know about. Nothing documents whether `onClosed` fires early
+  enough to flush unsaved state, so treat it as a notification and not a
+  guaranteed drain.
+
+- **The side panel has a hard ~320px minimum width and the extension can neither
+  read, set nor suggest it** (Chrome 149). It is user-resizable only upward. Every
+  FR that puts something permanently on screen — FR-4's repo name, full clone path
+  and Board identifier; FR-6's classification control with both values visible;
+  FR-10's context preview; FR-12's grouped list — competes in that single column.
+  This is an information-architecture constraint, and it is why `EXPERIENCE.md`
+  treats 320px as the design target on every open rather than as a worst case.
+
+- **The keyboard budget is exactly four.** `chrome.commands` caps *suggested*
+  shortcuts at four; each must contain Ctrl or Alt; **Ctrl+Alt is banned
+  outright**; and global chords (firing when Chrome lacks focus) are restricted to
+  `Ctrl+Shift+[0..9]`. The deferred annotation journey has exactly four verbs —
+  arm the picker, open the Cockpit, file a Ticket, discharge the batch — so there
+  is zero headroom. `EXPERIENCE.md` spends the four on Alt+Shift chords to stay
+  clear of Chrome's own Ctrl+Shift bindings, and puts everything else on
+  in-document accelerators that cost no budget.
+
+- **Dark mode has a seam the extension cannot close.** In a side panel,
+  `prefers-color-scheme` reports the **operating system's** setting and never
+  Chrome's own theme, and no API exposes the browser theme
+  (w3c/webextensions#242 — Firefox has `browser.theme`, Chrome has nothing). A
+  light-OS/dark-Chrome operator gets a light panel flush against dark browser
+  chrome with no signal the extension can detect. `DESIGN.md` accepts this: both
+  grounds are the same material, so a wrong guess costs comfort, not correctness.
 
 ---
 
