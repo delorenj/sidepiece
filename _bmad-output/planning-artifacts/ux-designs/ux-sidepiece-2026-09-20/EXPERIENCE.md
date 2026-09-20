@@ -550,7 +550,7 @@ of `{components.identityHeader}` and carries behavior of its own without being a
 | `{components.commandString}` | Renders a remedy command the Bridge returned: mono, selectable, complete, with a copy control and one empty action slot `[v2]` | — | Two rules, because the states differ. **Where an FR mandates a command** — DS-11 (FR-5, "names the exact provisioning command") and DS-14 (FR-12, "names the command that binds one") — a missing command is a **Bridge contract violation**, not a rendering variant: the notice renders its sentence plus `The Bridge did not return the command for this. That is a Bridge bug.` and the client logs it. **Where no FR mandates one** — DS-6, DS-8 and any notice that merely benefits from a remedy — the block is omitted entirely rather than rendered empty. The Cockpit never invents command text in either case |
 | `{components.hoverOutline}` `[v2]` | Outlines the element under the cursor while the select tool is armed, and prints the resolved selector **before** the click | — | If the layer cannot render on this page, the arm gesture reports that it could not arm. It never arms invisibly |
 | `{components.commentBubble}` `[v2]` | Opens at the clicked element; collects text; yields selector + context, **no image** | Draft to `chrome.storage.local` keyed by (pjid, page URL) | Escape closes it and **keeps** the draft (Linear P16). A navigation while it is open keeps the draft against that URL |
-| `{components.freehandLayer}` `[v2]` | The drawing surface for the kind of feedback a selector cannot express — "this is supposed to be a guy but looks like garbage." **A drag inside the armed mode is a pen, not a rectangle**, and that is the one place this design leaves Vercel's: Vercel's drag crops a region, and `research-annotation-prior-art.md` §16 records that freehand markup anchored to the DOM at all is unprecedented in the sweep. Pointer-down inside the armed mode with any movement begins a stroke; pointer-up commits that stroke and the annotation stays open, so strokes accumulate. A single click with no movement is the element-anchored path instead — same armed mode, no mode switch, the branch is movement | Strokes and the committed annotation to `chrome.storage.local` keyed by (pjid, page URL) | **Undo removes the last stroke**, repeatedly, back to an empty layer; an empty layer on exit yields no annotation. **A commit control on the layer yields the annotation**: the stroke geometry in *relative* coordinates, the strokes' bounding box in relative coordinates, and one `captureVisibleTab` image taken at commit — relative because `captureVisibleTab` returns physical pixels on HiDPI, and one capture per commit sits far inside the hard limit of two calls per second. **Escape exits drawing and keeps the strokes as a draft** against that URL; it never discards them, matching the comment bubble. Two failure paths: if the layer cannot render, the drag reports it could not arm and nothing is captured; if the capture fails or is rate-limited, the annotation still commits with its strokes and coordinates, the row says `The page capture didn't come back. This one has the marks but no image.`, and it stays dischargeable — a degraded annotation beats a lost one, per **Annotation Anchoring and Drift**. `[ASSUMPTION: the decision log says the image is required for this kind; a capture failure degrades rather than destroys because destroying externalized work is the one unrecoverable failure. Whether the image is load-bearing for the PM at all is Gaps item 5.]` |
+| `{components.freehandLayer}` `[v2]` | The drawing surface for the kind of feedback a selector cannot express — "this is supposed to be a guy but looks like garbage." **A drag inside the armed mode is a pen, not a rectangle**, and that is the one place this design leaves Vercel's: Vercel's drag crops a region, and `research-annotation-prior-art.md` §16 records that freehand markup anchored to the DOM at all is unprecedented in the sweep. Pointer-down inside the armed mode with any movement begins a stroke; pointer-up commits that stroke and the annotation stays open, so strokes accumulate. A single click with no movement is the element-anchored path instead — same armed mode, no mode switch, the branch is movement | Strokes and the committed annotation to `chrome.storage.local` keyed by (pjid, page URL) | **Undo removes the last stroke**, repeatedly, back to an empty layer; an empty layer on exit yields no annotation. **Strokes are drawn as vectors over the live DOM — nothing is captured.** **A commit control on the layer yields the annotation**: the stroke geometry in *relative* coordinates, the strokes' bounding box in relative coordinates, and **the set of elements the strokes cross** — each carrying the same selector and context payload the element-anchored kind sends. Relative coordinates because a stroke drawn at one viewport size must replay at another. **Escape exits drawing and keeps the strokes as a draft** against that URL; it never discards them, matching the comment bubble. One failure path, and it belongs to the layer rather than to any capture: if the layer cannot render — an ancestor `transform`, `filter` or `contain`, or the top layer, displacing a fixed overlay — the drag reports it could not arm, nothing is committed, and the operator is told which page defeated it rather than being handed a mark that lies about where it is. `[DECIDED 2026-09-20: the image is not load-bearing. "It has to feel like drawing" was the requirement; "the PM needs a picture" was not. Strokes render as SVG over the live DOM, which deletes `captureVisibleTab`, its two-calls-per-second limit, HiDPI physical-pixel handling, the `activeTab` permission and the whole capture-failure path. The payload is strictly richer for an Agent that cannot see the page: a raster must be interpreted, a selector set can be acted on. See `.decision-log.md`.]` |
 | `{components.annotationPin}` `[v2]` | Marks an annotated element on the page | — | When the anchor no longer resolves, the pin does not render and the row says so — see **Annotation Anchoring and Drift** |
 | `{components.annotationRow}` `[v2]` | One row in the Annotations pane, grouped by page URL. Hovering it outlines its element in the page, or replays its strokes for the freehand kind. Carries its capture time | — | Keeps its text and captured context when the anchor is lost; stays dischargeable |
 | `{components.dischargeControl}` `[v2]` | The one-button finale: a Ticket per annotation, or the batch to the PM as a Dispatched Command | — | Partial failure is itemised — the pane keeps exactly the annotations that did not land, and says which |
@@ -1006,8 +1006,8 @@ it, and therefore we also have to teach it: the armed state `[v2]` names its exi
   information (the URL behind the context chip; the page outline behind an annotation row),
   never expose the only path to an action.
 - **Drag, in exactly one place: `[v2]` the armed select tool**, where a click with no
-  movement yields an element-anchored annotation with no image and a drag yields an
-  image-bearing one. One armed mode, two payloads, no mode switch — this is Vercel Toolbar's
+  movement yields an element-anchored annotation and a drag yields a stroke-bearing one.
+  One armed mode, two payloads, no mode switch — this is Vercel Toolbar's
   shipped design, verbatim: "Click and drag while in commenting mode to automatically
   screenshot a portion of the page and start a comment with it attached"
   (`research-annotation-prior-art.md` §2, P8). **Where we leave Vercel: their drag crops a
@@ -1354,11 +1354,13 @@ memory.
    armed mode, no mode switch, the branch is simply that the pointer moved — and the
    freehand layer takes the stroke. He draws three times over the figure; each pointer-up
    commits a stroke and the annotation stays open. One stroke goes wrong and he undoes it.
-   Then he commits. The payload is **relative coordinates + an image**: the stroke geometry
-   and its bounding box in relative coordinates, and one `captureVisibleTab` taken at commit.
-   Relative, because `captureVisibleTab` returns physical pixels on a HiDPI display, and
-   relative coordinates are what survive that mismatch. The capture is viewport-only and
-   rate-limited to two calls per second, which is one commit's worth and ample.
+   Then he commits. The strokes are vectors over the live DOM; **nothing is captured**. The
+   payload is **relative coordinates + the elements the strokes cross**: the stroke geometry
+   and its bounding box in relative coordinates, plus each crossed element's selector and
+   context — the same payload the element-anchored kind sends. Relative, because a stroke
+   drawn at one viewport size has to replay at another. The PM does not receive a picture; it
+   receives the marks and the things they were drawn over, which is what it can actually act
+   on.
 6. The extension icon now carries a count — of **his own uncommitted work**, the only kind of
    count this product will ever render. It counts the whole Project's undischarged batch, so
    it will still be there if he wanders onto another Slow Burns page before he discharges.
@@ -1384,16 +1386,19 @@ memory.
 10. He clicks the icon. The Cockpit closes and the page is clean.
 
 **Failure — the layer cannot render on this page.** The arm gesture reports that it could not
-arm. It never arms invisibly. Some pages will break a hand-built overlay via an ancestor
-`transform`, `filter` or `contain`, or by establishing a stacking context above it, and the
-alternative — `chrome.debugger`'s `Overlay.setInspectMode`, which draws a browser-native
-outline no page can break — pins a "Sidepiece started debugging this browser" infobar to
-**every tab on every activation**. That tradeoff is Jarad's and it is in **Gaps**.
-
-**Failure — the capture doesn't come back.** The freehand annotation commits anyway with its
-strokes and relative coordinates, and the row says
-`The page capture didn't come back. This one has the marks but no image.` It stays
-dischargeable and the PM gets a degraded pointer rather than nothing.
+arm, and names the page. **It never arms invisibly, and it never renders an outline it cannot
+place correctly** — a displaced mark is worse than no mark, because the whole confidence loop
+is the operator trusting that what he pointed at is what got sent. Some pages will break a
+hand-built overlay via an ancestor `transform`, `filter` or `contain`, or by establishing a
+stacking context above it. `[DECIDED 2026-09-20: the overlay is a hand-built closed shadow
+root — CSS-layer reset, `position:fixed`, `z-index:2147483647`, the technique DevTools' own UI
+uses. `chrome.debugger`'s `Overlay.setInspectMode` is rejected and **no fallback to it is
+built**. It pins a "Sidepiece started debugging this browser" infobar to every tab on every
+activation, suppressible only by a Chrome launch flag — but the argument that decides it is
+that the native outline is *Chrome's* mark, not Sidepiece's, and cannot wear
+`{colors.overlay.signature}`. A mark the operator cannot attribute to Sidepiece defeats the
+direction's entire thesis. The broken-page cost is accepted and surfaced. See
+`.decision-log.md`.]`
 
 **Failure — partial discharge.** Two of four Tickets land. The pane keeps exactly the two
 that did not, says which, and the discharge control stays. It never reports four.
@@ -1433,8 +1438,10 @@ resolving is still feedback. So every annotation carries, at capture time:
 - The page URL and the page title (FR-10's floor, already carried by every Turn).
 - The captured context the PRD §9 payload specifies: tag, text snippet, `outerHTML`.
 - A **redundant selector set**, below — for the element-anchored kind.
-- For the freehand kind: the image, the stroke geometry in **relative** coordinates, and the
-  strokes' bounding box in relative coordinates.
+- For the freehand kind: the stroke geometry in **relative** coordinates, the strokes'
+  bounding box in relative coordinates, and **a selector set per element the strokes cross**
+  — captured the same way, and ranked by the same order, as the element-anchored kind. There
+  is no image. `[DECIDED 2026-09-20 — see `.decision-log.md`.]`
 
 Because the context is captured at capture time, **a lost anchor degrades an annotation; it
 never destroys one.** That single decision is what makes the failure states in the next
@@ -1464,16 +1471,17 @@ unaddressable at capture time — never captured as if it worked.
 
 ### What the operator sees — the four outcomes
 
-The first three are the selector-anchored kind. The fourth is the freehand kind, which has no
-selector at all and therefore fails in a different way, on a different trigger, with a
-different fix.
+The first three apply to both kinds. **Since the freehand kind carries a selector set per
+crossed element, it degrades by the same three outcomes** — evaluated per element rather than
+once — and adds a fourth failure the element-anchored kind cannot have, because only strokes
+carry geometry that a re-layout can invalidate while every selector still resolves.
 
 | Outcome | Row in the Annotations pane | Pin in the page |
 |---|---|---|
 | **Anchored** — rank 1–3 resolved to one node | Row is live; hovering it outlines the element | Renders |
 | **Re-anchored weakly** — rank 4 or 5 resolved | `Re-matched by text, not by selector.` Hovering still outlines. The discharge payload says which rank matched, so the PM knows how much to trust the pointer | Renders, marked |
 | **Anchor lost** — nothing resolved, or more than one node did | `The element this was pinned to is gone.` The row keeps its text and its captured context and **stays dischargeable** | Does not render |
-| **Image-anchored** `[v2]` — the freehand kind | Its anchor is the page URL plus relative coordinates, so it never "misses a selector" and never re-matches weakly. It degrades on **re-layout** instead: when the page's content at those coordinates is no longer what was drawn over, nothing detects it and nothing can. The row therefore always renders, always hovers to a stroke replay over the *current* page, and carries its capture time and its image so the mismatch is visible to a human rather than asserted by the tool: `Drawn on this page at <time>.` The image is the ground truth the coordinates are read against | Strokes replay at their relative coordinates. Marked when the viewport aspect differs materially from capture, because that is the one drift signal the coordinates can actually carry |
+| **Drifted** `[v2]` — the freehand kind only | Every crossed element still resolves, but the strokes no longer sit over them: the page re-laid out and the geometry and the selectors now disagree. **This is the one drift the selector set cannot catch**, and it is detectable precisely because both halves of the payload exist — the row compares each crossed element's current box against the strokes' relative bounding box and says `The page moved under these marks.` The row always renders and stays dischargeable; the discharge payload carries both the strokes and the selector set, so the PM has the elements even when the geometry has gone stale | Strokes replay at their relative coordinates, marked. **Never silently re-positioned** onto where the elements moved to — the operator drew where he drew, and inventing a new position is the confidently-wrong-anchor failure in another costume |
 
 **What never happens:** the annotation is not deleted, not hidden, not silently re-pointed at
 a nearby node, and not degraded to raw page coordinates. Figma's documented behavior —
@@ -1511,11 +1519,14 @@ Each item names its source. These are what to steal and what to refuse, not a su
   inside itself (**Trust and Correctness**).
 - **Vercel Toolbar's single armed mode with two payloads.** Verbatim: "Click and drag while
   in commenting mode to automatically screenshot a portion of the page and start a comment
-  with it attached." Click yields element-anchored with no image; drag yields image-bearing.
+  with it attached." Click yields element-anchored; drag yields the heavier payload.
   **No mode switch between them.** This is exactly Jarad's two payloads, already shipped as
   one gesture vocabulary, and it is why `[v2]` has one armed mode and not two tools. **Taken
-  as the gesture split, not as the payload**: Vercel's drag crops a rectangle and ours draws,
-  because "this is supposed to be a guy but looks like garbage" is not a region.
+  as the gesture split, not as the payload** — and we diverge on the payload twice. Vercel's
+  drag crops a rectangle and ours draws, because "this is supposed to be a guy but looks like
+  garbage" is not a region. And Vercel's drag produces a *screenshot* where ours produces
+  *vectors plus the selectors underneath them*, because our reader is an Agent that cannot
+  look at a picture, not a human who can.
 - **Figma's list-and-pins-as-one-state.** Resolving a comment "will hide the comment from
   both the right sidebar and the canvas." Two views, never two states to reconcile. Taken as:
   the Annotations pane and the in-page pins are one state; hovering a row outlines its
@@ -1548,8 +1559,11 @@ Each item names its source. These are what to steal and what to refuse, not a su
   BugHerd captures one automatically even for a pinned element. Every note pays for capture
   + annotate + form-fill, including "this button is 2px off", which needed only a selector.
   And the image starts rotting on arrival: "Screenshots get outdated the moment the page
-  changes." `[v2]`'s element-anchored kind carries **no image**, by design; only the freehand
-  kind does, because for that kind the image *is* the content.
+  changes." **Sidepiece captures no raster at all** — not for the element-anchored kind and,
+  after 2026-09-20, not for the freehand kind either. Strokes are vectors over the live DOM
+  and they replay against the *current* page, so the mark cannot go stale in the way a
+  screenshot does; when the page moves under it, that is detected and said rather than
+  frozen into a picture of how things used to look.
 - **Mode-entry cost and sleeping surfaces** — Vercel's toolbar is "sleeping" by default and
   "will not run any tools in the background or show comments on pages" until woken; the
   documented remedy is installing an extension and toggling a preference. A feedback layer
@@ -1705,11 +1719,12 @@ discovery to confirmation.]`
 Decisions only Jarad can make. Carried forward rather than assumed away, because each one
 changes what gets built rather than how it is worded.
 
-1. **Does `[v2]`'s element picker justify the `debugger` permission?** `Overlay.setInspectMode`
-   draws a browser-native outline no page can break, at the cost of a "Sidepiece started
-   debugging this browser" infobar on **every tab, on every activation**, suppressible only
-   by a Chrome launch flag or enterprise policy. The alternative is a closed shadow root that
-   some pages will break. This is the only open question that changes UJ-4's first beat.
+1. ~~**Does `[v2]`'s element picker justify the `debugger` permission?**~~ **CLOSED
+   2026-09-20 — hand-built closed shadow root; `chrome.debugger` rejected, no fallback
+   built.** The infobar cost was real, but the deciding argument was that a browser-native
+   outline is *Chrome's* mark and cannot wear `{colors.overlay.signature}`. Some pages will
+   break the overlay; the design says so out loud rather than rendering a displaced mark.
+   See `.decision-log.md`.
 2. **The light ground — do you want to live with it?** *Closed as a decision, open as a
    trade.* Direction 04 was picked on 2026-09-20 and the visual fork that blocked two BMAD
    runs is shut. But the direction's author recorded three tensions with it, and two are
@@ -1720,20 +1735,29 @@ changes what gets built rather than how it is worded.
    rather than a question: the direction inherits nothing, so it is a second visual world to
    maintain beside Holocene's. None of the three changes what this spine specifies. All three
    change whether you still like it in a week.
-3. **What is dark mode, given a light-ground direction?** The pick ships one ground and its
-   own tension list says `DESIGN.md` must still answer this. Three answers are coherent — no
-   dark mode at all, an inverted paper, or a genuine second token set — and they cost
-   different amounts. The one behavioral constraint from this spine:
-   `{colors.overlay.signature}` must be the same mark in both, because it has to be
-   recognizable on a page whose theme Sidepiece does not control.
+3. ~~**What is dark mode, given a light-ground direction?**~~ **CLOSED 2026-09-20 — a dark
+   variant in the same register.** `prefers-color-scheme: dark` renders **Night Paper**: the
+   paper is *dimmed, not inverted*. Inversion was priced as a second design system rather
+   than a token swap — the seven `#191713`-valued tokens all collapse to ~1.02:1 on an
+   inverted panel, because "stamped = inverted" has no inverse left. Night Paper changes nine
+   values and keeps the stamp device intact. **This spine's one behavioral constraint held:**
+   `{colors.overlay.signature}` is the same mark in both grounds, at the cost of a 2.56:1
+   spine on Night Paper, accepted so the signature stays invariant. The OS-signal caveat
+   stands — `prefers-color-scheme` reports the OS and never Chrome's theme. See
+   `.decision-log.md`.
 4. **Is "selector + comment" the whole element-anchored payload, or the PRD §9 payload
    (selector + tag + text snippet + `outerHTML` + URL)?** This spine assumes the larger one
    because a lost anchor has to degrade rather than die — but it changes what the comment
    bubble shows him before he commits.
-5. **Is the freehand image load-bearing for the PM, or was it shorthand for "it has to look
-   like I drew on the page"?** An SVG-over-the-DOM alternative needs no capture, no
-   `activeTab` and no rate limit, and produces no image. This also decides whether
-   `{components.freehandLayer}`'s capture-failure path is a degradation or a hard failure.
+5. ~~**Is the freehand image load-bearing for the PM?**~~ **CLOSED 2026-09-20 — it is not.**
+   "It has to feel like drawing" was the requirement. Strokes render as SVG over the live
+   DOM, which deletes `captureVisibleTab`, its two-calls-per-second limit, HiDPI
+   physical-pixel handling, the `activeTab` permission and the entire capture-failure path.
+   The payload became *richer*, not poorer: stroke geometry in relative coordinates **plus a
+   selector set per crossed element**. A raster has to be interpreted; a selector set can be
+   acted on. The knock-on is in **Annotation Anchoring and Drift** — the freehand kind is now
+   selector-bearing, so it degrades by the same three outcomes as the element-anchored kind
+   and adds one of its own. See `.decision-log.md`.
 6. **Should an undischarged annotation batch ever expire?** This spine says no — nothing
    expires, nothing is silently deleted, and each row carries its capture time so a stale
    batch looks stale. The alternative is a stated lifetime announced at capture. Silent
