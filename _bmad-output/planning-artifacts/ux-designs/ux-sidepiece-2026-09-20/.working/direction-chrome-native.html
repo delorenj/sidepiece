@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sidepiece Cockpit — Direction: Chrome Native</title>
+<style>
+/* =============================================================================
+   SIDEPIECE / COCKPIT — DIRECTION: "CHROME NATIVE"
+   Token table. Every hex used in this file, with the semantic name it should
+   carry into DESIGN.md. Lineage: kapture/extension/panel.css (2026-09-18),
+   which is the VS Code / Chrome DevTools dark theme. Neutral grey, not navy.
+
+   --- SURFACES ------------------------------------------------------------
+   page-backdrop        #7a7a7a   this presentation page only; never shipped
+   bg-panel             #1e1e1e   the panel body; the default plane
+   bg-raised            #252526   header strips, section bars, operator turns
+   bg-sunken            #2d2d30   composer well track, record headers, infobar
+   bg-hover             #2a2a2a   ticket row hover (CSS :hover, no JS)
+
+   --- STRUCTURE (1px rules only — no shadow anywhere in this direction) ----
+   border-hairline      #2d2d30   within-pane division; reads as texture
+   border-strong        #464647   between-pane division; reads as a boundary
+   radius               2px       the only radius; DevTools' own
+
+   --- TEXT (three steps, no more; the 8-step scale is fiction) -------------
+   text-primary         #cccccc   body, titles, PM prose
+   text-muted           #969696   labels, meta, role names, placeholders
+   text-dim             #6e6e6e   ONLY the stale/disabled state — low contrast
+                                  is the message, not an accident
+   text-invert          #ffffff   text on a selection highlight
+
+   --- ACCENT (borrowed from the browser; the panel has no brand of its own) -
+   accent-link          #3794ff   ticket keys, focus ring, active-tab underline,
+                                  the create prompt chevron. DevTools blue.
+   selection            #094771   ::selection on the clone path and the command
+                                  string. Proves they are copyable.
+   scroll-thumb         #4f4f52   thin native scrollbar in the turn log
+
+   --- STATUS ---------------------------------------------------------------
+   status-ok            #4ec9b0   a dispatch reached a terminal "completed"
+   status-down          #f44336   the Bridge is not answering (header dot)
+   status-mark          #ff9800   the stale/attention mark in the infobar.
+                                  ALSO reserved, unused in v1, as the single
+                                  hue the v2 in-page annotation layer may use —
+                                  see the note under the frames.
+
+   --- TYPE -----------------------------------------------------------------
+   This direction deliberately declares NO custom family. The entire argument
+   is that the panel uses whatever Chrome is already using, so the stack is
+   system-only and there is no webfont to load, fail, or flash.
+   font-ui    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+              Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif
+   font-mono  ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono",
+              monospace   — reserved for machine-generated data ONLY:
+              clone paths, ticket keys, correlation ids, URLs, shell commands,
+              agent identifiers. Never for prose.
+   Four sizes, two weights. 10px/uppercase/+0.07em labels · 11px meta and mono
+   · 12px body and titles · 13px/600 repo name.
+   ========================================================================= */
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+/* ---- the presentation page (not the product) ---- */
+body{
+  background:#7a7a7a;
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Ubuntu,Cantarell,"Helvetica Neue",Arial,sans-serif;
+  color:#141414;
+  padding:36px 24px 72px;
+  -webkit-font-smoothing:antialiased;
+}
+.sheet{max-width:780px;margin:0 auto}
+.eyebrow{font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-weight:600;color:#2b2b2b;margin-bottom:8px}
+h1{font-size:21px;font-weight:600;letter-spacing:-.01em;margin-bottom:12px}
+.rationale{font-size:14px;line-height:1.62;max-width:64ch;color:#151515}
+.rationale b{font-weight:600}
+.stage{display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start;margin-top:40px}
+.col{width:340px}
+.cap{margin-top:12px;font-size:11.5px;line-height:1.55;color:#1b1b1b;width:340px}
+.cap b{font-weight:600}
+
+/* width ruler — proof, not decoration */
+.ruler{width:340px;height:16px;position:relative;margin-bottom:8px}
+.ruler:before{content:"";position:absolute;left:0;right:0;top:7px;border-top:1px solid #3d3d3d}
+.ruler i{position:absolute;top:3px;width:1px;height:9px;background:#3d3d3d}
+.ruler i.l{left:0}.ruler i.r{right:0}
+.ruler span{position:absolute;left:50%;transform:translateX(-50%);top:0;background:#7a7a7a;padding:0 7px;
+  font:600 10px/16px ui-monospace,"SF Mono",Menlo,Consolas,"DejaVu Sans Mono",monospace;letter-spacing:.06em;color:#242424}
+
+.note{margin-top:44px;max-width:64ch;font-size:12.5px;line-height:1.6;color:#151515;border-top:1px solid #5d5d5d;padding-top:16px}
+.note h2{font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;margin-bottom:8px;color:#2b2b2b}
+.note code{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"DejaVu Sans Mono",monospace;font-size:11.5px;background:#00000018;padding:1px 4px;border-radius:2px}
+
+/* =========================================================================
+   THE PANEL. Everything below is the product.
+   ========================================================================= */
+.panel{
+  --bg-panel:#1e1e1e; --bg-raised:#252526; --bg-sunken:#2d2d30; --bg-hover:#2a2a2a;
+  --border-hairline:#2d2d30; --border-strong:#464647;
+  --text-primary:#cccccc; --text-muted:#969696; --text-dim:#6e6e6e;
+  --accent-link:#3794ff; --status-ok:#4ec9b0; --status-down:#f44336; --status-mark:#ff9800;
+  --font-ui:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Ubuntu,Cantarell,"Helvetica Neue",Arial,sans-serif;
+  --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,"DejaVu Sans Mono",monospace;
+
+  color-scheme:dark;
+  width:340px;            /* Chrome's floor is ~320px and unreadable by us. */
+  background:var(--bg-panel);
+  color:var(--text-primary);
+  font-family:var(--font-ui);
+  font-size:12px;
+  line-height:1.45;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  border-left:1px solid var(--border-strong); /* the dock seam against the page */
+}
+.panel ::selection{background:#094771;color:#ffffff}
+.panel-hero{height:940px}   /* a 1080p laptop's side-panel viewport, near enough */
+.panel-var{height:790px}
+
+/* ---- identity header · FR-4 · permanently visible, never behind a menu ---- */
+.ident{background:var(--bg-raised);border-bottom:1px solid var(--border-strong);padding:9px 12px 10px;flex:none}
+.ident-row{display:flex;align-items:center;gap:7px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--status-ok);flex:none}
+.dot.down{background:var(--status-down)}
+.repo{font-size:13px;font-weight:600;letter-spacing:-.005em;color:var(--text-primary)}
+.ident-tools{margin-left:auto;display:flex;align-items:center;gap:6px}
+.board-chip{font-family:var(--font-mono);font-size:10px;letter-spacing:.04em;color:var(--text-primary);
+  border:1px solid var(--border-strong);border-radius:2px;padding:1px 5px;background:var(--bg-panel)}
+.gly{font-size:12px;color:var(--text-muted);line-height:1;cursor:pointer;padding:2px}
+.gly:hover{color:var(--text-primary)}
+.clone{margin-top:5px;font-family:var(--font-mono);font-size:11px;color:var(--text-muted);
+  user-select:all;cursor:text;word-break:break-all}
+
+/* ---- section bars · DevTools disclosure, not tabs: nothing is hidden ---- */
+.secbar{display:flex;align-items:center;gap:7px;height:26px;padding:0 12px;flex:none;
+  background:var(--bg-raised);border-bottom:1px solid var(--border-hairline)}
+.tri{font-size:8px;color:var(--text-muted);line-height:1}
+.secname{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted)}
+.secright{margin-left:auto;display:flex;align-items:center;gap:6px;
+  font-family:var(--font-mono);font-size:10px;color:var(--text-muted)}
+.secright .dot{width:6px;height:6px}
+
+/* ---- turn log ------------------------------------------------------------ */
+.log{flex:1 1 auto;min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#4f4f52 #1e1e1e}
+.log::-webkit-scrollbar{width:8px}
+.log::-webkit-scrollbar-track{background:#1e1e1e}
+.log::-webkit-scrollbar-thumb{background:#4f4f52;border:2px solid #1e1e1e;border-radius:4px}
+
+/* a Streamed Exchange is a ROW. */
+.turn{padding:9px 12px 10px;border-bottom:1px solid var(--border-hairline)}
+.turn-you{background:var(--bg-raised)}
+.role{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-bottom:3px}
+.say{font-size:12px;line-height:1.55;color:var(--text-primary)}
+
+/* a Dispatched Command is a RECORD. Bordered, identified, terminal. */
+.rec{margin:10px 12px 12px;border:1px solid var(--border-strong);border-radius:2px;background:var(--bg-panel)}
+.rec-bar{display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--bg-sunken);
+  border-bottom:1px solid var(--border-strong)}
+.rec-tag{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}
+.rec-cid{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);user-select:all}
+.rec-stat{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:10px;color:var(--status-ok)}
+.rec-stat .dot{width:5px;height:5px;background:var(--status-ok)}
+.rec-body{padding:8px 9px 9px}
+.rec-turn{font-size:12px;line-height:1.5;color:var(--text-primary)}
+.rec-split{margin:8px -9px 8px;border-top:1px solid var(--border-hairline)}
+.rec-lab{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px}
+.rec-res{font-size:12px;line-height:1.55;color:var(--text-primary)}
+.rec-res code{font-family:var(--font-mono);font-size:11px;color:var(--text-muted)}
+
+/* ---- composer · FR-6 classification + FR-10 page context ---------------- */
+.composer{flex:none;background:var(--bg-raised);border-top:1px solid var(--border-strong);padding:9px 12px 10px}
+.ctx{border-left:1px solid var(--border-strong);padding-left:8px;margin-bottom:9px}
+.ctx-lab{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px}
+.ctx-title{font-size:12px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctx-url{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.well{background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:2px;
+  padding:7px 8px;min-height:54px;font-size:12px;line-height:1.5;color:var(--text-primary);
+  outline:1px solid var(--accent-link);outline-offset:-1px}     /* focused */
+.caret{display:inline-block;width:1px;height:13px;background:var(--text-primary);vertical-align:-2px;margin-left:1px}
+.seg{display:flex;margin-top:9px;border:1px solid var(--border-strong);border-radius:2px;
+  background:var(--bg-sunken);overflow:hidden}
+.seg-opt{flex:1;text-align:center;padding:5px 3px 4px;font-size:11px;color:var(--text-muted);
+  border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
+.seg-opt+.seg-opt{border-left:1px solid var(--border-strong)}
+.seg-opt:hover{color:var(--text-primary)}
+.seg-opt.on{background:var(--bg-panel);color:var(--text-primary);border-bottom-color:var(--accent-link)}
+.crow{display:flex;align-items:center;gap:8px;margin-top:8px}
+.why{font-size:10px;color:var(--text-muted)}
+.why code{font-family:var(--font-mono)}
+.btn{margin-left:auto;font-family:var(--font-ui);font-size:11px;color:var(--text-primary);
+  background:var(--bg-sunken);border:1px solid var(--border-strong);border-radius:2px;padding:3px 11px;cursor:pointer}
+.btn:hover{background:var(--bg-hover)}
+
+/* ---- the drawer splitter ------------------------------------------------ */
+.split{flex:none;height:5px;background:var(--bg-panel);cursor:row-resize;
+  border-top:1px solid var(--border-strong);border-bottom:1px solid var(--border-hairline)}
+
+/* ---- tickets · FR-12 grouped by Board state, Board's own order ---------- */
+.tix{flex:none;display:flex;flex-direction:column}
+.grp{display:flex;align-items:center;height:22px;padding:0 12px;background:var(--bg-panel);
+  border-bottom:1px solid var(--border-hairline)}
+.grp-n{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}
+.grp-c{margin-left:auto;font-family:var(--font-mono);font-size:10px;color:var(--text-muted)}
+.tk{padding:7px 12px 8px;border-bottom:1px solid var(--border-hairline);cursor:pointer}
+.tk:hover{background:var(--bg-hover)}
+.tk-meta{display:flex;align-items:center;gap:6px;margin-bottom:2px}
+.tk-key{font-family:var(--font-mono);font-size:11px;color:var(--accent-link)}
+.tk-sep{font-size:10px;color:var(--text-dim)}
+.tk-state{font-size:10px;color:var(--text-muted)}
+.tk-title{font-size:12px;line-height:1.4;color:var(--text-primary)}
+.more{padding:7px 12px;font-size:11px;color:var(--text-muted);border-bottom:1px solid var(--border-hairline);cursor:pointer}
+.more:hover{background:var(--bg-hover);color:var(--text-primary)}
+.more .tri{margin-right:5px}
+/* create · FR-13 · title alone is enough, the Board is never chosen */
+.prompt{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-panel);
+  border-top:1px solid var(--border-strong)}
+.prompt-ch{font-family:var(--font-mono);font-size:12px;color:var(--accent-link);line-height:1}
+.prompt-ph{font-size:11px;color:var(--text-muted)}
+.prompt-bd{margin-left:auto;font-family:var(--font-mono);font-size:10px;color:var(--text-dim)}
+
+/* ---- the one shared message · Bridge unreachable ------------------------ */
+.infobar{flex:none;background:var(--bg-sunken);border-bottom:1px solid var(--border-strong);padding:9px 12px 10px}
+.ib-head{display:flex;align-items:baseline;gap:7px}
+.ib-mark{color:var(--status-mark);font-size:10px;line-height:1.5}
+.ib-title{font-size:12px;font-weight:600;color:var(--text-primary)}
+.ib-body{font-size:11.5px;line-height:1.55;color:var(--text-primary);margin-top:4px;padding-left:17px}
+.ib-body .m{color:var(--text-muted)}
+.ib-act{margin-top:8px;padding-left:17px}
+.ib-cmd{display:block;margin-top:7px;font-family:var(--font-mono);font-size:10px;line-height:1.5;
+  color:var(--text-muted);user-select:all;cursor:text;overflow-wrap:anywhere}
+
+/* ---- the stale plane: rendered, dimmed, never emptied ------------------- */
+.stale{opacity:.42}
+.stale .tk{cursor:default}
+.stale .tk:hover,.stale .more:hover{background:transparent}
+.well-off{outline:none;border-color:var(--border-hairline);color:var(--text-dim);background:var(--bg-panel)}
+.seg-off .seg-opt{color:var(--text-dim)}
+.seg-off .seg-opt.on{background:var(--bg-panel);border-bottom-color:var(--text-dim);color:var(--text-dim)}
+.btn-off{color:var(--text-dim);background:var(--bg-panel);cursor:default}
+.btn-off:hover{background:var(--bg-panel)}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <div class="eyebrow">Sidepiece · Cockpit · Direction 1 of 4</div>
+  <h1>Chrome Native — &ldquo;it is part of the browser&rdquo;</h1>
+  <p class="rationale">
+    The Cockpit docks a few pixels from DevTools, so it is built out of the browser&rsquo;s own parts:
+    Chrome&rsquo;s UI font, VS Code&rsquo;s greys, structure from 1px rules, no shadow, no radius past 2px,
+    and not one pixel of brand. <b>Nothing here asks to be re-oriented to</b>, which is the whole claim
+    against SM-C1 &mdash; if entering the panel costs nothing, dipping in stays cheap and dwelling never
+    starts. The one place this direction must break its own rule is v2: when Sidepiece draws into
+    someone else&rsquo;s page it will read as DevTools and get dismissed by reflex, so the in-page layer
+    takes the single accent the panel itself refuses.
+  </p>
+
+  <div class="stage">
+
+    <!-- ============================ HERO ============================ -->
+    <div class="col">
+      <div class="ruler"><i class="l"></i><i class="r"></i><span>340 px</span></div>
+
+      <div class="panel panel-hero">
+
+        <!-- identity · FR-4 -->
+        <div class="ident">
+          <div class="ident-row">
+            <span class="dot"></span>
+            <span class="repo">sidepiece</span>
+            <span class="ident-tools">
+              <span class="board-chip">SIDE</span>
+              <span class="gly" title="Re-resolve">&#8635;</span>
+            </span>
+          </div>
+          <div class="clone">/home/delorenj/code/sidepiece</div>
+        </div>
+
+        <!-- chat -->
+        <div class="secbar">
+          <span class="tri">&#9660;</span>
+          <span class="secname">Chat</span>
+          <span class="secright"><span class="dot"></span>sidepiece-pm</span>
+        </div>
+
+        <div class="log">
+
+          <!-- 1 · completed Streamed Exchange -->
+          <div class="turn turn-you">
+            <div class="role">you</div>
+            <div class="say">what&rsquo;s in progress?</div>
+          </div>
+          <div class="turn">
+            <div class="role">sidepiece-pm</div>
+            <div class="say">
+              Nothing is started. All 44 tickets on SIDE are in Backlog, and the Bridge is the critical
+              path &mdash; SIDE-12, SIDE-15 and SIDE-21 all read through it.
+            </div>
+          </div>
+
+          <!-- 2 · Dispatched Command, structurally distinct -->
+          <div class="rec">
+            <div class="rec-bar">
+              <span class="rec-tag">Dispatched</span>
+              <span class="rec-cid">cid 7f2a91</span>
+              <span class="rec-stat"><span class="dot"></span>completed</span>
+            </div>
+            <div class="rec-body">
+              <div class="rec-turn">start on the resolver ticket</div>
+              <div class="rec-split"></div>
+              <div class="rec-lab">Result</div>
+              <div class="rec-res">
+                Took SIDE-12. Branch <code>feat/side-12-resolver</code> is open with the registry
+                client stubbed. Nothing merged.
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- 3 · composer · FR-6 + FR-10 -->
+        <div class="composer">
+          <div class="ctx">
+            <div class="ctx-lab">Attached to this turn</div>
+            <div class="ctx-title">sidepiece-pm &middot; Hermes Fleet</div>
+            <div class="ctx-url">hermes.delo.sh/agents/sidepiece-pm</div>
+          </div>
+
+          <div class="well">add a re-resolve control to the Bridge-unreachable state<span class="caret"></span></div>
+
+          <div class="seg">
+            <div class="seg-opt">Streamed Exchange</div>
+            <div class="seg-opt on">Dispatched Command</div>
+          </div>
+
+          <div class="crow">
+            <span class="why">Classified on the verb <code>add</code>.</span>
+            <span class="btn">Send</span>
+          </div>
+        </div>
+
+        <div class="split"></div>
+
+        <!-- tickets · FR-12 / FR-13 -->
+        <div class="secbar">
+          <span class="tri">&#9660;</span>
+          <span class="secname">Tickets</span>
+          <span class="secright">read 12s ago <span class="gly">&#8635;</span></span>
+        </div>
+
+        <div class="tix">
+          <div class="grp"><span class="grp-n">Backlog</span><span class="grp-c">44</span></div>
+
+          <div class="tk">
+            <div class="tk-meta"><span class="tk-key">SIDE-12</span><span class="tk-sep">&middot;</span><span class="tk-state">Backlog</span></div>
+            <div class="tk-title">Project Resolution: registry + pjid resolve</div>
+          </div>
+          <div class="tk">
+            <div class="tk-meta"><span class="tk-key">SIDE-15</span><span class="tk-sep">&middot;</span><span class="tk-state">Backlog</span></div>
+            <div class="tk-title">Plane ticket proxy</div>
+          </div>
+          <div class="tk">
+            <div class="tk-meta"><span class="tk-key">SIDE-21</span><span class="tk-sep">&middot;</span><span class="tk-state">Backlog</span></div>
+            <div class="tk-title">Hermes chat relay</div>
+          </div>
+          <div class="tk">
+            <div class="tk-meta"><span class="tk-key">SIDE-27</span><span class="tk-sep">&middot;</span><span class="tk-state">Backlog</span></div>
+            <div class="tk-title">Extension shell and Cockpit</div>
+          </div>
+
+          <div class="more"><span class="tri">&#9660;</span>40 more in Backlog</div>
+
+          <div class="prompt">
+            <span class="prompt-ch">&gt;</span>
+            <span class="prompt-ph">New ticket title, then Enter</span>
+            <span class="prompt-bd">SIDE</span>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="cap">
+        <b>Hero — resolved on Sidepiece itself.</b> The structural bet: <b>a Streamed Exchange is a row,
+        a Dispatched Command is a record.</b> One is conversation, the other is an object with an id and a
+        terminal status, so they are different kinds of thing on the page rather than the same bubble in a
+        different colour. No chat bubbles anywhere &mdash; bubbles are what a visiting app looks like.
+      </div>
+    </div>
+
+    <!-- ========================= STATE VARIANT ======================== -->
+    <div class="col">
+      <div class="ruler"><i class="l"></i><i class="r"></i><span>340 px</span></div>
+
+      <div class="panel panel-var">
+
+        <div class="ident">
+          <div class="ident-row">
+            <span class="dot down"></span>
+            <span class="repo">sidepiece</span>
+            <span class="ident-tools">
+              <span class="board-chip">SIDE</span>
+              <span class="gly" title="Re-resolve">&#8635;</span>
+            </span>
+          </div>
+          <div class="clone">/home/delorenj/code/sidepiece</div>
+        </div>
+
+        <!-- ONE shared message. Chrome's own infobar, doing exactly the job UJ-3 asks for. -->
+        <div class="infobar">
+          <div class="ib-head">
+            <span class="ib-mark">&#9650;</span>
+            <span class="ib-title">Bridge unreachable</span>
+          </div>
+          <div class="ib-body">
+            The laptop is on the tailnet; <span class="m">big-chungus</span> is not answering.
+            Everything below is the last good read, from two minutes ago.
+          </div>
+          <div class="ib-act">
+            <span class="btn" style="margin-left:0">Re-resolve</span>
+            <span class="ib-cmd">ssh big-chungus systemctl --user status sidepiece-bridge</span>
+          </div>
+        </div>
+
+        <div class="secbar">
+          <span class="tri">&#9660;</span>
+          <span class="secname">Chat</span>
+          <span class="secright" style="color:#6e6e6e"><span class="dot" style="background:#6e6e6e"></span>sidepiece-pm</span>
+        </div>
+
+        <div class="log stale">
+          <div class="turn turn-you">
+            <div class="role">you</div>
+            <div class="say">start on the resolver ticket</div>
+          </div>
+          <div class="turn">
+            <div class="role">sidepiece-pm</div>
+            <div class="say">Took SIDE-12. Branch is open with the registry client stubbed.</div>
+          </div>
+        </div>
+
+        <div class="composer">
+          <div class="ctx" style="border-color:#2d2d30">
+            <div class="ctx-lab" style="color:#6e6e6e">Attached to this turn</div>
+            <div class="ctx-title" style="color:#6e6e6e">sidepiece-pm &middot; Hermes Fleet</div>
+            <div class="ctx-url" style="color:#6e6e6e">hermes.delo.sh/agents/sidepiece-pm</div>
+          </div>
+
+          <div class="well well-off">add a re-resolve control to the Bridge-unreachable state</div>
+          <div class="seg seg-off">
+            <div class="seg-opt">Streamed Exchange</div>
+            <div class="seg-opt on">Dispatched Command</div>
+          </div>
+          <div class="crow">
+            <span class="why" style="color:#6e6e6e">Draft held.</span>
+            <span class="btn btn-off">Send</span>
+          </div>
+        </div>
+
+        <div class="split"></div>
+
+        <div class="secbar">
+          <span class="tri">&#9660;</span>
+          <span class="secname">Tickets</span>
+          <span class="secright" style="color:#6e6e6e">read 2 min ago</span>
+        </div>
+
+        <div class="tix stale">
+          <div class="grp"><span class="grp-n">Backlog</span><span class="grp-c">44</span></div>
+          <div class="tk">
+            <div class="tk-meta"><span class="tk-key">SIDE-12</span><span class="tk-sep">&middot;</span><span class="tk-state">Backlog</span></div>
+            <div class="tk-title">Project Resolution: registry + pjid resolve</div>
+          </div>
+          <div class="tk">
+            <div class="tk-meta"><span class="tk-key">SIDE-15</span><span class="tk-sep">&middot;</span><span class="tk-state">Backlog</span></div>
+            <div class="tk-title">Plane ticket proxy</div>
+          </div>
+          <div class="more"><span class="tri">&#9660;</span>42 more in Backlog</div>
+          <div class="prompt">
+            <span class="prompt-ch" style="color:#6e6e6e">&gt;</span>
+            <span class="prompt-ph" style="color:#6e6e6e">New ticket title, then Enter</span>
+            <span class="prompt-bd">SIDE</span>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="cap">
+        <b>Variant — Bridge unreachable.</b> This is the state this direction has the most to say about,
+        because UJ-3 asks for <b>one shared message across every pane</b> and Chrome already has that
+        component: the infobar. It states which half of the tailnet is at fault, hands over the exact
+        check command as selectable text, and carries the re-resolve control. The panes below are not
+        emptied and not spun &mdash; they hold the last good read at 42% and the draft survives, so the
+        failure costs you nothing you had.
+      </div>
+    </div>
+
+  </div>
+
+  <div class="note">
+    <h2>The v2 question, answered</h2>
+    <p>
+      Looking like browser chrome is right <em>inside</em> the dock and wrong <em>outside</em> it. When the
+      annotation layer draws a hover outline into a page Jarad does not own, DevTools&rsquo; inspect overlay
+      is already using that exact language on that exact pixel &mdash; and he runs DevTools constantly, so a
+      grey-and-blue outline is one he dismisses by reflex and cannot attribute. <b>So the rule is: no brand
+      in the panel, one hue in the page.</b> <code>#ff9800</code> is held in reserve for the in-page layer
+      alone &mdash; still drawn from the same neutral kit, deliberately not DevTools&rsquo; blue, and the only
+      colour in the product that means &ldquo;Sidepiece drew this.&rdquo; The invisibility is the panel&rsquo;s
+      job, not the overlay&rsquo;s.
+    </p>
+  </div>
+
+</div>
+</body>
+</html>
