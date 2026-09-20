@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sidepiece — Direction: 33GOD Inherited</title>
+<style>
+/* ============================================================================
+   DIRECTION: 33GOD INHERITED  —  "it belongs to the platform"
+   Sidepiece Cockpit, Chrome MV3 side panel, honest width 340px
+   Rendered 2026-09-20 for the bmad-ux coaching path.
+
+   TOKEN TABLE — lift straight into DESIGN.md.
+   Contrast ratios computed against --surface-pane #121a2d unless noted.
+
+   SURFACE  (inherited verbatim from holocene/apps/web/app/globals.css :root,
+             shipped 2026-09-13 — the navy hue IS the fleet signature)
+     --surface-base     #0b1020   panel ground, group headers
+     --surface-pane     #121a2d   pane bodies, composer
+     --surface-raised   #172036   active segment, hovered row, chips
+     --surface-machine  #07111f   machine wells: dispatch receipts, page context
+     --line             #26324d   1px structure. every edge in this design.
+     --line-hairline    #141c33   intra-group rules (row to row)
+
+   TEXT
+     --text             #eef3ff   15.2:1   human prose, ticket titles
+     --muted            #9aa8c7    7.3:1   machine data, secondary prose
+     --muted-chrome     #7c89a6    4.9:1   static 10.5px chrome labels.
+                                           THE DIM FLOOR — nothing dimmer ships.
+
+   STATE  (hue appears ONLY on a badge/row/cell stating state — never on chrome)
+     --state-ok         #6b7793   glyph  U+2500  steady. OK is grey.
+     --state-run        #7fb0ff    8.0:1  glyph  U+25AA  in flight / interactive
+     --state-degraded   #ffd166   12.6:1  glyph  U+25B2  working, but worse
+     --state-fail       #ff7a90    7.0:1  glyph  U+25C6  not answering / failed
+     --state-done       #69d3a5    9.5:1  glyph  U+25CF  terminal completed.
+                                           Green means EXACTLY one thing.
+
+   GEOMETRY   radius 8px default / 6px chips / 999px none used.
+              Zero shadows, zero gradients — layering is background lightness
+              plus 1px --line. Inherited law, unchanged.
+              Type scale: 10.5 static chrome / 11.5 machine data /
+              12.5 body / 13 identity + operator voice.
+              Density comes from leading (1.5-1.62), never from smaller type.
+
+   DROPPED FROM THE INHERITANCE (the 2026-09-06 Holocene audit called its
+   stylesheet "three unreconciled palettes in one file" — this is the one that
+   survived, and what went):
+     x  the rgba-white neutral ramp governing the Systems tab
+        (globals.css:1203-1579) — it is a second greyscale with no navy in it
+     x  the Catppuccin accent set #8aadf4 / #ed8796 / #a6da95 / #f5a97f
+        — a fourth blue, a second red, a second green. All four gone.
+     x  --panel-2 #172036 kept, but renamed --surface-raised and given one job
+     x  rung hues #ff5f6d (blocked) and #ff9152 (broken) from the unshipped
+        Sept ladder — they are a third red and a second orange. --state-fail
+        #ff7a90 covers both; Sidepiece has no six-rung queue.
+     x  rung hue "nudge" — its hex #7fb0ff is PROMOTED out of the ladder to be
+        the single interactive accent (links, focus, active segment). This is
+        the one law amended: a rung hue may not touch chrome, so it stopped
+        being a rung.
+     x  muted tier #5d6b8a — measured 3.6:1 on #0b1020, under the fleet's own
+        "10.5px chrome at >=4.5:1" rule. #7c89a6 is the floor.
+     x  Inter. Declared in Holocene for a year and loaded nowhere; banned by
+        name in Dompacolypse's DESIGN.md as "the default safe font. Zero
+        character."
+
+   TYPE STACK — and why it actually renders, unlike the one it replaces.
+   ============================================================================ */
+
+:root{
+  /* First name is what the extension SHIPS: the 33GOD September redesign's
+     family, bundled in the MV3 package as a woff2 behind an @font-face on a
+     chrome-extension:// URL. No network, no CSP exception, no Google Fonts.
+     That packaging step is the whole reason Holocene's type system was fiction
+     and this one is not — Next never got an @font-face, an extension always can.
+     Second name is what is VERIFIED INSTALLED on this machine today
+     (fc-match, 2026-09-20): IBM Plex is absent, so THIS MOCK renders in
+     Noto Sans and Cascadia Code. Both are named on purpose so the page never
+     falls silently to a metric-different default. */
+  --sans: "IBM Plex Sans", "Noto Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", "Cascadia Code", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+  --surface-base:#0b1020;
+  --surface-pane:#121a2d;
+  --surface-raised:#172036;
+  --surface-machine:#07111f;
+  --line:#26324d;
+  --line-hairline:#141c33;
+  --text:#eef3ff;
+  --muted:#9aa8c7;
+  --muted-chrome:#7c89a6;
+  --state-ok:#6b7793;
+  --state-run:#7fb0ff;
+  --state-degraded:#ffd166;
+  --state-fail:#ff7a90;
+  --state-done:#69d3a5;
+}
+
+/* ---- the grey proving ground (not part of the design) -------------------- */
+html,body{margin:0;padding:0}
+body{
+  background:#8b8b8b;
+  color:#16181c;
+  font-family:var(--sans);
+  font-size:14px;
+  line-height:1.55;
+  padding:28px 16px 48px;
+  -webkit-font-smoothing:antialiased;
+}
+.sheet{max-width:1180px;margin:0 auto}
+.eyebrow{
+  font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:#33373d;margin-bottom:6px;
+}
+h1{font-size:24px;line-height:1.15;margin:0 0 10px;letter-spacing:-.015em;font-weight:650}
+h1 .sub{display:block;font-size:13px;font-weight:400;color:#2c3036;letter-spacing:0;margin-top:5px}
+.rationale{max-width:74ch;margin:0 0 6px;font-size:14px;color:#14161a}
+.rationale + .rationale{margin-top:10px}
+.rationale b{font-weight:650}
+.rule{height:1px;background:#6f6f6f;margin:22px 0 24px;max-width:1180px}
+
+.stage{display:flex;flex-wrap:wrap;gap:34px;align-items:flex-start}
+figure{margin:0}
+figcaption{
+  width:340px;margin-top:10px;font-size:11.5px;line-height:1.5;color:#1d2025;
+}
+figcaption strong{display:block;font-size:10.5px;letter-spacing:.12em;
+  text-transform:uppercase;color:#33373d;margin-bottom:4px}
+figcaption code{font-family:var(--mono);font-size:10.5px;background:#7c7c7c;
+  padding:0 3px;border-radius:3px}
+.stack{display:flex;flex-direction:column;gap:34px}
+.ruler{
+  width:340px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;
+  color:#2a2d32;border-top:1px solid #6f6f6f;padding-top:4px;margin-bottom:8px;
+  display:flex;justify-content:space-between;
+}
+
+/* ---- THE COCKPIT --------------------------------------------------------- */
+.cockpit{
+  color-scheme:dark;                 /* inherited: dark-first, no light mode */
+  width:340px;                       /* honest: Chrome's floor is ~320 and the
+                                        extension can neither read nor set it */
+  box-sizing:border-box;
+  background:var(--surface-base);
+  border:1px solid var(--line);
+  border-radius:8px;
+  overflow:hidden;
+  font-family:var(--sans);
+  font-size:12.5px;
+  line-height:1.55;
+  color:var(--text);
+}
+.cockpit *{box-sizing:border-box}
+
+/* identity header — FR-4, permanently visible, never behind a menu */
+.idhead{background:var(--surface-machine);border-bottom:1px solid var(--line);padding:11px 12px 9px}
+.idrow{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.repo{font-size:13px;font-weight:650;letter-spacing:-.01em}
+.board-chip{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted);
+  border:1px solid var(--line);border-radius:6px;padding:2px 7px;background:var(--surface-pane);
+}
+.path{
+  display:block;margin-top:7px;font-family:var(--mono);font-size:11.5px;
+  color:var(--muted);user-select:all;-webkit-user-select:all;word-break:break-all;
+}
+.statusrow{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  margin-top:9px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted-chrome);
+}
+.statusrow .mono{font-family:var(--mono);letter-spacing:.04em;text-transform:none}
+.ctl{
+  font-family:var(--sans);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--state-run);background:transparent;border:1px solid var(--line);
+  border-radius:6px;padding:3px 8px;cursor:default;
+}
+
+/* pane labels */
+.pane-label{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:9px 12px;background:var(--surface-base);
+  border-bottom:1px solid var(--line);
+  font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted-chrome);
+}
+.pane-label .agent{font-family:var(--mono);letter-spacing:.04em;text-transform:none;color:var(--muted)}
+.pane{background:var(--surface-pane)}
+
+/* turns */
+.turn{padding:12px;border-bottom:1px solid var(--line-hairline)}
+.who{
+  display:flex;justify-content:space-between;gap:8px;margin-bottom:5px;
+  font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted-chrome);
+}
+.who .t{font-family:var(--mono);letter-spacing:.04em;text-transform:none}
+.say{font-size:13px;line-height:1.5;color:var(--text)}
+.reply{font-size:12.5px;line-height:1.62;color:var(--text)}
+.key{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.streammeta{margin-top:9px;font-family:var(--mono);font-size:10.5px;color:var(--muted-chrome)}
+
+/* dispatched command — machine register, deliberately NOT a message */
+.receipt{
+  margin-top:9px;background:var(--surface-machine);border:1px solid var(--line);
+  border-radius:8px;padding:9px 10px;font-family:var(--mono);font-size:11.5px;
+  font-variant-numeric:tabular-nums;color:var(--muted);
+}
+.receipt .rhead .cid{text-transform:none;letter-spacing:.04em;color:var(--muted)}
+.receipt .rhead{
+  display:flex;justify-content:space-between;gap:8px;
+  font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted-chrome);
+  padding-bottom:7px;margin-bottom:7px;border-bottom:1px solid var(--line-hairline);
+}
+.receipt .subject{color:var(--muted);word-break:break-all;display:block;margin-bottom:6px}
+.receipt .line{display:flex;justify-content:space-between;gap:8px;padding:1px 0}
+.g{font-family:var(--mono);display:inline-block;min-width:11px}
+.ok{color:var(--state-ok)}
+.run{color:var(--state-run)}
+.deg{color:var(--state-degraded)}
+.bad{color:var(--state-fail)}
+.done{color:var(--state-done)}
+
+/* composer */
+.composer{background:var(--surface-pane);border-top:1px solid var(--line);padding:11px 12px 12px}
+.ctx{
+  background:var(--surface-machine);border:1px solid var(--line);border-radius:8px;
+  padding:7px 9px;margin-bottom:9px;
+}
+.ctx .chead{
+  display:flex;justify-content:space-between;gap:8px;
+  font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted-chrome);
+  margin-bottom:5px;
+}
+.ctx .ctitle{font-size:11.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctx .curl{font-family:var(--mono);font-size:10.5px;color:var(--muted-chrome);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.field{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  background:var(--surface-base);border:1px solid var(--line);border-radius:8px;
+  padding:10px 11px;min-height:40px;font-size:12.5px;color:var(--muted-chrome);
+}
+.field .hint{font-family:var(--mono);font-size:10.5px;color:var(--muted-chrome);white-space:nowrap}
+.seg{display:flex;margin-top:9px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg span{
+  flex:1 1 50%;text-align:center;padding:8px 4px;font-size:11.5px;letter-spacing:.01em;
+}
+.seg .on{background:var(--surface-raised);color:var(--text)}
+.seg .off{color:var(--muted-chrome);border-left:1px solid var(--line)}
+.cap{margin-top:7px;font-size:10.5px;line-height:1.45;color:var(--muted-chrome)}
+
+/* tickets */
+.grp{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:8px 12px;background:var(--surface-base);
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line-hairline);
+  font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted-chrome);
+}
+.grp .read{font-family:var(--mono);letter-spacing:.04em;text-transform:none}
+.tk{padding:10px 12px;border-bottom:1px solid var(--line-hairline);background:var(--surface-pane)}
+.tk-top{display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:11.5px}
+.tk-key{color:var(--state-run)}
+.tk-state{color:var(--state-ok);white-space:nowrap}
+.tk-title{margin-top:4px;font-size:12.5px;line-height:1.45;color:var(--text)}
+.more{padding:9px 12px;display:flex;justify-content:space-between;gap:8px;
+  background:var(--surface-pane);border-bottom:1px solid var(--line);
+  font-size:11.5px;color:var(--muted-chrome)}
+.link{color:var(--state-run)}   /* blue = you can click it. nothing else is blue. */
+.create{padding:11px 12px 13px;background:var(--surface-pane)}
+
+/* failure surfaces */
+.shared{
+  background:var(--surface-pane);border-bottom:1px solid var(--line);padding:13px 12px 12px;
+}
+.shared .hl{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.4;color:var(--text)}
+.shared p{margin:8px 0 0;font-size:12.5px;line-height:1.55;color:var(--muted)}
+.shared .fix{
+  margin-top:10px;font-family:var(--mono);font-size:11.5px;color:var(--muted);
+  background:var(--surface-machine);border:1px solid var(--line);border-radius:8px;padding:8px 9px;
+  user-select:all;-webkit-user-select:all;
+}
+.shared .acts{display:flex;gap:8px;align-items:center;margin-top:10px}
+.echo{
+  padding:11px 12px;background:var(--surface-pane);border-bottom:1px solid var(--line-hairline);
+  font-size:12.5px;color:var(--muted);display:flex;gap:8px;align-items:flex-start;
+}
+.held{
+  margin-top:9px;font-size:10.5px;letter-spacing:.02em;color:var(--muted-chrome);
+}
+.field.dim{color:var(--muted);background:var(--surface-machine)}
+
+/* warming — an explicit measured wait, not a spinner */
+.wait{padding:12px;background:var(--surface-pane);border-bottom:1px solid var(--line-hairline)}
+.wait .row{display:flex;justify-content:space-between;gap:8px;font-family:var(--mono);
+  font-size:11.5px;font-variant-numeric:tabular-nums;color:var(--muted);padding:2px 0}
+.wait .row .lbl{color:var(--text);font-family:var(--sans);font-size:12.5px}
+.track{position:relative;height:6px;margin:11px 0 5px;background:var(--surface-machine);
+  border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.track .fill{position:absolute;left:0;top:0;bottom:0;width:35%;background:var(--state-degraded);opacity:.55}
+.track .tick{position:absolute;top:-1px;bottom:-1px;width:1px;background:var(--line)}
+.scale{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;
+  color:var(--muted-chrome);font-variant-numeric:tabular-nums}
+.wait p{margin:9px 0 0;font-size:12.5px;line-height:1.5;color:var(--muted)}
+
+/* page footer notes */
+.notes{max-width:1180px;margin:34px auto 0;display:flex;flex-wrap:wrap;gap:30px}
+.note{flex:1 1 320px;min-width:300px}
+.note h2{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#33373d;margin:0 0 8px}
+.note ul{margin:0;padding-left:16px;font-size:12.5px;line-height:1.55;color:#14161a}
+.note li{margin-bottom:6px}
+.note code{font-family:var(--mono);font-size:11px;background:#7c7c7c;padding:0 3px;border-radius:3px}
+</style>
+</head>
+<body>
+
+<div class="sheet">
+  <div class="eyebrow">bmad-ux · sidepiece · direction 3 of 4</div>
+  <h1>33GOD Inherited
+    <span class="sub">"it belongs to the platform" — Holocene's navy, Holocene's 1px structure, Holocene's severity language, with its two known defects fixed instead of copied.</span>
+  </h1>
+  <p class="rationale">Sidepiece is the fourth surface in a fleet, not a new product, so it wears Holocene's shipped navy verbatim — the same <b>#0b1020</b> ground, the same structure built from 1px <b>#26324d</b> borders, the same zero shadows — and finally uses the severity language Holocene designed in September and never shipped: <b>a hue never appears without its glyph, and green means exactly one thing.</b></p>
+  <p class="rationale">The two inherited defects are handled, not reproduced. Holocene's own audit calls its stylesheet "three unreconciled palettes in one file", so the rgba-white neutral ramp and the whole Catppuccin accent set are dropped and one navy ramp governs every pixel here; and the type system stops being fiction — Inter is gone (you banned it by name as "the default safe font. Zero character.") and an MV3 extension can bundle IBM Plex as a packaged woff2, which is exactly the <code>@font-face</code> Holocene's Next app never got.</p>
+  <p class="rationale">The argument is boring on purpose: open Sidepiece and Holocene in adjacent tabs and there should be no question they came out of the same shop.</p>
+  <div class="rule"></div>
+</div>
+
+<main class="stage">
+
+  <!-- ================= HERO ================= -->
+  <figure>
+    <div class="ruler"><span>0</span><span>340 px — honest panel width</span></div>
+
+    <div class="cockpit">
+
+      <!-- FR-4 identity, permanently visible -->
+      <div class="idhead">
+        <div class="idrow">
+          <span class="repo">sidepiece</span>
+          <span class="board-chip">SIDE</span>
+        </div>
+        <span class="path">/home/delorenj/code/sidepiece</span>
+        <div class="statusrow">
+          <span><span class="g ok">&#9472;</span> bridge ok <span class="mono">· 38ms</span></span>
+          <span class="ctl">re-resolve</span>
+        </div>
+      </div>
+
+      <!-- CHAT -->
+      <div class="pane-label"><span>PM</span><span class="agent">sidepiece-pm</span></div>
+
+      <div class="pane">
+        <!-- Turn 1: completed Streamed Exchange -->
+        <div class="turn">
+          <div class="who"><span>you</span><span class="t">11:34</span></div>
+          <div class="say">what's in progress?</div>
+        </div>
+        <div class="turn">
+          <div class="who"><span>sidepiece-pm</span><span class="t">11:34</span></div>
+          <div class="reply">Nothing is in progress — all 44 tickets on SIDE are still in Backlog. The Bridge is the critical path: <span class="key">SIDE-12</span> and <span class="key">SIDE-21</span> both sit behind it, so it is the first thing worth starting.</div>
+          <div class="streammeta"><span class="g ok">&#9472;</span> streamed · first token 2.4s · 31 tokens</div>
+        </div>
+
+        <!-- Turn 2: Dispatched Command, visibly not a stream -->
+        <div class="turn">
+          <div class="who"><span>you</span><span class="t">11:36</span></div>
+          <div class="say">start on the resolver ticket</div>
+          <div class="receipt">
+            <div class="rhead"><span>dispatched</span><span class="cid">cid 7f2a91</span></div>
+            <span class="subject">bloodbank.cmd.agent.invocation.start</span>
+            <div class="line"><span><span class="g run">&#9642;</span> acknowledged</span><span>0.8s</span></div>
+            <div class="line"><span><span class="g done">&#9679;</span> completed</span><span>11:37</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- composer at rest -->
+      <div class="composer">
+        <div class="ctx">
+          <div class="chead"><span>context attached</span><span class="link">hide</span></div>
+          <div class="ctitle">SIDE-12 Project Resolution: registry + pjid resolve</div>
+          <div class="curl">plane.delo.sh/33god/browse/SIDE-12</div>
+        </div>
+
+        <div class="field">
+          <span>Message sidepiece-pm</span>
+          <span class="hint">&#8629; send</span>
+        </div>
+
+        <div class="seg">
+          <span class="on"><span class="g run">&#9642;</span> Streamed Exchange</span>
+          <span class="off">Dispatched Command</span>
+        </div>
+        <div class="cap">Classified from your text before it sends. Tap the other side to flip it — the flip holds for this Turn only.</div>
+      </div>
+
+      <!-- TICKETS -->
+      <div class="pane-label"><span>Board</span><span class="agent">SIDE · 44 tickets</span></div>
+
+      <div class="grp"><span>Backlog &middot; 44</span><span class="read">read 11:34 · <span class="link">refetch</span></span></div>
+
+      <div class="tk">
+        <div class="tk-top"><span class="tk-key">SIDE-12</span><span class="tk-state"><span class="g ok">&#9472;</span> Backlog</span></div>
+        <div class="tk-title">Project Resolution: registry + pjid resolve</div>
+      </div>
+      <div class="tk">
+        <div class="tk-top"><span class="tk-key">SIDE-15</span><span class="tk-state"><span class="g ok">&#9472;</span> Backlog</span></div>
+        <div class="tk-title">Plane ticket proxy</div>
+      </div>
+      <div class="tk">
+        <div class="tk-top"><span class="tk-key">SIDE-21</span><span class="tk-state"><span class="g ok">&#9472;</span> Backlog</span></div>
+        <div class="tk-title">Hermes chat relay</div>
+      </div>
+      <div class="tk">
+        <div class="tk-top"><span class="tk-key">SIDE-27</span><span class="tk-state"><span class="g ok">&#9472;</span> Backlog</span></div>
+        <div class="tk-title">Extension shell and Cockpit</div>
+      </div>
+
+      <div class="more"><span>40 more in Backlog</span><span class="link">open SIDE in Plane &#8594;</span></div>
+
+      <div class="create">
+        <div class="field"><span>New Ticket</span><span class="hint">&#8629; create</span></div>
+        <div class="cap">A title is enough. It lands on SIDE in Backlog.</div>
+      </div>
+
+    </div>
+
+    <figcaption><strong>Hero — resolved, everything answering</strong>
+      Measured 1,230px tall as drawn. A 900px browser window gives the side panel roughly 810px, so the fold lands on the <code>BOARD</code> label &mdash; chat above it, tickets one scroll down. The identity header and both pane labels stick, and the Board state is repeated on every row rather than only in the group header, because once the header scrolls off, the state is not worth holding in your head. Steady state carries almost no colour at all: <code>OK is grey</code>, and the only blue is something you can click.
+    </figcaption>
+  </figure>
+
+  <!-- ================= VARIANTS ================= -->
+  <div class="stack">
+
+    <figure>
+      <div class="ruler"><span>0</span><span>340 px — same width, there is only one</span></div>
+
+      <div class="cockpit">
+        <div class="idhead">
+          <div class="idrow">
+            <span class="repo">sidepiece</span>
+            <span class="board-chip">SIDE</span>
+          </div>
+          <span class="path">/home/delorenj/code/sidepiece</span>
+          <div class="statusrow">
+            <span><span class="g bad">&#9670;</span> bridge unreachable</span>
+            <span class="mono">cached 11:34</span>
+          </div>
+        </div>
+
+        <!-- ONE shared message. Not per-pane invention. -->
+        <div class="shared">
+          <div class="hl"><span class="g bad">&#9670;</span><span>The Bridge is not answering.</span></div>
+          <p>This laptop is off the tailnet, so <span class="key">big-chungus</span> is not implicated — the fix is on this end. Everything below is the last resolution, read at 11:34.</p>
+          <div class="fix">tailscale up</div>
+          <div class="acts"><span class="ctl">re-resolve</span><span class="cap" style="margin:0">Retries on its own every 15s.</span></div>
+        </div>
+
+        <div class="pane-label"><span>PM</span><span class="agent">sidepiece-pm</span></div>
+        <div class="echo"><span class="g bad">&#9670;</span><span>The Bridge is not answering.</span></div>
+
+        <div class="composer" style="border-top:none">
+          <div class="ctx">
+            <div class="chead"><span>context attached</span><span class="link">hide</span></div>
+            <div class="ctitle">SIDE-12 Project Resolution: registry + pjid resolve</div>
+            <div class="curl">plane.delo.sh/33god/browse/SIDE-12</div>
+          </div>
+          <div class="field dim"><span>start on the resolver tic</span><span class="hint">held</span></div>
+          <div class="held">Your text is kept. Nothing was sent.</div>
+        </div>
+
+        <div class="pane-label"><span>Board</span><span class="agent">SIDE</span></div>
+        <div class="echo" style="border-bottom:none"><span class="g bad">&#9670;</span><span>The Bridge is not answering.</span></div>
+      </div>
+
+      <figcaption><strong>Variant — Bridge unreachable</strong>
+        The total outage, so it gets <em>one</em> sentence and both panes repeat it word for word rather than each inventing its own failure. The fact comes first, then the fix, then the command as selectable mono. Cached identity is labelled <code>cached 11:34</code> instead of quietly passing for live, and the draft is held rather than lost.
+      </figcaption>
+    </figure>
+
+    <figure>
+      <div class="ruler"><span>0</span><span>340 px — chat pane detail</span></div>
+
+      <div class="cockpit">
+        <div class="pane-label"><span>PM</span><span class="agent">sidepiece-pm · cold</span></div>
+        <div class="turn">
+          <div class="who"><span>you</span><span class="t">09:02</span></div>
+          <div class="say">what's in progress?</div>
+        </div>
+        <div class="wait">
+          <div class="row"><span class="lbl"><span class="g run">&#9642;</span> the PM has your turn</span><span>0.4s</span></div>
+          <div class="row"><span class="lbl"><span class="g deg">&#9650;</span> warming up the PM</span><span>0:06</span></div>
+          <div class="track">
+            <div class="fill"></div>
+            <div class="tick" style="left:41%"></div>
+            <div class="tick" style="left:99%"></div>
+          </div>
+          <div class="scale"><span>0s</span><span>7.1s</span><span>17.1s</span></div>
+          <p>A cold session has no budget. Measured, it lands between 7.1 and 17.1 seconds — the longest wait in the product.</p>
+        </div>
+      </div>
+
+      <figcaption><strong>Variant — cold start</strong>
+        The one wait long enough that a spinner would be a lie. Both literal states are shown in sequence and stay on screen: acceptance is a fact that already happened, warming is the one still running, and the track is the measured 7.1–17.1s window with elapsed time against it. Yellow appears, and it brings its triangle with it.
+      </figcaption>
+    </figure>
+
+  </div>
+</main>
+
+<div class="notes">
+  <div class="note">
+    <h2>What it inherits, unchanged</h2>
+    <ul>
+      <li>The navy ramp itself — <code>#0b1020</code> / <code>#121a2d</code> / <code>#26324d</code> / <code>#eef3ff</code> / <code>#9aa8c7</code>, straight out of shipped <code>globals.css</code>. Deep navy, never neutral black; the hue is the signature.</li>
+      <li>8px radius, 6px on chips, and <strong>zero shadows</strong> — layering is background lightness plus a 1px border, nothing else.</li>
+      <li>"Sans for people, mono for machines, never mixed inside one value." The dispatch receipt is entirely machine register; the PM's answer is entirely human.</li>
+      <li>"Density comes from leading, not from shrinking type" — 12.5px body at 1.62 line-height, and 10.5px used only for static chrome that meets 4.5:1.</li>
+    </ul>
+  </div>
+  <div class="note">
+    <h2>What it refuses to inherit</h2>
+    <ul>
+      <li>The rgba-white ramp and the Catppuccin set <code>#8aadf4 #ed8796 #a6da95 #f5a97f</code>. One palette or it happens again.</li>
+      <li>Inter, and the 8-scale type system that never rendered. First name in the stack is the family the extension bundles; second name is verified installed on this machine today.</li>
+      <li>The six-rung ladder. Sidepiece has four states worth a hue, so <code>#ff5f6d</code> and <code>#ff9152</code> go and <code>#ff7a90</code> covers failure alone.</li>
+      <li><code>#5d6b8a</code> — 3.6:1 on the base. The fleet's own rule kills it; <code>#7c89a6</code> is the dim floor.</li>
+      <li>Blue is amended out of the ladder into the single interactive accent, which is the only way the law "no rung hue on chrome or controls" survives contact with a panel that has links in it.</li>
+    </ul>
+  </div>
+  <div class="note">
+    <h2>What 340px actually costs</h2>
+    <ul>
+      <li>Nothing was cut. The clone path measures 193px at 11.5px mono in a 314px content box &mdash; about 120px to spare, so it stays one selectable line.</li>
+      <li>The page title is the only truncation in the design — one line with an ellipsis, with the URL beneath it whole, because the URL is the part that disambiguates.</li>
+      <li>Ticket rows go two lines rather than truncating: key and state on the chrome line, title in full below. Four rows cost 210px; the other 40 stay in Plane.</li>
+      <li>The classifier fits as two labelled halves at 11.5px with both literal values visible — no dropdown, no icon standing in for a word.</li>
+      <li>The honest loss is vertical: chat and Board cannot both be on screen. The Board is below the fold in steady state, which is the right answer for a product whose counter-metric is time spent in the panel.</li>
+    </ul>
+  </div>
+</div>
+
+</body>
+</html>
