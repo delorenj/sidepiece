@@ -1700,17 +1700,27 @@ discovery to confirmation.]`
   The direction's answer is that the seam *is* the semantics: a sheet laid **on** the page is
   supposed to look laid on, and a panel that blends into the chrome would be camouflage. This
   spine records the trade and does not re-open it.
-- **What dark mode is remains open, and it is `DESIGN.md`'s to answer**, not this spine's.
-  The direction ships one ground; the pick's own carried tensions list "DESIGN.md must still
-  answer what dark mode is" as unresolved. It is **Gaps** item 3. Two things are behavioral
-  and hold whichever way it lands: the Cockpit honors `prefers-color-scheme` and the live
-  `change` event rather than sampling once at load, and **`{colors.overlay.signature}` must
-  survive both grounds unchanged** — the register's whole job is being recognizable on
-  someone else's page, so a signature that needs a theme to be legible is not a signature.
-- A manual theme override is **not** built in v1 `[ASSUMPTION: a single operator on a single
-  machine does not need a per-surface theme switch, and one is a preference screen the
-  product otherwise does not have. If the light ground proves wrong in daily use, the fix is
-  a token-set swap in `DESIGN.md`, not a control in the Cockpit.]`
+- **What dark mode is was answered on 2026-09-20: a dark variant in the same register.**
+  `prefers-color-scheme: dark` renders **Night Paper** — the paper dimmed, never inverted.
+  `DESIGN.md` owns the values; the two constraints this spine set both held. The Cockpit
+  **honors `prefers-color-scheme` and the live `change` event** rather than sampling once at
+  load, so an OS theme change while the Cockpit is open is followed. And
+  **`{colors.overlay.signature}` survives both grounds unchanged** — the register's whole job
+  is being recognizable on someone else's page, so a signature that needs a theme to be
+  legible is not a signature. `DESIGN.md` bought that invariance at a measured cost (a 2.56:1
+  spine on the night ground) and recorded it rather than trading the invariant away.
+- **The `[v2]` in-page layer is never themed by this signal.** A guest sheet drawn onto
+  somebody else's page is not themed by its host's operator: the hover outline, the comment
+  bubble and the annotation pins look the same to Jarad on every site, whatever his OS is set
+  to. Only the Cockpit's own ground moves.
+- A manual theme override is **not** built in v1 `[DECIDED 2026-09-20: the OS signal drives
+  both grounds and no control ships. A single operator on a single machine does not need a
+  per-surface theme switch, and one is a preference screen the product otherwise does not
+  have. The known imprecision — `prefers-color-scheme` reports the OS and never Chrome's own
+  theme, so a light-OS/dark-Chrome session gets Day paper — is accepted, because both grounds
+  are the same material and every token that carries meaning is measured on both. Guessing
+  wrong here costs comfort, not correctness. If the night ground proves too bright in daily
+  use, the fix is a darker paper in `DESIGN.md`, not a control in the Cockpit.]`
 
 ---
 

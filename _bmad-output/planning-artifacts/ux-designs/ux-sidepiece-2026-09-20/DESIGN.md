@@ -1411,6 +1411,19 @@ Its resolved-selector tooltip is a full free-standing Sidepiece sheet — paper 
 spine, four detached ticks, offset shadow — with the selector in `{typography.mono}` at
 `{colors.text.primary}` and the dimensions beneath at `{colors.text.muted}`.
 
+**The outline is ours to draw, and that was the deciding argument.** `[DECIDED 2026-09-20: a
+hand-built closed shadow root, not `chrome.debugger`'s `Overlay.setInspectMode`, and no
+fallback to it. The browser-native outline cannot wear the spine, the ticks or
+`{colors.overlay.signature}` — it is Chrome's mark, not Sidepiece's — and every visual
+guarantee in this entry would be unavailable under it. See `.decision-log.md`.]` The accepted
+cost is that some pages defeat a fixed overlay through an ancestor `transform`, `filter` or
+`contain`, or through the top layer. **That case renders no outline at all.** There is no
+degraded, approximate or best-effort box: a displaced outline asserts something false about
+which node was resolved, and the whole point of the tooltip printing the selector before commit
+is that the operator can trust the answer. What renders instead belongs to the Cockpit — a
+`{components.stateNotice}` on `{colors.state.failed}` naming the page — and it is
+`EXPERIENCE.md`'s to word.
+
 **`{components.commentBubble}` `[v2]`** — A 280px free-standing Sidepiece sheet on
 `{colors.surface.overlay}`, 1px `{colors.border.sheet}`, 7px ticked spine, four detached ticks,
 `3px 3px 0` offset at the dark-ground opacity. Header row: the anchor in `{typography.mono}` at
@@ -1431,6 +1444,18 @@ of committed strokes is a 1px dashed `{colors.overlay.outline}` rectangle, and t
 affordance is a free-standing Sidepiece sheet pinned to the viewport corner, not an in-canvas
 widget. *(The first draft carried the over-stroke colour in this component's `textColor`, on a
 transparent drawing surface that has no text. It is prose and `borderColor` now.)*
+
+**Replay, and the one visual state drift gets.** `[DECIDED 2026-09-20: strokes are vectors over
+the live DOM and nothing is captured — no raster exists to replay against. See
+`.decision-log.md`.]` Because there is no screenshot, a stroke is always redrawn over the page
+as it is *now*, which means the design needs one appearance for "these marks no longer sit over
+what they were drawn on" — `EXPERIENCE.md`'s **Drifted** outcome. That state renders the same
+5 / 3 / 1 stroke with the core switched to `{colors.state.unknown}` and the two keylines
+unchanged, plus the bounding-box rectangle switched from dashed to a 1px dotted
+`{colors.state.unknown}`. **The geometry is never moved to follow the elements.** Desaturating
+the core is the whole signal: the marks are still exactly where he drew them, and the colour
+says the page is not. A stroke that relocated itself would be the confidently-wrong-anchor
+failure wearing a different costume, and **Do's and Don'ts** forbids it.
 
 **`{components.annotationPin}` `[v2]`** — An 18px `{rounded.pill}` roundel:
 `{colors.action.mark}` fill, `{colors.text.onSpot}` ink digit in `{typography.numeral}` at
@@ -1567,14 +1592,21 @@ real Sidepiece roundel achievable — is recorded in **Gaps** rather than assume
 
 ## Dark mode
 
-**Position: Sidepiece ships one ground — warm paper — and `prefers-color-scheme: dark` does
-not invert it. The costed alternative is Night Paper, not an inversion. FLAGGED FOR JARAD'S
-CONFIRMATION.**
+**DECIDED 2026-09-20 — Sidepiece ships two grounds in one register.
+`prefers-color-scheme: dark` renders Night Paper: the paper is dimmed, never inverted.
+Nine values change; fifteen do not; the stamp device and the signature survive intact.**
 
-This is the one place this document knowingly contradicts four years of behaviour on every
-other surface Jarad owns, and it contradicts `EXPERIENCE.md`'s current sentence — *"the
-Cockpit is dark-first… and it follows `prefers-color-scheme` for the light case"* — which
-must be revised to match whichever way this is ruled.
+The rest of this section is the derivation, and it is worth keeping in full because it
+records *why* dimming and inversion are not the same kind of change. Two things it rules out
+permanently: a full inversion, which is a second design system rather than a token swap; and
+a night-specific signature, which would trade the register's one invariant for a contrast
+figure. Both rejections are costed below.
+
+One caveat stands, recorded rather than designed around: in a side panel
+`prefers-color-scheme` reports the **operating system's** setting and never Chrome's own
+theme, and no API exposes the browser theme (w3c/webextensions#242). A light-OS/dark-Chrome
+operator gets Day paper against dark browser chrome. That is a known imprecision in the
+trigger, not a reason to refuse the signal. No manual override ships in v1.
 
 ### The number nobody had put on the 2am problem
 
@@ -1584,7 +1616,11 @@ slice of a 1080p viewport, traversed on every single dip-in-dip-out, which is th
 only interaction pattern. That is the real cost of the light ground and it belongs inside the
 argument, not outside it.
 
-### The argument for one ground, in three measured parts
+### The argument for one *material*, in three measured parts
+
+These three held, and they are why the answer is a dimmed paper rather than a dark panel.
+What did not survive is the first draft's conclusion that they also forbid a second ground:
+they forbid a second *material*. Night Paper is the same material at a lower emission.
 
 1. **A dark panel beside a dark dashboard is camouflage, and camouflage is the one thing this
    direction cannot afford.** Paper on a dark page is **16.21:1**. Paper on a white page is
@@ -1592,13 +1628,15 @@ argument, not outside it.
    carries the light-page case. Invert the ground and you have not removed the problem, you
    have **moved it onto the half of the web where Sidepiece's north star actually lives** — the
    dark dashboards and dark app UIs he is reviewing.
-2. **Following `prefers-color-scheme` here would be following the wrong signal.** In a side
-   panel it reports the **OS** setting and never Chrome's own theme, and no API exposes the
-   browser theme (w3c/webextensions#242). A design that changes ground on that signal is
-   guessing, and it will guess wrong for any light-OS/dark-Chrome combination. **A design that
-   does not follow the theme cannot follow it wrong.** The seam the extension cannot close is
-   an argument *for* a fixed ground, not against one. If a second ground ships, it ships as a
-   **user toggle**, not as an OS signal.
+2. **`prefers-color-scheme` is an imprecise signal, and it is the only one there is.** In a
+   side panel it reports the **OS** setting and never Chrome's own theme, and no API exposes
+   the browser theme (w3c/webextensions#242), so it will read wrong for a light-OS/dark-Chrome
+   operator. The first draft treated that as grounds for refusing the signal entirely. It is
+   not: the failure mode of guessing wrong here is *the operator gets the other paper*, which
+   is a comfort miss, not a broken interface — because both grounds are the same material and
+   every token that carries meaning is measured on both. **A signal that can only be wrong
+   about brightness is safe to follow.** It would not be safe if the two grounds were
+   different design systems, which is exactly why the inversion below is rejected.
 3. **The register is not a palette, it is a material.** "Paper" that is sometimes black is not
    paper. The direction's whole claim — a printed instrument laid on somebody else's screen —
    has a ground built into the noun.
@@ -1632,7 +1670,7 @@ stamp needs a light ground to stamp onto. Doing it properly would require a seco
 what "failure is stamped black" means when everything structural is already light. That is a
 second design system. It is not costed here because it should not be built.
 
-### Night Paper — the option the first draft missed, costed in full
+### Night Paper — the shipped dark mode, costed in full
 
 **Dim the paper; do not invert it.** Night Paper keeps the material, keeps the stamp device,
 keeps every structural token, and is **18% less emissive**: `#E0D9C8` is Lrel 0.709 ≈ **209
@@ -1687,24 +1725,53 @@ is enormous where the luminance separation is small — and the spine is a fill,
 required to understand content, which is the same exemption the hairlines already take. It is
 recorded as a genuine cost, not waved away, and it is **Gaps** item 3.
 
-### What `prefers-color-scheme: dark` actually does today
+### What `prefers-color-scheme: dark` does
 
-It is honoured, in exactly one place and never on the ground:
+It switches the ground to Night Paper and hardens the sheet offset. Nothing else moves:
 
 ```css
-:root { color-scheme: light; }              /* always — forces Chrome's own form controls,
-                                               scrollbars and default canvas to render light
-                                               regardless of the OS setting */
+:root {
+  color-scheme: light;                      /* always, in BOTH modes — Night Paper is still a
+                                               light ground at Lrel 0.709, so Chrome's own form
+                                               controls, scrollbars and default canvas must
+                                               render light or they will fight the sheet */
+  --sheet-offset: 3px 3px 0 rgba(25,23,19,.26);
+}
+
 @media (prefers-color-scheme: dark) {
-  :root { --sheet-offset: 3px 3px 0 rgba(0,0,0,.45); }   /* was rgba(25,23,19,.26) */
+  :root {
+    /* the nine values that change — every other token is identical in both modes */
+    --surface-panel:     #E0D9C8;
+    --surface-raised:    #EAE4D6;
+    --surface-sunken:    #D3CAB6;
+    --surface-spotWash:  #F7CFDB;
+    --border-hairline:   #BCAF93;
+    --border-faint:      #CFC5AE;
+    --border-sheet:      #B3A68C;
+    --text-muted:        #565040;   /* also state.ok and state.unknown */
+    --state-degraded:    #6F460A;
+    --action-markDeep:   #A3002F;
+    --text-inverse:      #E0D9C8;   /* tracks the ground, as does focus.ringInner */
+    --focus-ringInner:   #E0D9C8;
+    --selection-ground:  #F7CFDB;
+
+    --sheet-offset: 3px 3px 0 rgba(0,0,0,.45);   /* paper on a dark desk casts harder */
+  }
 }
 ```
 
-A paper sheet on a dark desk casts a harder shadow. **That affects `[v2]` free-standing sheets
-only**, because the Cockpit has no offset — so as of this revision the `prefers-color-scheme`
-response is a **literal no-op on the only surface v1 ships**, and saying so is more useful than
-pretending otherwise. Night Paper, if Jarad wants it, is a `data-theme="night"` attribute and a
-user toggle; it is not an OS signal, for the reason in point 2.
+Read the list carefully for what is **absent**: `surface.stamp`, `border.strong`,
+`text.primary`, `state.failed`, `action.primary`, `focus.ring` and all five `overlay.*`
+tokens — including `signature` — are byte-identical in both modes. That is the property the
+inversion could not have and the reason the whole thing is thirteen declarations rather than a
+second stylesheet.
+
+`surface.overlay` is deliberately not in the list either. **In-page sheets are never dimmed**:
+a guest sheet drawn onto somebody else's page is not themed by its host's operator, and the
+`[v2]` layer must look the same to Jarad on every site regardless of what his OS is set to.
+
+**The live `change` event is honoured**, not sampled once at load — `EXPERIENCE.md` requires
+the Cockpit to follow an OS theme change while open, and the media query does that for free.
 
 ---
 
@@ -1712,20 +1779,26 @@ user toggle; it is not an OS signal, for the reason in point 2.
 
 **For Jarad**
 
-1. **One ground or two?** Light-only is defended above with measured numbers, but it reverses a
-   four-year habit and it needs a yes or a no. The honest cost is now on the table: **155×
-   luminance against a dark page, on every dip.** The answer is *not* a full inversion — that
-   is priced above and it is a second design system. The answer, if the light ground proves
-   wrong in daily use, is **Night Paper: nine values, measured, register intact.**
+1. ~~**One ground or two?**~~ **CLOSED 2026-09-20 — two, in one register.**
+   `prefers-color-scheme: dark` ships **Night Paper**: nine values, measured, material intact,
+   stamp device intact, signature invariant. The full inversion stays rejected and stays
+   priced above, because it is a second design system rather than a token swap.
+   **Be honest about the size of the win:** Night Paper takes the 2am figure from ≈255 cd/m²
+   to ≈209, so the luminance ratio against a `#0D1117` page falls from about **155× to about
+   131×** — an 18% cut in emission, not a transformation. It is a comfort improvement, and if
+   daily use proves 131× is still too much, the next move is a *darker paper*, not an
+   inversion. See `.decision-log.md`.
 2. **The signature is both the whole argument and the whole risk**, and it cannot be de-risked
    by recolouring — a quieter spot stops being unmistakable on white *and* black. What *has*
    been de-risked is the dependence on it: identity now rests on geometry (detached ticks, the
    ticked spine) with the hue as reinforcement, because `#FF2E63` is ΔE 8.0 from Tailwind
    `rose-500` and under 3:1 against 91% of sRGB. Confirm you are happy with that division of
    labour, because it is a real change to what "the spot carries the direction" means.
-3. **Night Paper's one accepted failure.** The spine at 2.56:1 on night paper. The alternative
-   is a `markDeep` spine at 4.44:1, which breaks signature invariance across modes. This
-   document chose invariance. Overrule it if you would rather have the contrast.
+3. **Night Paper's one accepted failure — now live, not hypothetical.** With Night Paper
+   shipped, `{colors.action.mark}` runs at **2.56:1** on `#E0D9C8` in every dark-OS session.
+   The alternative is a `markDeep` spine at 4.44:1, which breaks signature invariance across
+   modes; this document chose invariance and that choice now has daily consequences rather
+   than theoretical ones. Overrule it if the night spine reads weak in use.
 4. **Chrome labels moved from 8.5px to 10.5/11.5px.** This bought back the verbatim
    `DISPATCHED COMMAND` and cost the single-line context URL. Confirm the trade.
 5. **The mock's `ink-3 #837A69` is 3.63:1 and fails body text**, so `{colors.text.muted}` ships
