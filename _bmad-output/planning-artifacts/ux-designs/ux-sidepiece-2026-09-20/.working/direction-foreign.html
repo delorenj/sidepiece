@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sidepiece — Deliberately Foreign</title>
+<style>
+/* ============================================================================
+   SIDEPIECE — DIRECTION: "DELIBERATELY FOREIGN"
+   Register: printed instrument. A sheet of paper laid ON the page, with a
+   fluorescent spot ink that appears in almost no production web UI.
+
+   TOKEN TABLE — lift straight into DESIGN.md
+   ----------------------------------------------------------------------------
+   GROUNDS
+   --paper            #F2EDE3   the sheet. Cockpit ground, bubble ground.
+   --paper-raised     #FBF8F1   composer / result block / anything lifted off it
+   --paper-sunk       #E8E0D0   grouped-row ground, ticket zebra, input wells
+   --stamp            #191713   inverted band ground (dispatch stamp, failure band)
+
+   INK (type + rules; never hue-coded)
+   --ink              #191713   primary type, full-strength rules
+   --ink-2            #4C463A   secondary type, PM reply body
+   --ink-3            #837A69   captions, metadata, resolved-OK glyph
+   --rule             #CFC3AB   1px printed rule
+   --rule-soft        #E0D7C4   half-strength rule, row separators
+
+   SPOT — the Sidepiece signature. Identity and marks only, never status.
+   --spot             #FF2E63   clip band, spine, in-page outline, active toggle
+   --spot-deep        #C2003F   spot at text density on paper (the ONLY spot type)
+   --spot-wash        #FFE4EC   spot at 8%, fills only
+
+   MACHINE
+   --blue-ink         #1B3FA0   dispatch / correlation-id register, mono only
+
+   PAGE (the mock's invented third-party dashboard — NOT Sidepiece tokens)
+   --pg-bg            #0E1116
+   --pg-card          #161B22
+   --pg-line          #21262D
+   --pg-text          #C9D1D9
+   --pg-dim           #7D8590
+   --pg-accent        #2F6FEB
+
+   HARNESS (this comparison page only, not the product)
+   --sheet-grey       #7D7D7D   neutral mid-grey so light and dark read fairly
+   ----------------------------------------------------------------------------
+
+   LAWS
+   1. The spot hue is IDENTITY, never STATE. Status is carried by glyph + ink
+      weight + an inverted band. OK is grey. Nothing is green.
+   2. The spot never sets small type on paper (3.3:1). It fills, it rules, it
+      outlines. When it must carry a word, the word is paper-on-spot.
+   3. Every Sidepiece surface — panel, tooltip, comment bubble — carries the
+      same two signatures: a 10px perforated spot SPINE on its left edge, and
+      ink crop marks at its corners. That is what makes a mark ours on a white
+      docs site and on a black dashboard alike.
+   4. Real offset shadow, unblurred, 3px 3px. This is a DELIBERATE break of the
+      house "no drop shadows" rule: the shadow is the semantics. It says "laid
+      on top of, not part of."
+   5. color-scheme: light. Also a deliberate break of dark-first. A dark panel
+      beside a dark dashboard is camouflage, and camouflage is the one thing
+      this direction cannot afford.
+   6. Monospace is reserved for machine-generated data. This house rule is KEPT.
+
+   TYPE — no sans-serif anywhere in the Cockpit. Web UI chrome is sans; a serif
+   panel is instantly not-the-page and not-the-browser. Charter and Georgia are
+   among the few serifs engineered for small sizes and low-resolution screens.
+   --font-serif  "Charter" first, then system serif fallbacks. Named first per
+                 direction; no webfont is loaded, nothing is fetched.
+   --font-mono   "IBM Plex Mono" first, then ui-monospace fallbacks.
+   ========================================================================== */
+
+:root{
+  color-scheme: light;
+
+  --paper:#F2EDE3;
+  --paper-raised:#FBF8F1;
+  --paper-sunk:#E8E0D0;
+  --stamp:#191713;
+
+  --ink:#191713;
+  --ink-2:#4C463A;
+  --ink-3:#837A69;
+  --rule:#CFC3AB;
+  --rule-soft:#E0D7C4;
+
+  --spot:#FF2E63;
+  --spot-deep:#C2003F;
+  --spot-wash:#FFE4EC;
+
+  --blue-ink:#1B3FA0;
+
+  --pg-bg:#0E1116;
+  --pg-card:#161B22;
+  --pg-line:#21262D;
+  --pg-text:#C9D1D9;
+  --pg-dim:#7D8590;
+  --pg-accent:#2F6FEB;
+
+  --sheet-grey:#7D7D7D;
+
+  /* Charter / Bitstream Charter named first — installed on most Linux and mac
+     systems; Georgia is the reliable floor. No font is fetched. */
+  --font-serif:"Charter","Bitstream Charter","Charis SIL","Source Serif 4","Iowan Old Style",Georgia,"Times New Roman",serif;
+  /* IBM Plex Mono named first; ui-monospace behind it. No font is fetched. */
+  --font-mono:"IBM Plex Mono","iA Writer Mono S",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--sheet-grey);
+  font-family:var(--font-serif);
+  color:var(--ink);
+  padding:28px 16px 64px;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--spot);color:#fff}
+
+/* ---------- harness chrome ---------- */
+.wrap{max-width:1240px;margin:0 auto}
+.masthead{
+  background:var(--paper);
+  border:1px solid var(--rule);
+  box-shadow:3px 3px 0 rgba(25,23,19,.22);
+  padding:16px 18px 17px;
+  max-width:760px;
+  margin-bottom:30px;
+  position:relative;
+}
+.masthead:before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--spot);
+}
+.masthead h1{
+  font-size:19px;line-height:1.15;margin:0 0 3px 8px;letter-spacing:-.01em;font-weight:700;
+}
+.masthead .kicker{
+  font-family:var(--font-mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--ink-3);margin:0 0 8px 8px;
+}
+.masthead p{font-size:13.5px;line-height:1.55;margin:0 0 0 8px;color:var(--ink-2);max-width:66ch}
+.masthead p + p{margin-top:8px}
+
+.row{display:flex;gap:34px;align-items:flex-start;flex-wrap:wrap}
+.frame{position:relative}
+.cap{
+  font-family:var(--font-mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;
+  color:#EFEAE0;margin:0 0 10px 1px;
+}
+.cap b{color:#fff;font-weight:400;border-bottom:1px solid rgba(255,255,255,.45);padding-bottom:2px}
+.cap .w{display:block;margin-top:5px;letter-spacing:.04em;text-transform:none;font-size:10px;color:#E2DCD2;max-width:34ch;line-height:1.5}
+
+/* crop marks — the corner registration signature */
+.crop{position:relative}
+.crop > i{position:absolute;width:9px;height:9px;pointer-events:none}
+.crop > i.tl{left:-5px;top:-5px;border-left:1px solid var(--ink);border-top:1px solid var(--ink)}
+.crop > i.tr{right:-5px;top:-5px;border-right:1px solid var(--ink);border-top:1px solid var(--ink)}
+.crop > i.bl{left:-5px;bottom:-5px;border-left:1px solid var(--ink);border-bottom:1px solid var(--ink)}
+.crop > i.br{right:-5px;bottom:-5px;border-right:1px solid var(--ink);border-bottom:1px solid var(--ink)}
+
+/* ==========================================================================
+   THE COCKPIT — exactly 340px, border-box. Nothing here cheats the width.
+   ========================================================================== */
+.panel{
+  width:340px;                 /* HARD. Chrome's floor is 320 and unreadable. */
+  box-sizing:border-box;
+  background:var(--paper);
+  border:1px solid #C9BDA6;
+  box-shadow:3px 3px 0 rgba(25,23,19,.26), -10px 0 28px rgba(0,0,0,.30);
+  position:relative;
+  overflow:hidden;
+}
+/* the clip — top band, spot. Carries the one Bridge indicator. */
+.clip{
+  height:21px;background:var(--spot);display:flex;align-items:center;
+  justify-content:space-between;padding:0 8px 0 9px;
+}
+.clip .mark{
+  font-family:var(--font-mono);font-size:9px;letter-spacing:.24em;color:#fff;font-weight:600;
+}
+.clip .bridge{
+  font-family:var(--font-mono);font-size:8.5px;letter-spacing:.14em;color:#FFE1EA;
+}
+/* the spine — perforated, runs the full sheet. The carrying signature. */
+.spine{
+  position:absolute;left:0;top:21px;bottom:0;width:10px;background:var(--spot);
+}
+.spine:after{
+  content:"";position:absolute;inset:0;
+  background:repeating-linear-gradient(to bottom,
+    rgba(255,255,255,0) 0 7px, rgba(255,255,255,.62) 7px 9px);
+}
+.body{margin-left:10px;padding:0 14px 0 14px}   /* usable column = 300px */
+
+/* ---------- FR-4 identity, permanently visible ---------- */
+.ident{padding:13px 0 12px}
+.ident .repo{
+  font-size:22px;line-height:1.05;letter-spacing:-.015em;font-weight:700;margin:0 0 7px;
+}
+.ident .path{
+  font-family:var(--font-mono);font-size:10.5px;line-height:1.45;color:var(--ink-2);
+  background:var(--paper-sunk);border-left:2px solid var(--rule);
+  padding:5px 7px;display:block;word-break:break-all;
+  user-select:all;-webkit-user-select:all;   /* one click grabs the whole path */
+  cursor:text;
+}
+.ident .meta{display:flex;align-items:center;gap:8px;margin-top:9px}
+.stampchip{
+  font-family:var(--font-mono);font-size:9px;letter-spacing:.18em;font-weight:600;
+  color:var(--paper);background:var(--stamp);padding:3px 7px 3px 8px;
+}
+.ident .pm{
+  font-family:var(--font-mono);font-size:9.5px;letter-spacing:.05em;color:var(--ink-3);
+}
+
+/* ---------- section rules ---------- */
+.srule{
+  display:flex;align-items:center;gap:8px;margin:2px 0 11px;
+}
+.srule span{
+  font-family:var(--font-mono);font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-3);
+}
+.srule:after{content:"";flex:1;height:1px;background:var(--rule)}
+.hrule{height:1px;background:var(--ink);opacity:.22;margin:0}
+/* Backlog glyph, drawn not typed — a hollow square stays crisp at 7px in any font */
+.sq{display:inline-block;width:7px;height:7px;border:1px solid currentColor;vertical-align:1px;box-sizing:border-box}
+
+/* ---------- chat ---------- */
+.turns{padding-top:11px}
+.turn{margin-bottom:15px}
+.op{
+  border-left:2px solid var(--spot);padding:1px 0 1px 9px;
+  font-size:13.5px;line-height:1.45;font-style:italic;color:var(--ink);
+}
+.lbl{
+  font-family:var(--font-mono);font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--ink-3);margin:9px 0 3px;
+}
+.reply{font-size:13.5px;line-height:1.58;color:var(--ink-2);margin:0}
+.tsep{height:1px;background:var(--rule-soft);margin:15px 0}
+
+/* dispatch: STAMPED, not printed. This is the visible distinction. */
+.dispatch{margin-top:10px;border:1px solid var(--stamp)}
+.dispatch .band{
+  background:var(--stamp);color:var(--paper);display:flex;justify-content:space-between;
+  align-items:center;padding:4px 7px;
+}
+.dispatch .band .w{
+  font-family:var(--font-mono);font-size:8.5px;letter-spacing:.22em;font-weight:600;
+}
+.dispatch .band .cid{
+  font-family:var(--font-mono);font-size:9px;letter-spacing:.06em;color:#C9BDA6;
+}
+.dispatch .inner{padding:9px 9px 10px;background:var(--paper-raised)}
+.ack{
+  font-family:var(--font-mono);font-size:9.5px;line-height:1.5;color:var(--blue-ink);
+  margin:8px 0 0;
+}
+.status{
+  display:inline-block;margin-top:8px;
+  font-family:var(--font-mono);font-size:8.5px;letter-spacing:.18em;font-weight:600;
+  color:var(--stamp);border:1px solid var(--stamp);padding:2px 6px;
+}
+.result{
+  font-size:12.5px;line-height:1.55;color:var(--ink-2);margin:9px 0 0;
+  padding-top:9px;border-top:1px dashed var(--rule);
+}
+.result code{font-family:var(--font-mono);font-size:11px;color:var(--ink)}
+
+/* ---------- composer at rest ---------- */
+.composer{margin:16px 0 4px;border:1px solid var(--rule);background:var(--paper-raised)}
+.ctx{
+  padding:6px 8px;border-bottom:1px dashed var(--rule);background:var(--paper-sunk);
+}
+.ctx .t{
+  font-family:var(--font-mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--ink-3);display:block;margin-bottom:3px;
+}
+.ctx .title{font-size:11.5px;line-height:1.3;color:var(--ink);display:block}
+.ctx .url{
+  font-family:var(--font-mono);font-size:9.5px;line-height:1.35;color:var(--ink-3);
+  display:block;margin-top:2px;word-break:break-all;
+}
+.classify{padding:8px 8px 0}
+.classify .t{
+  font-family:var(--font-mono);font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--ink-3);display:block;margin-bottom:5px;
+}
+.flip{display:flex;border:1px solid var(--stamp)}
+.flip div{
+  flex:1;text-align:center;padding:4px 2px 5px;
+  font-family:var(--font-mono);font-size:8px;letter-spacing:.11em;font-weight:600;
+}
+.flip .on{background:var(--spot);color:#fff}
+.flip .off{background:transparent;color:var(--ink-3)}
+.flip .off:before{content:"";}
+.field{
+  padding:9px 9px 8px;font-size:13px;line-height:1.4;color:var(--ink-3);font-style:italic;
+  border-top:1px solid var(--rule-soft);margin-top:9px;background:var(--paper-raised);
+}
+.cbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 8px 8px;
+}
+.cbar .hint{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.06em;color:var(--ink-3)}
+.btn{
+  font-family:var(--font-mono);font-size:8.5px;letter-spacing:.18em;font-weight:600;
+  color:#fff;background:var(--stamp);border:0;padding:5px 11px;
+}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--ink)}
+
+/* ---------- tickets ---------- */
+.board{padding-top:14px;padding-bottom:16px}
+.grp{
+  position:sticky;top:0;background:var(--paper);z-index:2;
+  display:flex;align-items:center;gap:7px;
+  padding:4px 0 6px;border-bottom:1px solid var(--ink);
+}
+.grp .g{display:flex;align-items:center;line-height:0}
+.grp .g{font-family:var(--font-mono);font-size:11px;color:var(--ink)}
+.grp .n{
+  font-family:var(--font-mono);font-size:8.5px;letter-spacing:.2em;font-weight:600;
+  text-transform:uppercase;color:var(--ink);
+}
+.grp .c{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.1em;color:var(--ink-3);margin-left:auto}
+.tix{display:block}
+.tix .r{
+  display:flex;gap:8px;align-items:flex-start;padding:8px 0 8px;
+  border-bottom:1px solid var(--rule-soft);
+}
+.tix .r .s{font-family:var(--font-mono);font-size:10px;color:var(--ink-3);line-height:1.5;width:9px;flex:none}
+.tix .r .k{
+  font-family:var(--font-mono);font-size:10px;color:var(--ink);line-height:1.5;
+  width:53px;flex:none;letter-spacing:.02em;
+}
+.tix .r .ti{font-size:12.5px;line-height:1.35;color:var(--ink-2);flex:1}
+.more{
+  font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;color:var(--ink-3);
+  padding:9px 0 0;display:flex;align-items:center;gap:7px;
+}
+.more .sq{flex:none}
+.create{margin-top:13px;border-top:1px solid var(--rule);padding-top:10px}
+.create .t{
+  font-family:var(--font-mono);font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--ink-3);display:block;margin-bottom:6px;
+}
+.create .blank{
+  border-bottom:1px solid var(--ink);padding:0 0 5px;font-size:13px;color:var(--ink-3);font-style:italic;
+}
+.create .note{
+  font-family:var(--font-mono);font-size:8.5px;letter-spacing:.05em;color:var(--ink-3);
+  margin-top:6px;display:block;line-height:1.5;
+}
+
+/* ==========================================================================
+   STATE VARIANT A — the in-page layer, on an invented third-party dashboard
+   ========================================================================== */
+.pagemock{
+  width:430px;height:420px;position:relative;overflow:hidden;
+  background:var(--pg-bg);border:1px solid #000;
+  box-shadow:3px 3px 0 rgba(25,23,19,.26);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; /* THE PAGE is sans. Sidepiece is not. */
+}
+.pg-top{
+  height:30px;border-bottom:1px solid var(--pg-line);display:flex;align-items:center;
+  padding:0 12px;gap:8px;
+}
+.pg-top .dot{width:7px;height:7px;border-radius:50%;background:var(--pg-line)}
+.pg-top .u{font-size:10px;color:var(--pg-dim)}
+.pg-in{padding:16px 14px}
+.pg-h{font-size:17px;font-weight:600;color:var(--pg-text);margin:0 0 3px;letter-spacing:-.01em}
+.pg-sub{font-size:11px;color:var(--pg-dim);margin:0 0 14px}
+.pg-cards{display:flex;gap:9px;margin-bottom:15px}
+.pg-card{
+  flex:1;background:var(--pg-card);border:1px solid var(--pg-line);border-radius:6px;padding:9px 10px;
+}
+.pg-card .l{font-size:9px;color:var(--pg-dim);text-transform:uppercase;letter-spacing:.08em}
+.pg-card .v{font-size:19px;color:var(--pg-text);font-weight:600;margin-top:3px}
+.pg-figwrap{background:var(--pg-card);border:1px solid var(--pg-line);border-radius:6px;padding:11px 12px}
+.pg-figwrap .l{font-size:9px;color:var(--pg-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.pg-guy{height:70px;display:flex;align-items:flex-end;gap:6px}
+.pg-guy .figbody{display:flex;flex-direction:column;align-items:center}
+.pg-guy .head{width:19px;height:19px;border-radius:50%;background:#39404A;margin-bottom:3px}
+.pg-guy .torso{width:26px;height:41px;background:#2E343D;border-radius:3px 3px 0 0}
+.pg-guy .arm{width:8px;height:30px;background:#333A44;border-radius:3px}
+/* a committed mark: numbered pin + leader, same spot as the hover outline */
+.pin{
+  position:absolute;width:17px;height:17px;border-radius:50%;background:var(--spot);
+  color:#fff;font-family:var(--font-mono);font-size:9px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 0 2px rgba(255,46,99,.28);
+}
+.pg-btn{
+  margin-top:12px;display:inline-block;background:var(--pg-accent);color:#fff;
+  font-size:11px;padding:6px 13px;border-radius:5px;
+}
+
+/* the Sidepiece marks, drawn ON the page */
+.ol{position:absolute;pointer-events:none}
+.ol .box{position:absolute;inset:0;border:1.5px solid var(--spot);background:rgba(255,46,99,.10)}
+.ol b{position:absolute;width:10px;height:10px}
+.ol b.a{left:-3px;top:-3px;border-left:2px solid var(--spot);border-top:2px solid var(--spot)}
+.ol b.b{right:-3px;top:-3px;border-right:2px solid var(--spot);border-top:2px solid var(--spot)}
+.ol b.c{left:-3px;bottom:-3px;border-left:2px solid var(--spot);border-bottom:2px solid var(--spot)}
+.ol b.d{right:-3px;bottom:-3px;border-right:2px solid var(--spot);border-bottom:2px solid var(--spot)}
+
+/* tooltip + bubble: same sheet, same spine, same crop marks as the Cockpit */
+.sp-sheet{
+  position:absolute;background:var(--paper);border:1px solid #C9BDA6;
+  box-shadow:3px 3px 0 rgba(0,0,0,.45);font-family:var(--font-serif);
+}
+.sp-sheet .sp-spine{position:absolute;left:0;top:0;bottom:0;width:7px;background:var(--spot)}
+.sp-sheet .sp-spine:after{
+  content:"";position:absolute;inset:0;
+  background:repeating-linear-gradient(to bottom,rgba(255,255,255,0) 0 6px,rgba(255,255,255,.62) 6px 8px);
+}
+.sp-sheet .sp-in{margin-left:7px;padding:7px 9px 8px}
+.sel{font-family:var(--font-mono);font-size:9.5px;line-height:1.45;color:var(--ink);word-break:break-all}
+.dim{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.1em;color:var(--ink-3);margin-top:4px;display:block}
+.tiphint{
+  font-family:var(--font-mono);font-size:8px;letter-spacing:.08em;color:var(--ink-3);
+  margin-top:6px;padding-top:5px;border-top:1px dashed var(--rule);display:block;
+}
+.bub-hd{
+  display:flex;align-items:center;justify-content:space-between;gap:6px;
+  padding-bottom:6px;border-bottom:1px solid var(--rule);
+}
+.bub-hd .anchor{font-family:var(--font-mono);font-size:9px;color:var(--ink)}
+.bub-hd .n{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.16em;font-weight:600;color:#fff;background:var(--spot);padding:2px 5px}
+.bub-txt{font-size:12.5px;line-height:1.5;color:var(--ink);margin:8px 0 0}
+.bub-ft{
+  display:flex;align-items:center;justify-content:space-between;margin-top:9px;
+  padding-top:8px;border-top:1px dashed var(--rule);
+}
+.bub-ft .c{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.08em;color:var(--ink-3)}
+.mini{
+  font-family:var(--font-mono);font-size:8px;letter-spacing:.16em;font-weight:600;
+  color:#fff;background:var(--stamp);padding:4px 9px;
+}
+.leader{position:absolute;background:var(--spot)}
+
+/* ==========================================================================
+   STATE VARIANT B — Bridge unreachable, one shared message
+   ========================================================================== */
+.clip.down{background:var(--stamp)}
+.clip.down .mark{color:var(--paper)}
+.clip.down .bridge{color:var(--spot)}
+.shared{
+  border:1px solid var(--stamp);margin:13px 0 0;
+}
+.shared .band{
+  background:var(--stamp);color:var(--paper);padding:5px 8px;
+  font-family:var(--font-mono);font-size:8.5px;letter-spacing:.2em;font-weight:600;
+}
+.shared .in{padding:10px 9px 11px;background:var(--paper-raised)}
+.shared p{font-size:13px;line-height:1.55;margin:0;color:var(--ink)}
+.shared .cmd{
+  font-family:var(--font-mono);font-size:10px;color:var(--ink-2);background:var(--paper-sunk);
+  border-left:2px solid var(--rule);padding:5px 7px;margin:9px 0 0;display:block;
+  user-select:all;-webkit-user-select:all;word-break:break-all;
+}
+.shared .acts{display:flex;gap:7px;margin-top:11px;align-items:center}
+.covered{margin-top:14px}
+.covered .t{
+  font-family:var(--font-mono);font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--ink-3);display:block;margin-bottom:7px;
+}
+.covered .p{
+  display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--rule-soft);
+  font-family:var(--font-mono);font-size:9.5px;color:var(--ink-3);
+}
+.covered .p .g{color:var(--ink);width:9px;display:flex;align-items:center}
+.dash{display:inline-block;width:7px;height:1px;background:currentColor}
+.covered .p em{font-style:normal;margin-left:auto;font-size:8.5px;letter-spacing:.14em;color:var(--ink-3)}
+
+/* ---------- honest-width footnote ---------- */
+.foot{
+  margin-top:34px;background:var(--paper);border:1px solid var(--rule);
+  box-shadow:3px 3px 0 rgba(25,23,19,.22);padding:14px 16px 15px;max-width:760px;position:relative;
+}
+.foot:before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--stamp)}
+.foot h2{
+  font-family:var(--font-mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;
+  margin:0 0 9px 8px;color:var(--ink-3);font-weight:600;
+}
+.foot ul{margin:0 0 0 8px;padding-left:17px}
+.foot li{font-size:12.5px;line-height:1.55;color:var(--ink-2);margin-bottom:5px}
+.foot li b{color:var(--ink);font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead">
+    <p class="kicker">Direction 04 · Deliberately Foreign</p>
+    <h1>It is never mistaken for the page.</h1>
+    <p>Sidepiece is the only tool Jarad owns that draws on <em>other people&rsquo;s</em> screens, and the instant its marks are ambiguous with the page&rsquo;s own, the finger-on-the-clipboard loop breaks &mdash; he points, and he isn&rsquo;t sure what he pointed at.</p>
+    <p>So it gets a register of its own that carries everywhere: a <b>paper sheet laid on the page</b>, set entirely in serif because web chrome is sans, ruled in ink, and signed with a fluorescent spot that appears in virtually no production UI. Panel, hover outline and comment bubble share one perforated spine and one set of crop marks, so a Sidepiece mark reads as ours on a white docs site and on a black dashboard alike &mdash; which is what breaking dark-first and breaking no-shadows buys.</p>
+  </div>
+
+  <div class="row">
+
+    <!-- ================= HERO ================= -->
+    <div class="frame">
+      <p class="cap"><b>Hero &mdash; the Cockpit, resolved on sidepiece</b>
+        <span class="w">340px, border-box. The 300px usable column is the real number everything below had to survive.</span>
+      </p>
+      <div class="crop">
+        <i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i>
+        <div class="panel">
+
+          <div class="clip">
+            <span class="mark">SIDEPIECE</span>
+            <span class="bridge">BRIDGE&nbsp;UP&nbsp;&middot;&nbsp;LAN</span>
+          </div>
+          <div class="spine"></div>
+
+          <div class="body">
+
+            <!-- FR-4 -->
+            <div class="ident">
+              <h2 class="repo">sidepiece</h2>
+              <span class="path">/home/delorenj/code/sidepiece</span>
+              <div class="meta">
+                <span class="stampchip">SIDE</span>
+                <span class="pm">&#9679;&nbsp;sidepiece-pm reachable</span>
+              </div>
+            </div>
+
+            <div class="hrule"></div>
+
+            <!-- CHAT -->
+            <div class="turns">
+              <div class="srule"><span>Conversation</span></div>
+
+              <!-- Turn 1: Streamed Exchange, complete -->
+              <div class="turn">
+                <p class="op">what&rsquo;s in progress?</p>
+                <p class="lbl">PM &middot; streamed</p>
+                <p class="reply">Nothing is started &mdash; all 44 tickets on SIDE are sitting in Backlog. The Bridge is the critical path: SIDE-12 and SIDE-21 both run through it, so it gates everything else on the board.</p>
+              </div>
+
+              <div class="tsep"></div>
+
+              <!-- Turn 2: Dispatched Command -->
+              <div class="turn">
+                <p class="op">start on the resolver ticket</p>
+                <div class="dispatch">
+                  <div class="band">
+                    <span class="w">DISPATCHED</span>
+                    <span class="cid">cid 7f2a91</span>
+                  </div>
+                  <div class="inner">
+                    <p class="ack">Published to sidepiece-pm. Acknowledged in 412ms.</p>
+                    <span class="status">COMPLETED &middot; 2m41s</span>
+                    <p class="result">Read SIDE-12 against the pjangler registry contract. The resolver can&rsquo;t be tested end to end until the Bridge answers <code>/resolve</code>, so I&rsquo;m starting there and leaving SIDE-12 in Backlog until it does.</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Composer at rest -->
+              <div class="composer">
+                <div class="ctx">
+                  <span class="t">Riding along</span>
+                  <span class="title">SIDE &middot; Issues &mdash; Plane</span>
+                  <span class="url">https://plane.delo.sh/33god/projects/side/issues</span>
+                </div>
+                <div class="classify">
+                  <span class="t">This turn will be</span>
+                  <div class="flip">
+                    <div class="on">STREAMED&nbsp;EXCHANGE</div>
+                    <div class="off">DISPATCHED&nbsp;CMD</div>
+                  </div>
+                </div>
+                <div class="field">Ask the PM, or hand it work&hellip;</div>
+                <div class="cbar">
+                  <span class="hint">Tap either half to flip</span>
+                  <span class="btn">SEND</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- TICKETS -->
+            <div class="board">
+              <div class="srule"><span>Board &middot; SIDE</span></div>
+
+              <div class="grp">
+                <span class="g"><i class="sq"></i></span>
+                <span class="n">Backlog</span>
+                <span class="c">44</span>
+              </div>
+
+              <div class="tix">
+                <div class="r"><span class="s"><i class="sq"></i></span><span class="k">SIDE-12</span><span class="ti">Project Resolution: registry + pjid resolve</span></div>
+                <div class="r"><span class="s"><i class="sq"></i></span><span class="k">SIDE-15</span><span class="ti">Plane ticket proxy</span></div>
+                <div class="r"><span class="s"><i class="sq"></i></span><span class="k">SIDE-21</span><span class="ti">Hermes chat relay</span></div>
+                <div class="r"><span class="s"><i class="sq"></i></span><span class="k">SIDE-27</span><span class="ti">Extension shell and Cockpit</span></div>
+              </div>
+              <span class="more"><i class="sq"></i><span>40 more in Backlog &mdash; no other state has any</span></span>
+
+              <div class="create">
+                <span class="t">New ticket</span>
+                <div class="blank">Title&hellip;</div>
+                <span class="note">Lands on SIDE, in Backlog. A title is enough.</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= STATE VARIANT A: in-page layer ================= -->
+    <div class="frame">
+      <p class="cap"><b>State variant &mdash; the in-page layer</b>
+        <span class="w">The register has to survive leaving the panel. Same spine, same crop marks, same spot, drawn over somebody else&rsquo;s dark dashboard.</span>
+      </p>
+      <div class="crop">
+        <i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i>
+        <div class="pagemock">
+
+          <!-- the page -->
+          <div class="pg-top">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            <span class="u">slowburns.app/overview</span>
+          </div>
+          <div class="pg-in">
+            <h3 class="pg-h">Slow Burns</h3>
+            <p class="pg-sub">Overview &middot; updated 4 minutes ago</p>
+            <div class="pg-cards">
+              <div class="pg-card"><div class="l">Listings</div><div class="v">128</div></div>
+              <div class="pg-card"><div class="l">Burning</div><div class="v">6</div></div>
+              <div class="pg-card"><div class="l">Cleared</div><div class="v">41</div></div>
+            </div>
+            <div class="pg-figwrap">
+              <div class="l">Your collector</div>
+              <div class="pg-guy">
+                <span class="arm"></span>
+                <span class="figbody"><span class="head"></span><span class="torso"></span></span>
+                <span class="arm"></span>
+              </div>
+              <span class="pg-btn">Publish batch</span>
+            </div>
+          </div>
+
+          <!-- hover outline on the middle stat card -->
+          <div class="ol" style="left:154px;top:107px;width:122px;height:52px">
+            <span class="box"></span>
+            <b class="a"></b><b class="b"></b><b class="c"></b><b class="d"></b>
+          </div>
+          <!-- resolved-selector tooltip, beside it -->
+          <div class="sp-sheet" style="left:154px;top:165px;width:250px">
+            <span class="sp-spine"></span>
+            <div class="sp-in">
+              <span class="sel">div.pg-cards&nbsp;&gt;&nbsp;div.pg-card:nth-of-type(2)</span>
+              <span class="dim">122 &times; 52 &nbsp;&middot;&nbsp; DIV.PG-CARD</span>
+              <span class="tiphint">Click to comment &middot; Esc disarms</span>
+            </div>
+          </div>
+
+          <!-- a committed mark on the figure, and its leader to the open bubble -->
+          <div class="pin" style="left:45px;top:250px">2</div>
+          <div class="leader" style="left:62px;top:258px;width:70px;height:1.5px"></div>
+
+          <!-- open comment bubble, anchored to the figure -->
+          <div class="sp-sheet" style="left:132px;top:262px;width:280px">
+            <span class="sp-spine"></span>
+            <div class="sp-in">
+              <div class="bub-hd">
+                <span class="anchor">&#9679;&nbsp;div.pg-guy</span>
+                <span class="n">MARK 2</span>
+              </div>
+              <p class="bub-txt">This is supposed to be a guy. It reads as a lamp &mdash; the head is too small for the torso and there are no legs.</p>
+              <div class="bub-ft">
+                <span class="c">2 marks on this page</span>
+                <span class="mini">KEEP</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= STATE VARIANT B: Bridge unreachable ================= -->
+    <div class="frame">
+      <p class="cap"><b>State variant &mdash; Bridge unreachable</b>
+        <span class="w">One shared message, because nothing can be true. The clip goes to ink; the spine stays, so it is still unmistakably the same object.</span>
+      </p>
+      <div class="crop">
+        <i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i>
+        <div class="panel">
+
+          <div class="clip down">
+            <span class="mark">SIDEPIECE</span>
+            <span class="bridge">BRIDGE&nbsp;DOWN</span>
+          </div>
+          <div class="spine"></div>
+
+          <div class="body">
+            <div class="ident">
+              <h2 class="repo">sidepiece</h2>
+              <span class="path">/home/delorenj/code/sidepiece</span>
+              <div class="meta">
+                <span class="stampchip">SIDE</span>
+                <span class="pm">&#9675;&nbsp;last resolved 6m ago</span>
+              </div>
+            </div>
+
+            <div class="hrule"></div>
+
+            <div class="shared">
+              <div class="band">EVERY PANE</div>
+              <div class="in">
+                <p>The Bridge on <b>big-chungus</b> isn&rsquo;t answering, so nothing below can be true right now. Either this laptop is off the tailnet or the daemon is down.</p>
+                <span class="cmd">tailscale status | grep big-chungus</span>
+                <div class="acts">
+                  <span class="btn">RE-RESOLVE</span>
+                  <span class="btn ghost">LOG</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="covered">
+              <span class="t">Covered by that message</span>
+              <div class="p"><span class="g"><i class="dash"></i></span>Identity<em>CACHED 6m</em></div>
+              <div class="p"><span class="g"><i class="dash"></i></span>Conversation<em>HELD</em></div>
+              <div class="p"><span class="g"><i class="dash"></i></span>Board &middot; SIDE<em>HELD</em></div>
+              <div class="p"><span class="g"><i class="dash"></i></span>New ticket<em>OFF</em></div>
+            </div>
+
+            <div class="create" style="border-top:1px solid var(--rule);margin-top:15px;margin-bottom:16px">
+              <span class="t">Your last turn</span>
+              <div class="blank" style="border-bottom:1px solid var(--rule);color:var(--ink-2);font-style:normal;font-size:12.5px">draft the resolver test plan</div>
+              <span class="note">Kept. It sends on the first successful re-resolve.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="foot">
+    <h2>Honest at 340px &mdash; what fit, and what gave</h2>
+    <ul>
+      <li><b>Fits.</b> The full clone path on one line at 10.5px mono (29 chars in a 300px column, 174px used) &mdash; no truncation, no tooltip, and <code>user-select:all</code> so one click takes the whole thing into a terminal.</li>
+      <li><b>Fits.</b> Both classification values spelled out side by side, 300px column, 8px letterspaced mono. <b>&ldquo;Dispatched Command&rdquo; did not</b> &mdash; it is set as <b>DISPATCHED CMD</b>. That abbreviation is the one string in the mock that is not the PRD&rsquo;s literal, and it is a real finding, not a preference.</li>
+      <li><b>Fits.</b> The FR-10 context block prints the page title and the full URL unelided (47 chars &times; 9.5px mono = 268px of 300).</li>
+      <li><b>Gave.</b> The perforated spine eats 10px and the sheet border 2px, so the usable column is <b>300px, not 340</b>. That is the cost of the signature, paid on every surface, and it is the strongest argument against this direction.</li>
+      <li><b>Gave.</b> Ticket rows carry the Backlog glyph <b>&#9643;</b> rather than the word, because four repetitions of &ldquo;Backlog&rdquo; is density for nothing. The group header is <code>position:sticky</code>, so the state is on screen at every scroll position &mdash; the glyph never has to be remembered.</li>
+      <li><b>Gave.</b> Ticket titles wrap to two lines at 12.5px in the 231px title column. Four tickets and the create line come to 214px of height. Truncating them was the alternative and it is worse &mdash; SIDE-12&rsquo;s title is the only thing distinguishing it from SIDE-15.</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>
