@@ -4,6 +4,11 @@ inputDocuments:
   - _bmad-output/planning-artifacts/prds/prd-sidepiece-2026-09-17/prd.md
   - _bmad-output/planning-artifacts/prds/prd-sidepiece-2026-09-17/addendum.md
   - _bmad-output/planning-artifacts/prds/prd-sidepiece-2026-09-17/.decision-log.md
+  # Added 2026-09-20 — the bmad-ux run completed after steps 1-2 were written.
+  - _bmad-output/planning-artifacts/ux-designs/ux-sidepiece-2026-09-20/EXPERIENCE.md
+  - _bmad-output/planning-artifacts/ux-designs/ux-sidepiece-2026-09-20/DESIGN.md
+  - _bmad-output/planning-artifacts/ux-designs/ux-sidepiece-2026-09-20/.decision-log.md
+  - _bmad-output/planning-artifacts/ux-designs/ux-sidepiece-2026-09-20/.working/research-mv3-platform.md
 workflowType: 'architecture'
 project_name: 'sidepiece'
 user_name: 'Jarad'
@@ -51,7 +56,10 @@ Seven runtime dependencies (PRD §6). Discovered empirically on 2026-09-17 and b
 - **FR-9 is blocked on another repo.** `BloodbankAdapter.send()` discards the agent's response text; dispatch outcomes carry status only. Correlation works — result content does not exist yet.
 - **Dispatch outcomes carry no repo or project**, so §6's `data.repo` filter holds for webhook events but not for agent dispatch. The Bridge must scope by a correlation id it minted itself.
 - **`tailscale serve` rewrites the client address to `127.0.0.1`**, moving the real caller to `X-Forwarded-For`.
-- **Chrome's Local Network Access may survive TLS.** LNA gates on the address-space transition with a permission prompt rather than on secure context, so the transport choice does not close Q7.
+- **~~Chrome's Local Network Access may survive TLS.~~ CORRECTED 2026-09-20 — LNA almost certainly does not affect us.** The original bullet was right that LNA gates on the address-space transition rather than on secure context, and therefore that TLS alone does not close Q7. Everything else around it was wrong: LNA shipped in **Chrome 142**, not 153, and has been live across this entire 151–155 fleet for nearly a year; the WICG spec classifies `100.64.0.0/10` explicitly as `local` rather than leaving it ambiguous; and **extensions holding the correct host permissions are stated to be exempt**, with the two bugs that once broke that guarantee fixed by Chrome 144. Q7 therefore drops from a discovery to a one-off confirmation on `carries-macbook-air`, with *no prompt* as the expected result. See `prds/prd-sidepiece-2026-09-17/addendum.md` §C.
+- **A click inside the page can open the Cockpit.** *(Added 2026-09-20 — absent from every input this document was built on.)* Chrome curries a user gesture across exactly one `runtime.sendMessage` hop, so content script → service worker → `chrome.sidePanel.open()` works, provided the chain is callbacks with zero `await`s. This is what lets the deferred in-page annotation flow summon the Cockpit at the moment of discharge rather than requiring a separate manual open, and it is a component-boundary fact: it puts a gesture-carrying message path between the content script and the service worker that the twelve-component sketch above does not yet account for.
+- **The panel document is destroyed on collapse, not only on close**, and `chrome.sidePanel.onOpened` / `onClosed` (Chrome 141+) now exist as save/restore hooks that did not when this document's dependency list was written. The Bridge-as-system-of-record conclusion is unchanged and if anything strengthened; what changes is that there is now a flush point to design around, and nothing documents whether `onClosed` fires early enough to be trusted as one.
+- **The side panel has a hard ~320px floor the extension cannot read or set**, which is an architectural constraint and not only a design one: it bounds what a single render pass can usefully deliver and it is the reason `EXPERIENCE.md` treats 320px as the design target rather than a worst case.
 
 ### Cross-Cutting Concerns Identified
 
