@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sidepiece — Four Directions</title>
+<style>
+  :root{
+    --bg:#17181b; --card:#1f2024; --line:#32343a; --ink:#e8e9ec;
+    --dim:#9b9ea8; --dimmer:#70737c; --accent:#8ab4f8;
+    --pro:#69d3a5; --con:#ff9152;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font:14px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{padding:26px 28px 18px;border-bottom:1px solid var(--line)}
+  h1{margin:0 0 6px;font-size:19px;font-weight:650;letter-spacing:-.01em}
+  .sub{color:var(--dim);font-size:13px;max-width:78ch}
+  .sub b{color:var(--ink);font-weight:600}
+  .rail{display:flex;gap:18px;padding:18px;overflow-x:auto;align-items:flex-start}
+  .col{flex:0 0 430px;background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .col > .head{padding:14px 16px;border-bottom:1px solid var(--line)}
+  .num{font:600 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.14em;
+    color:var(--dimmer);text-transform:uppercase}
+  .name{margin:7px 0 4px;font-size:16px;font-weight:650;letter-spacing:-.01em}
+  .one{color:var(--dim);font-size:12.5px;line-height:1.5}
+  .meta{padding:12px 16px;border-bottom:1px solid var(--line);font-size:12px;line-height:1.55}
+  .meta p{margin:0 0 9px}
+  .meta p:last-child{margin:0}
+  .tag{display:inline-block;font:600 9.5px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+    letter-spacing:.12em;text-transform:uppercase;padding:3px 6px;border-radius:3px;
+    margin-right:7px;vertical-align:1px}
+  .tag.pro{color:var(--pro);border:1px solid color-mix(in srgb,var(--pro) 40%,transparent)}
+  .tag.con{color:var(--con);border:1px solid color-mix(in srgb,var(--con) 40%,transparent)}
+  .swatches{display:flex;gap:0;padding:0 16px 13px}
+  .sw{width:26px;height:26px;border:1px solid rgba(255,255,255,.14);margin-right:-1px}
+  .frame{background:#000;border-top:1px solid var(--line)}
+  iframe{display:block;width:430px;height:1500px;border:0;background:#fff}
+  .open{display:block;padding:11px 16px;border-top:1px solid var(--line);
+    color:var(--accent);text-decoration:none;font-size:12.5px}
+  .open:hover{background:#26272c}
+  footer{padding:20px 28px 40px;color:var(--dimmer);font-size:12.5px;border-top:1px solid var(--line)}
+  code{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--dim)}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Sidepiece — four directions for the Cockpit</h1>
+  <p class="sub">Each is a complete visual personality applied to the same screen: the Cockpit resolved on
+  the Sidepiece project itself, at the real <b>340px</b> panel width, with a genuine failure state beside it.
+  Scroll each column. Nothing here is a palette swap — they differ on density, type, structure and register.
+  Pick one, or name the parts you want from several.</p>
+</header>
+
+<div class="rail">
+
+  <section class="col">
+    <div class="head">
+      <div class="num">01 · inherit the fleet</div>
+      <div class="name">33GOD Inherited</div>
+      <div class="one">Quiet deep-navy platform chrome. 1px borders, zero shadows, almost no colour until
+      something has a state to report — and then the colour always arrives with its glyph.</div>
+    </div>
+    <div class="swatches">
+      <div class="sw" style="background:#0b1020"></div><div class="sw" style="background:#121a2d"></div>
+      <div class="sw" style="background:#26324d"></div><div class="sw" style="background:#9aa8c7"></div>
+      <div class="sw" style="background:#eef3ff"></div><div class="sw" style="background:#7fb0ff"></div>
+      <div class="sw" style="background:#69d3a5"></div><div class="sw" style="background:#ffd166"></div>
+      <div class="sw" style="background:#ff7a90"></div>
+    </div>
+    <div class="meta">
+      <p><span class="tag pro">for</span>Closes a decision that has blocked two BMAD runs, and hands Sidepiece
+      and Holocene the same DESIGN.md. Fixes Holocene's two named defects instead of copying them: one navy
+      ramp, and a type system that actually loads.</p>
+      <p><span class="tag con">against</span>Inheritance from a parent whose own audit calls it broken. If
+      Holocene never reconciles upstream, this isn't a sibling — it's a fifth palette that resembles the first.</p>
+    </div>
+    <div class="frame"><iframe src="direction-inherited.html" title="33GOD Inherited"></iframe></div>
+    <a class="open" href="direction-inherited.html" target="_blank">Open full size →</a>
+  </section>
+
+  <section class="col">
+    <div class="head">
+      <div class="num">02 · disappear</div>
+      <div class="name">Chrome Native</div>
+      <div class="one">Browser furniture. VS Code greys, Chrome's own UI font, structure from hairlines,
+      no shadow, no radius past 2px, not one pixel of brand — the panel you stop noticing.</div>
+    </div>
+    <div class="swatches">
+      <div class="sw" style="background:#1e1e1e"></div><div class="sw" style="background:#252526"></div>
+      <div class="sw" style="background:#2d2d30"></div><div class="sw" style="background:#464647"></div>
+      <div class="sw" style="background:#969696"></div><div class="sw" style="background:#cccccc"></div>
+      <div class="sw" style="background:#3794ff"></div><div class="sw" style="background:#4ec9b0"></div>
+      <div class="sw" style="background:#ff9800"></div>
+    </div>
+    <div class="meta">
+      <p><span class="tag pro">for</span>The only direction with a literal claim on SM-C1 — if the panel is
+      built from Chrome's own parts there's nothing to re-orient to, so dipping in costs zero structurally
+      rather than by argument. Free: the palette already exists in kapture, and no webfont to load or fail.</p>
+      <p><span class="tag con">against</span>You run DevTools constantly and will have both open. Two grey
+      panels from the same palette are two panels you have to tell apart — reintroducing the exact
+      orientation beat it claims to delete. And a product with no face is harder to stay excited about.</p>
+    </div>
+    <div class="frame"><iframe src="direction-chrome-native.html" title="Chrome Native"></iframe></div>
+    <a class="open" href="direction-chrome-native.html" target="_blank">Open full size →</a>
+  </section>
+
+  <section class="col">
+    <div class="head">
+      <div class="num">03 · ship the unshipped</div>
+      <div class="name">The Severity Ladder</div>
+      <div class="one">Severe, quiet, forensic. A dark navy instrument built entirely from 1px rules and grey
+      text, where colour is rationed so hard the whole healthy screen contains exactly one hue.</div>
+    </div>
+    <div class="swatches">
+      <div class="sw" style="background:#0b1020"></div><div class="sw" style="background:#121a2d"></div>
+      <div class="sw" style="background:#26324d"></div><div class="sw" style="background:#6b7793"></div>
+      <div class="sw" style="background:#ff5f6d"></div><div class="sw" style="background:#ff9152"></div>
+      <div class="sw" style="background:#ffd166"></div><div class="sw" style="background:#7fb0ff"></div>
+      <div class="sw" style="background:#69d3a5"></div>
+    </div>
+    <div class="meta">
+      <p><span class="tag pro">for</span>The only direction that arrives with laws already written in your own
+      voice — "OK is grey. Green means exactly one thing." "Confidence is form, never hue." Its reach is the
+      real argument: adopt the six-rung ladder here and it becomes the platform's shared state vocabulary,
+      which Holocene then inherits back.</p>
+      <p><span class="tag con">against</span>It's a revival, and it died once for a reason nobody recorded.
+      Four of the six rungs never appear on a healthy screen — that may be more vocabulary than a solo
+      operator's side panel can earn. Tickets land below the fold.</p>
+    </div>
+    <div class="frame"><iframe src="direction-severity-ladder.html" title="The Severity Ladder"></iframe></div>
+    <a class="open" href="direction-severity-ladder.html" target="_blank">Open full size →</a>
+  </section>
+
+  <section class="col">
+    <div class="head">
+      <div class="num">04 · argue with all of it</div>
+      <div class="name">Deliberately Foreign</div>
+      <div class="one">A printed instrument. A warm paper sheet laid on top of the page, set in serif, ruled
+      in ink, signed with a fluorescent spine and crop marks that follow it out onto whatever site
+      you're annotating.</div>
+    </div>
+    <div class="swatches">
+      <div class="sw" style="background:#F2EDE3"></div><div class="sw" style="background:#FBF8F1"></div>
+      <div class="sw" style="background:#E8E0D0"></div><div class="sw" style="background:#CFC3AB"></div>
+      <div class="sw" style="background:#837A69"></div><div class="sw" style="background:#4C463A"></div>
+      <div class="sw" style="background:#191713"></div><div class="sw" style="background:#FF2E63"></div>
+      <div class="sw" style="background:#1B3FA0"></div>
+    </div>
+    <div class="meta">
+      <p><span class="tag pro">for</span>The only one designing a <em>register</em> rather than a panel.
+      Sidepiece is the one tool you own that draws on other people's screens, and an identity that stops at
+      the panel edge doesn't serve the north star. The same spine and crop marks ride the Cockpit, the hover
+      tooltip and the in-page bubble — a Sidepiece mark is yours on a white docs site and a black dashboard alike.</p>
+      <p><span class="tag con">against</span>The spot hue is the whole argument and the whole risk, and it
+      can't be de-risked by recolouring — a quieter spot stops being unmistakable on both grounds. Costs 12%
+      of the panel permanently for a signature. Inherits nothing, so it answers the inheritance question
+      with "neither."</p>
+    </div>
+    <div class="frame"><iframe src="direction-foreign.html" title="Deliberately Foreign"></iframe></div>
+    <a class="open" href="direction-foreign.html" target="_blank">Open full size →</a>
+  </section>
+
+</div>
+
+<footer>
+  Rendered for the <code>bmad-ux</code> run <code>ux-sidepiece-2026-09-20</code>. Source files live in
+  <code>.working/</code>; each carries its full token table as a CSS comment, ready to lift into
+  <code>DESIGN.md</code>. Directions 01 and 03 share the navy family and could merge; 04 is the only one
+  that answers the in-page layer.
+</footer>
+
+</body>
+</html>
