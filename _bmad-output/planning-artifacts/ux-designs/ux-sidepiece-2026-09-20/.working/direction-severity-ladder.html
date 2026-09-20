@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Unshipped Redesign</title>
+<style>
+/* ============================================================================
+   SIDEPIECE / DIRECTION: THE UNSHIPPED REDESIGN
+   Revives the 2026-09-06 Holocene IA redesign language, which produced six
+   artboards and a set of laws and then never reached a stylesheet.
+
+   TOKEN TABLE — every hex in this file, with its semantic name.
+   Contrast figures are measured against --sp-page #0b1020 unless stated.
+   ----------------------------------------------------------------------------
+   SURFACES (retained from the Holocene ramp)
+     --sp-page        #0b1020   panel background, the one true ground
+     --sp-strip       #07111f   truth strip: identity header, group headers
+     --sp-raise       #121a2d   raised block: dispatch record, composer field
+     --sp-hover       #151e33   row hover
+     --sp-rule        #26324d   1px structural rule — every boundary in the UI
+     --sp-hairline    #141c33   1px sub-rule, inside a block
+
+   TEXT
+     --sp-text        #eef3ff   primary text                        17.0:1
+     --sp-link        #c3ccdf   link / interactive label            11.9:1
+     --sp-muted-1     #9aa8c7   secondary text, group labels         7.9:1
+     --sp-muted-2     #7c89a6   chrome floor — smallest readable     5.4:1
+     --sp-muted-3     #5d6b8a   RULES AND DIVIDERS ONLY              3.6:1  (*)
+     --sp-muted-4     #56637f   disabled mark, non-text              3.2:1  (*)
+     (*) Below the 4.5:1 chrome floor. Never carries a word. This is the law
+         "10.5px for static chrome at >=4.5:1" enforced by exclusion, not by eye.
+
+   THE SIX-RUNG SEVERITY LADDER — hue + glyph, never one without the other.
+   A rung hue appears ONLY on a row, cell or badge whose severity it states.
+   It never appears on chrome, controls, filters, captions or explainers.
+     --rung-blocked   #ff5f6d  glyph U+25C6  diamond    blocked        6.4:1
+     --rung-broken    #ff9152  glyph U+25CF  circle     broken         8.5:1
+     --rung-stuck     #ffd166  glyph U+25B2  triangle   stuck         13.2:1
+     --rung-nudge     #7fb0ff  glyph U+25AA  square     nudge          8.5:1
+     --rung-ok        #6b7793  glyph U+2500  dash       ok             4.2:1  (!)
+     --rung-cleared   #69d3a5  glyph U+2500  dash       cleared       10.3:1
+     (!) FINDING: OK measures 4.23:1 and misses its own 4.5:1 floor by a hair.
+         Held at the specified value here rather than silently corrected. The
+         mark is therefore never the only carrier: every OK mark in this mock
+         sits beside a word in --sp-muted-1 (7.9:1). Proposed correction for
+         DESIGN.md: #78839c, measured 4.97:1, same hue family.
+     (!) FINDING: OK and CLEARED share the glyph U+2500, so grey-vs-green is the
+         only separator between them. That breaks "no rung hue appears without
+         its glyph" from the inside. Resolved here by pairing CLEARED with the
+         literal word "completed" wherever it appears, so hue is never load-
+         bearing alone. DESIGN.md should either give CLEARED its own glyph or
+         make the word mandatory.
+
+   SHOWCASE PAGE ONLY (not part of the Sidepiece palette)
+     --sheet          #8c8f95   neutral mid-grey page ground
+     --sheet-card     #e8e9ec   rationale card
+     --sheet-ink      #1a1c20   text on the card
+     --sheet-ink-2    #4a4d54   secondary text on the card
+     --sheet-rule     #6f7279   rule on the grey
+   ============================================================================ */
+
+/* TYPE. IBM Plex Sans / IBM Plex Mono are named first, per the redesign law.
+   They are NOT loaded: this file makes no network requests, and Plex is not
+   installed on this machine — so this render falls back to the system UI sans
+   and the system mono. Shipping Sidepiece self-hosts both families in the
+   extension bundle; MV3 forbids a remote font fetch anyway, so self-hosting is
+   the only option and the fallback stack is what a cold install sees. */
+
+:root{
+  --sp-page:#0b1020; --sp-strip:#07111f; --sp-raise:#121a2d; --sp-hover:#151e33;
+  --sp-rule:#26324d;  --sp-hairline:#141c33;
+  --sp-text:#eef3ff; --sp-link:#c3ccdf; --sp-muted-1:#9aa8c7;
+  --sp-muted-2:#7c89a6; --sp-muted-3:#5d6b8a; --sp-muted-4:#56637f;
+  --rung-blocked:#ff5f6d; --rung-broken:#ff9152; --rung-stuck:#ffd166;
+  --rung-nudge:#7fb0ff;   --rung-ok:#6b7793;     --rung-cleared:#69d3a5;
+  --sheet:#8c8f95; --sheet-card:#e8e9ec; --sheet-ink:#1a1c20;
+  --sheet-ink-2:#4a4d54; --sheet-rule:#6f7279;
+
+  --sans:"IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--sheet); color:var(--sheet-ink);
+  font-family:var(--sans); font-size:14px; line-height:1.55;
+  padding:32px 16px 72px;
+}
+
+/* ---------- showcase chrome ---------- */
+.wrap{max-width:1040px;margin:0 auto}
+.rationale{
+  background:var(--sheet-card); color:var(--sheet-ink);
+  border:1px solid var(--sheet-rule); padding:20px 22px; max-width:760px;
+}
+.rationale h1{
+  margin:0 0 4px; font-size:17px; font-weight:600; letter-spacing:-0.01em;
+}
+.rationale .kicker{
+  margin:0 0 14px; font-family:var(--mono); font-size:11px; letter-spacing:0.06em;
+  text-transform:uppercase; color:var(--sheet-ink-2);
+}
+.rationale p{margin:0 0 10px; font-size:13.5px; line-height:1.62}
+.rationale p:last-child{margin-bottom:0}
+.rationale code{font-family:var(--mono); font-size:12.5px; background:#dcdee2; padding:1px 4px}
+.rationale strong{font-weight:600}
+
+.frames{display:flex; flex-wrap:wrap; gap:34px; align-items:flex-start; margin-top:34px}
+.frame-col{display:flex; flex-direction:column; gap:10px}
+.frame-label{
+  font-family:var(--mono); font-size:11px; letter-spacing:0.05em;
+  color:#23262b; text-transform:uppercase;
+}
+.frame-note{
+  font-size:12px; color:#2b2e33; max-width:340px; line-height:1.5;
+}
+.frame-note b{font-weight:600}
+
+/* ============================================================================
+   THE COCKPIT — exactly 340px. Chrome pins a ~320px minimum side-panel width
+   and the extension can neither read nor change it, so 340 is the honest
+   drawing surface.
+   ============================================================================ */
+.cockpit{
+  width:340px; flex:0 0 340px;
+  background:var(--sp-page); color:var(--sp-text);
+  font-family:var(--sans);
+  border:1px solid var(--sp-rule);
+  display:flex; flex-direction:column;
+  /* no shadow, anywhere. structure is 1px rules. */
+}
+.cockpit *{font-variant-numeric:tabular-nums}
+
+/* ---- identity header: FR-4, permanently visible, never behind a menu ---- */
+.ident{
+  background:var(--sp-strip); border-bottom:1px solid var(--sp-rule);
+  padding:11px 12px 10px;
+}
+.ident-row{display:flex; align-items:baseline; gap:8px}
+.repo{
+  font-size:15px; font-weight:600; letter-spacing:-0.005em; color:var(--sp-text);
+}
+.ident-spacer{flex:1 1 auto}
+.board-id{
+  font-family:var(--mono); font-size:10.5px; font-weight:500; letter-spacing:0.08em;
+  color:var(--sp-muted-1); border:1px solid var(--sp-rule); padding:1px 5px;
+}
+.clone-path{
+  display:block; margin-top:6px;
+  font-family:var(--mono); font-size:11.5px; letter-spacing:-0.01em;
+  color:var(--sp-muted-1);
+  user-select:all;                 /* FR-4: selectable, it goes into a terminal */
+  cursor:text;
+}
+.ident-status{
+  display:flex; align-items:center; gap:6px; margin-top:8px;
+  padding-top:8px; border-top:1px solid var(--sp-hairline);
+}
+
+/* ---- the ladder mark: glyph + word, always together ---- */
+.rung{display:inline-flex; align-items:baseline; gap:5px; white-space:nowrap}
+.rung .g{font-size:10.5px; line-height:1}
+.rung .w{font-size:10.5px; letter-spacing:0.03em; color:var(--sp-muted-1)}
+.rung.lg .w{font-size:11.5px}
+.g-blocked{color:var(--rung-blocked)}
+.g-broken {color:var(--rung-broken)}
+.g-stuck  {color:var(--rung-stuck)}
+.g-nudge  {color:var(--rung-nudge)}
+.g-ok     {color:var(--rung-ok)}
+.g-cleared{color:var(--rung-cleared)}
+
+/* ---- pane scaffolding ---- */
+.pane + .pane{border-top:1px solid var(--sp-rule)}
+.pane-head{
+  display:flex; align-items:center; gap:8px;
+  padding:8px 12px; background:var(--sp-strip);
+  border-bottom:1px solid var(--sp-hairline);
+  position:sticky; top:0;          /* ADHD: the state label never scrolls away */
+}
+.pane-title{
+  font-size:10.5px; font-weight:600; letter-spacing:0.09em; text-transform:uppercase;
+  color:var(--sp-muted-2);
+}
+.pane-head .ident-spacer{flex:1 1 auto}
+.count{font-family:var(--mono); font-size:10.5px; color:var(--sp-muted-2)}
+
+/* ---- chat ---- */
+.turns{padding:4px 12px 10px}
+.turn{padding:10px 0; border-bottom:1px dotted var(--sp-hairline)}
+.turn:last-child{border-bottom:0}
+.operator{
+  display:flex; gap:7px; font-size:12.5px; line-height:1.5; color:var(--sp-text);
+  font-weight:500;
+}
+.operator .caret{color:var(--sp-muted-3); font-family:var(--mono)}
+
+/* A Streamed Exchange is prose behind a solid left rule. */
+.streamed{
+  margin:8px 0 0 13px; padding-left:11px; border-left:1px solid var(--sp-rule);
+  font-size:12.5px; line-height:1.68;       /* density comes from leading */
+  color:var(--sp-muted-1);
+}
+.streamed b{color:var(--sp-text); font-weight:500}
+.streamed .k{font-family:var(--mono); font-size:11.5px; color:var(--sp-link)}
+
+/* A Dispatched Command is a record in a box. Form carries the distinction,
+   not a second hue — the ladder owns every hue in this panel. */
+.dispatch{
+  margin:8px 0 0 13px; background:var(--sp-raise); border:1px solid var(--sp-rule);
+}
+.dispatch-head{
+  display:flex; align-items:center; gap:8px; padding:6px 9px;
+  border-bottom:1px solid var(--sp-hairline);
+}
+.cid{font-family:var(--mono); font-size:11.5px; color:var(--sp-muted-1); letter-spacing:-0.01em}
+.dispatch-body{padding:8px 9px 9px; font-size:12.5px; line-height:1.62; color:var(--sp-muted-1)}
+.dispatch-body .k{font-family:var(--mono); font-size:11.5px; color:var(--sp-link)}
+
+/* ---- composer ---- */
+.composer{border-top:1px solid var(--sp-rule); background:var(--sp-strip); padding:9px 12px 11px}
+
+/* FR-10: the attached page context, visible before sending. */
+.ctx{
+  border:1px solid var(--sp-hairline); border-left:2px solid var(--sp-rule);
+  padding:5px 8px 6px; margin-bottom:8px;
+}
+.ctx-label{
+  font-size:10.5px; letter-spacing:0.07em; text-transform:uppercase;
+  color:var(--sp-muted-2); display:block; margin-bottom:2px;
+}
+.ctx-title{font-size:11.5px; color:var(--sp-muted-1); line-height:1.35}
+.ctx-url{
+  display:block; font-family:var(--mono); font-size:11.5px; color:var(--sp-muted-2);
+  letter-spacing:-0.015em; margin-top:2px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+
+.field{
+  background:var(--sp-raise); border:1px solid var(--sp-rule);
+  padding:8px 9px; font-size:12.5px; color:var(--sp-muted-3); line-height:1.5;
+  min-height:38px;
+}
+
+/* FR-6: classification visible before commit, one control flips it.
+   Both values are on screen — nothing is held in working memory.
+   This control states a routing choice, not a severity, so it wears no rung. */
+.sendas{display:flex; align-items:center; gap:7px; margin-top:8px}
+.sendas-label{
+  font-size:10.5px; letter-spacing:0.06em; text-transform:uppercase;
+  color:var(--sp-muted-2); white-space:nowrap;
+}
+.seg{display:flex; border:1px solid var(--sp-rule); flex:1 1 auto}
+.seg span{
+  flex:1 1 auto; text-align:center; padding:4px 3px;
+  font-size:11.5px; line-height:1.25; letter-spacing:-0.005em;
+}
+/* No shadow, not even an inset one used as a border. Structure is 1px rules. */
+.seg .on{background:var(--sp-hover); color:var(--sp-text); font-weight:600}
+.seg .off{color:var(--sp-muted-2)}
+.seg .off + .on, .seg .on + .off{border-left:1px solid var(--sp-rule)}
+
+/* ---- tickets ---- */
+.tickets{padding:0}
+.tk{
+  display:block; padding:9px 12px 10px; border-bottom:1px solid var(--sp-hairline);
+  text-decoration:none;
+}
+.tk:last-of-type{border-bottom:0}
+.tk-top{display:flex; align-items:baseline; gap:7px}
+.tk-key{font-family:var(--mono); font-size:11.5px; color:var(--sp-link); letter-spacing:-0.01em}
+.tk-title{
+  display:block; margin-top:3px; margin-left:17px; font-size:12.5px;
+  line-height:1.5; color:var(--sp-text);
+}
+.tk-more{
+  padding:8px 12px 10px 29px; font-size:11.5px; color:var(--sp-muted-2);
+  border-top:1px solid var(--sp-hairline);
+}
+
+/* FR-13: title alone is enough; the Board is never chosen by the operator. */
+.create{
+  display:flex; align-items:center; gap:8px; padding:8px 12px 10px;
+  border-top:1px solid var(--sp-rule); background:var(--sp-strip);
+}
+.create-field{
+  flex:1 1 auto; border:1px solid var(--sp-rule); background:var(--sp-raise);
+  padding:5px 8px; font-size:11.5px; color:var(--sp-muted-3);
+}
+.create-dest{font-family:var(--mono); font-size:10.5px; color:var(--sp-muted-2); white-space:nowrap}
+
+/* ---- failure surface ---- */
+.blocked-banner{
+  border-bottom:1px solid var(--sp-rule); padding:12px 12px 13px; background:var(--sp-page);
+}
+.blocked-head{display:flex; align-items:baseline; gap:7px; margin-bottom:7px}
+.blocked-head .g{font-size:11px; color:var(--rung-blocked); line-height:1}
+.blocked-head .t{font-size:13px; font-weight:600; color:var(--sp-text); letter-spacing:-0.005em}
+/* Explainers never wear a rung hue. This is body text. */
+.blocked-body{font-size:12.5px; line-height:1.62; color:var(--sp-muted-1); margin:0 0 4px}
+.blocked-body + .blocked-body{margin-top:7px}
+.blocked-body .k{font-family:var(--mono); font-size:11.5px; color:var(--sp-link)}
+.actions{display:flex; gap:8px; margin-top:11px}
+/* Controls are chrome. Grey, always. */
+.btn{
+  font-family:var(--sans); font-size:11.5px; color:var(--sp-text);
+  background:var(--sp-raise); border:1px solid var(--sp-rule); padding:5px 11px;
+}
+.btn.quiet{background:transparent; color:var(--sp-muted-1)}
+
+/* Confidence is form, never hue: stale content gets a dotted rule and a word.
+   No opacity anywhere — the colour below IS the computed blend, 5.4:1. */
+.stale{border-left:1px dotted var(--sp-muted-3); padding-left:10px; margin-left:12px}
+.stale-tag{
+  display:inline-block; margin:9px 0 2px;
+  font-size:10.5px; letter-spacing:0.07em; text-transform:uppercase; color:var(--sp-muted-2);
+}
+.stale .operator{color:var(--sp-muted-1); font-weight:500}
+.stale .streamed{color:var(--sp-muted-2); border-left-color:var(--sp-hairline)}
+.stale-pad{padding:0 12px 12px}
+
+/* ---- the ladder sheet, page documentation (not panel chrome) ---- */
+.ladder{
+  margin-top:34px; background:var(--sp-page); border:1px solid var(--sp-rule);
+  color:var(--sp-text); padding:14px 16px 16px; max-width:714px;
+}
+.ladder h2{
+  margin:0 0 3px; font-size:11px; font-weight:600; letter-spacing:0.09em;
+  text-transform:uppercase; color:var(--sp-muted-2);
+}
+.ladder .sub{margin:0 0 13px; font-size:12px; color:var(--sp-muted-2); line-height:1.5}
+.rungs{display:flex; flex-wrap:wrap; gap:0; border-top:1px solid var(--sp-hairline)}
+.rung-row{
+  display:flex; align-items:baseline; gap:9px; width:100%;
+  padding:7px 0; border-bottom:1px solid var(--sp-hairline);
+}
+.rung-row .g{width:14px; font-size:11px; line-height:1}
+.rung-row .n{width:74px; font-size:12px; color:var(--sp-text)}
+.rung-row .h{width:74px; font-family:var(--mono); font-size:11.5px; color:var(--sp-muted-2)}
+.rung-row .u{flex:1 1 auto; font-size:11.5px; color:var(--sp-muted-1); line-height:1.5}
+.laws{margin:14px 0 0; padding:0; list-style:none}
+.laws li{
+  font-size:11.5px; line-height:1.6; color:var(--sp-muted-1);
+  padding-left:14px; position:relative; margin-bottom:3px;
+}
+.laws li::before{content:"\2500"; position:absolute; left:0; color:var(--sp-muted-3)}
+
+@media (max-width:820px){ .frames{gap:26px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="rationale">
+    <p class="kicker">Direction &middot; The Unshipped Redesign</p>
+    <h1>The sharpest thing 33GOD ever designed, finally shipped</h1>
+    <p>On 2026-09-06 the Holocene IA redesign produced six artboards, IBM Plex, and a six-rung severity ladder where every hue is welded to a glyph &mdash; and a week later <code>globals.css</code> contained none of it. This direction takes those laws as binding and makes the Cockpit the surface where they finally land, which matters beyond one panel: if Sidepiece speaks the ladder, then Ticket state, Agent presence and Dispatched Command status become one vocabulary across the platform instead of the four incompatible ones Holocene audited itself for.</p>
+    <p>The law <strong>&ldquo;density comes from leading, not from shrinking type&rdquo;</strong> fights a 340px column, and I did not resolve it by shrinking. Leading stays generous (1.62&ndash;1.68 on every variable string, nothing under 11.5px); the budget comes back by <em>deleting sections</em> &mdash; the ladder legend lives on this sheet, not in the panel; ticket state is carried by a sticky group header and a grey mark instead of a word repeated forty-four times; the composer shows both classification values at once so nothing is held across a scroll. The panel is taller than a dense one would be. That is the correct trade when the counter-metric is open time: Jarad reads four lines and leaves.</p>
+    <p>The hero has <strong>exactly one hue in it</strong>. Forty-four backlog tickets and a live PM are all grey, because OK is grey; the single green mark is a dispatch that actually completed. A panel that lights up only when something is true is the opposite of a dashboard.</p>
+  </div>
+
+  <div class="frames">
+
+    <!-- ===================== HERO ===================== -->
+    <div class="frame-col">
+      <div class="frame-label">Hero &middot; resolved &middot; 340px</div>
+
+      <div class="cockpit">
+
+        <!-- FR-4 identity: repo, clone path, Board id. No menu, no disclosure. -->
+        <div class="ident">
+          <div class="ident-row">
+            <span class="repo">sidepiece</span>
+            <span class="ident-spacer"></span>
+            <span class="board-id">SIDE</span>
+          </div>
+          <span class="clone-path">/home/delorenj/code/sidepiece</span>
+          <div class="ident-status">
+            <!-- Agent presence speaks the ladder. Reachable is OK, and OK is grey. -->
+            <span class="rung"><span class="g g-ok">&#9472;</span><span class="w">sidepiece-pm reachable</span></span>
+            <span class="ident-spacer"></span>
+            <span class="rung"><span class="g g-ok">&#9472;</span><span class="w">Bridge ok</span></span>
+          </div>
+        </div>
+
+        <!-- ===== CHAT ===== -->
+        <div class="pane">
+          <div class="pane-head">
+            <span class="pane-title">Chat</span>
+            <span class="ident-spacer"></span>
+            <span class="count">2 turns</span>
+          </div>
+
+          <div class="turns">
+
+            <!-- Turn 1 — completed Streamed Exchange -->
+            <div class="turn">
+              <div class="operator"><span class="caret">&rsaquo;</span><span>what&rsquo;s in progress?</span></div>
+              <div class="streamed">
+                Nothing is in progress &mdash; all <b>44</b> tickets on SIDE are still in Backlog.
+                The Bridge is the critical path: <span class="k">SIDE-12</span>,
+                <span class="k">SIDE-15</span> and <span class="k">SIDE-21</span> all go through it,
+                so it decides the order of everything else.
+              </div>
+            </div>
+
+            <!-- Turn 2 — Dispatched Command. A record, not prose. -->
+            <div class="turn">
+              <div class="operator"><span class="caret">&rsaquo;</span><span>start on the resolver ticket</span></div>
+              <div class="dispatch">
+                <div class="dispatch-head">
+                  <span class="cid">cid 7f2a91</span>
+                  <span class="ident-spacer"></span>
+                  <!-- CLEARED is the only hue in this frame, and it carries the word. -->
+                  <span class="rung"><span class="g g-cleared">&#9472;</span><span class="w">completed</span></span>
+                </div>
+                <div class="dispatch-body">
+                  sidepiece-pm has <span class="k">SIDE-12</span>. It read the ticket and
+                  <span class="k">architecture.md</span>, and left one question on the ticket before
+                  writing anything: whether the resolver keys off the Traefik host or the pjangler
+                  registry first. The Board is unchanged.
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- ===== COMPOSER, at rest ===== -->
+          <div class="composer">
+
+            <!-- FR-10: what rides along, visible before sending. -->
+            <div class="ctx">
+              <span class="ctx-label">Attached</span>
+              <span class="ctx-title">Issues &middot; Sidepiece &middot; Plane</span>
+              <span class="ctx-url">plane.delo.sh/33god/projects/96725b78&hellip;/issues/</span>
+            </div>
+
+            <div class="field">Ask the PM, or tell it to do something&hellip;</div>
+
+            <!-- FR-6: visible before commit, and one control flips it. -->
+            <div class="sendas">
+              <span class="sendas-label">Sends as</span>
+              <span class="seg">
+                <span class="off">Streamed Exchange</span><span class="on">Dispatched Command</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== TICKETS ===== -->
+        <div class="pane">
+          <div class="pane-head">
+            <span class="pane-title">Tickets</span>
+            <span class="ident-spacer"></span>
+            <span class="count">SIDE &middot; 44</span>
+          </div>
+
+          <!-- Group header carries the state, and it sticks. Rows carry the -->
+          <!-- grey OK mark, so the state is on screen at every scroll offset. -->
+          <div class="pane-head" style="padding-top:7px;padding-bottom:7px">
+            <span class="rung lg"><span class="g g-ok">&#9472;</span><span class="w">Backlog</span></span>
+            <span class="ident-spacer"></span>
+            <span class="count">44</span>
+          </div>
+
+          <div class="tickets">
+            <span class="tk">
+              <span class="tk-top">
+                <span class="g g-ok" style="font-size:10.5px">&#9472;</span>
+                <span class="tk-key">SIDE-12</span>
+              </span>
+              <span class="tk-title">Project Resolution: registry + pjid resolve</span>
+            </span>
+            <span class="tk">
+              <span class="tk-top">
+                <span class="g g-ok" style="font-size:10.5px">&#9472;</span>
+                <span class="tk-key">SIDE-15</span>
+              </span>
+              <span class="tk-title">Plane ticket proxy</span>
+            </span>
+            <span class="tk">
+              <span class="tk-top">
+                <span class="g g-ok" style="font-size:10.5px">&#9472;</span>
+                <span class="tk-key">SIDE-21</span>
+              </span>
+              <span class="tk-title">Hermes chat relay</span>
+            </span>
+            <span class="tk">
+              <span class="tk-top">
+                <span class="g g-ok" style="font-size:10.5px">&#9472;</span>
+                <span class="tk-key">SIDE-27</span>
+              </span>
+              <span class="tk-title">Extension shell and Cockpit</span>
+            </span>
+            <div class="tk-more">40 more in Backlog. No other state has anything in it.</div>
+          </div>
+
+          <!-- FR-13: title alone. The Board is never chosen by the operator. -->
+          <div class="create">
+            <span class="create-field">New ticket title&hellip;</span>
+            <span class="create-dest">&rarr; SIDE</span>
+          </div>
+        </div>
+
+      </div>
+
+      <p class="frame-note"><b>Honest at 340px.</b> Everything above fits with nothing shrunk below 11.5px, and the clone path renders full-length and selectable. One thing does not fit: the Plane URL is middle-elided, because the real one carries a 36-character board UUID. All four ticket titles happen to fit on one line &mdash; the column takes about 40 characters at 12.5px, past which a title wraps to a second line rather than clip.</p>
+    </div>
+
+    <!-- ===================== STATE VARIANT ===================== -->
+    <div class="frame-col">
+      <div class="frame-label">State &middot; Bridge unreachable &middot; 340px</div>
+
+      <div class="cockpit">
+
+        <div class="ident">
+          <div class="ident-row">
+            <span class="repo">sidepiece</span>
+            <span class="ident-spacer"></span>
+            <span class="board-id">SIDE</span>
+          </div>
+          <span class="clone-path">/home/delorenj/code/sidepiece</span>
+          <div class="ident-status">
+            <span class="rung"><span class="g g-blocked">&#9670;</span><span class="w">Bridge unreachable</span></span>
+            <span class="ident-spacer"></span>
+            <span class="w" style="font-size:10.5px;color:var(--sp-muted-2)">cached 14:12</span>
+          </div>
+        </div>
+
+        <!-- One shared message. Not one failure per pane: when the Bridge is -->
+        <!-- down, nothing behind it can be true, so nothing behind it speaks. -->
+        <div class="blocked-banner">
+          <div class="blocked-head">
+            <span class="g">&#9670;</span>
+            <span class="t">The Bridge did not answer.</span>
+          </div>
+          <p class="blocked-body">
+            Can&rsquo;t tell yet whether this laptop is off the tailnet or
+            <span class="k">big-chungus</span> is down &mdash; both look the same from here.
+          </p>
+          <p class="blocked-body">
+            Chat and Tickets both sit behind it, so neither is live. The identity above is the
+            cached read from 14:12.
+          </p>
+          <div class="actions">
+            <span class="btn">Re-resolve</span>
+            <span class="btn quiet">Copy diagnostics</span>
+          </div>
+        </div>
+
+        <!-- History stays. It was true when it happened, and it still is. -->
+        <div class="stale-pad">
+          <span class="stale-tag">Last read &middot; 14:12</span>
+          <div class="stale">
+            <div class="operator"><span class="caret">&rsaquo;</span><span>start on the resolver ticket</span></div>
+            <div class="dispatch" style="margin-left:0">
+              <div class="dispatch-head">
+                <span class="cid">cid 7f2a91</span>
+                <span class="ident-spacer"></span>
+                <span class="rung"><span class="g g-cleared">&#9472;</span><span class="w">completed</span></span>
+              </div>
+              <div class="dispatch-body" style="color:var(--sp-muted-2)">
+                sidepiece-pm has <span class="k">SIDE-12</span> and left a question on the ticket.
+              </div>
+            </div>
+            <span class="stale-tag">Tickets</span>
+            <div style="font-size:12.5px;line-height:1.6;color:var(--sp-muted-2)">
+              44 in Backlog as of 14:12. The Board is read through the Bridge, so this list
+              cannot refresh and no ticket can be created until it answers.
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <p class="frame-note"><b>Why this state.</b> It is the one that tests the ladder hardest: a single <span style="font-family:var(--mono)">&#9670;</span> governs three panes with one message, every control beside it stays grey chrome, and the completed dispatch keeps its green because completing is a fact that an outage does not undo. Staleness is drawn as a dotted rule and the word &ldquo;cached&rdquo; &mdash; confidence is form, never hue, and no <code style="font-family:var(--mono)">opacity</code> is used anywhere, so the contrast figures in the token table are the real ones.</p>
+    </div>
+
+  </div>
+
+  <!-- ===================== THE LADDER, AS SPEC ===================== -->
+  <div class="ladder">
+    <h2>The six-rung ladder, as Sidepiece would ship it</h2>
+    <p class="sub">One vocabulary for Ticket state, Agent presence and Dispatched Command status. Recovered verbatim from <span style="font-family:var(--mono);font-size:11px">holocene/&hellip;/ia-redesign-2026-09/design/Ladder.dc.html</span>, 2026-09-06.</p>
+    <div class="rungs">
+      <div class="rung-row"><span class="g g-blocked">&#9670;</span><span class="n">blocked</span><span class="h">#ff5f6d</span><span class="u">Bridge unreachable. A dispatch rejected. Nothing behind it can be true.</span></div>
+      <div class="rung-row"><span class="g g-broken">&#9679;</span><span class="n">broken</span><span class="h">#ff9152</span><span class="u">A named dependency failed &mdash; Registry, Plane, Bloodbank or the Agent gateway.</span></div>
+      <div class="rung-row"><span class="g g-stuck">&#9650;</span><span class="n">stuck</span><span class="h">#ffd166</span><span class="u">Time-derived only. A dispatch past its window; a Turn with no first token.</span></div>
+      <div class="rung-row"><span class="g g-nudge">&#9642;</span><span class="n">nudge</span><span class="h">#7fb0ff</span><span class="u">Wants a human. Declared but unknown; a PM question waiting on the ticket.</span></div>
+      <div class="rung-row"><span class="g g-ok">&#9472;</span><span class="n">ok</span><span class="h">#6b7793</span><span class="u">Grey. Backlog is grey. A reachable PM is grey. Most of the panel is grey.</span></div>
+      <div class="rung-row"><span class="g g-cleared">&#9472;</span><span class="n">cleared</span><span class="h">#69d3a5</span><span class="u">Left the queue in the last 6 hours. Green means exactly one thing.</span></div>
+    </div>
+    <ul class="laws">
+      <li>A rung hue never appears on chrome, controls, filters, captions or explainers &mdash; only on a row, cell or badge whose severity it states.</li>
+      <li>No rung hue appears without its glyph.</li>
+      <li>OK is grey. Green means exactly one thing.</li>
+      <li>Confidence is form, never hue. No <span style="font-family:var(--mono)">opacity</span> &mdash; compute the blend.</li>
+      <li>10.5px for static chrome at &ge;4.5:1; 11.5px minimum for anything variable.</li>
+      <li>Two self-inflicted breaks, found while building this and left visible rather than patched: OK measures 4.23:1 against its own 4.5:1 floor, and OK and CLEARED share the glyph &#9472;. Both are noted with proposed fixes in the token table at the top of this file.</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>
