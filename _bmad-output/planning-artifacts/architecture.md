@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3, 4]
+stepsCompleted: [1, 2, 3, 4, 5]
 inputDocuments:
   - _bmad-output/planning-artifacts/prds/prd-sidepiece-2026-09-17/prd.md
   - _bmad-output/planning-artifacts/prds/prd-sidepiece-2026-09-17/addendum.md
@@ -127,7 +127,7 @@ sidepiece/
 └── pnpm-workspace.yaml
 ```
 
-**Why `contract/` is not optional.** FR-3's degraded-state taxonomy expanded from its self-declared six to **sixteen** during the UX run, and every one of those states is produced by the Bridge and rendered by the Cockpit across a network boundary. A taxonomy that drifts between the two halves produces exactly the failure the PRD spends FR-3 trying to prevent: a pane that fails in a way the other side has no word for. The same argument covers the Project Record shape, the Turn envelope, the classification enum and the correlation-id contract. `[ASSUMPTION: a shared package is the cheapest enforcement available. The alternative — mirroring types by hand across two repos — is what PRD §12 Q5's `project_id` / `pjid` name collision already demonstrates the cost of.]`
+**Why `contract/` is not optional.** FR-3's degraded-state taxonomy expanded from its self-declared six to **twenty-two** during the UX run (`EXPERIENCE.md` defines DS-1 through DS-22), and every one of those states is produced by the Bridge and rendered by the Cockpit across a network boundary. A taxonomy that drifts between the two halves produces exactly the failure the PRD spends FR-3 trying to prevent: a pane that fails in a way the other side has no word for. The same argument covers the Project Record shape, the Turn envelope, the classification enum and the correlation-id contract. `[ASSUMPTION: a shared package is the cheapest enforcement available. The alternative — mirroring types by hand across two repos — is what PRD §12 Q5's `project_id` / `pjid` name collision already demonstrates the cost of.]`
 
 ### Bridge Runtime — TypeScript / Node
 
@@ -301,7 +301,7 @@ Remaining frontend decisions are unremarkable and fall out of step 3: React stat
 **Implementation sequence.** The ordering is forced by dependency, not preference:
 
 1. **The Bloodbank gateway fix (D4)** — different repo, no Sidepiece dependency, and it unblocks FR-9. Start it first precisely because it is not on this repo's own path.
-2. **`contract/`** — the sixteen-state taxonomy, Project Record, Turn envelope, classification enum, correlation id. Everything else imports it.
+2. **`contract/`** — the twenty-two-state taxonomy (DS-1…DS-22), Project Record, Turn envelope, classification enum, correlation id. Everything else imports it.
 3. **Bridge skeleton + `node:sqlite` store (D1, D5, D7)** — schema, versioning, recovery metadata.
 4. **Registry client + snapshot fallback (D2, D9, D10)** — this is what makes FR-1 through FR-4 possible and it is where SM-3 is won or lost.
 5. **Hermes session manager (D3, D8)** — warm-session registry, LRU eviction, 4090 handling.
@@ -317,3 +317,159 @@ Note this inverts EPIC A's June plan, which put scaffolding and a UI kit first; 
 - **D3 → FR-7's budget.** Eviction policy directly determines how often the operator meets `warming up the PM`. It is a UX decision implemented in the Bridge, and it should be tuned against SM-C1 rather than against resource usage alone.
 - **D4 → epics.** The only decision here that creates work outside this repository.
 - **D6 → both spines.** Already reconciled; the value is that it stays reconciled.
+
+---
+
+## Implementation Patterns & Consistency Rules
+
+*Step 5. These exist to stop independent agents making different-but-defensible choices. The test for inclusion is not "is this good practice" but **"would two competent agents plausibly diverge here, and would the divergence be expensive?"** Ordinary style is delegated to tooling and deliberately absent.*
+
+### Critical Conflict Points
+
+Nine areas where divergence is both likely and costly. **The first is not hypothetical — it has already happened once in this project's own documents**, which is why it leads.
+
+---
+
+### P1 — Vocabulary is the type system. `pjid` is never `project_id`.
+
+**This is the single highest-value rule in the document.** PRD §12 Q5 records a live name collision: pjangler's `project_id` is a **slug**, while `event-schemas.md` defines `project_id` as the provider **board UUID**. A Bridge that reads the manifest and emits per that contract writes a slug where a UUID is expected, and nothing catches it — both are strings.
+
+| Rule | |
+|---|---|
+| **MUST** | Name the pjangler-sourced identifier `pjid`. Everywhere. Field names, column names, variable names, JSON keys, log keys, function parameters. |
+| **MUST NOT** | Use `project_id`, `projectId`, `projectSlug`, `project`, or `id` for it — in any layer, including a local variable. |
+| **MUST** | Name the Plane board UUID `boardId`, never `projectId`, even though Plane's own API calls it a project. |
+
+`[NOTE: Plane's REST surface calls a board a "project". Sidepiece does not, per the §3 Glossary. Where a Plane response is destructured, rename at the boundary — the foreign name must not travel inward.]`
+
+**PRD §3's Glossary is binding on identifiers, not just prose.** A synonym is called "a discipline violation" for documents; in code it is the same violation with a compiler that cannot see it.
+
+| Glossary term | Identifier | Never |
+|---|---|---|
+| Turn | `Turn`, `turnId` | `Message`, `Chat`, `Exchange` |
+| Streamed Exchange / Dispatched Command | `TurnKind.Streamed` / `TurnKind.Dispatched` | `stream`/`async`, `sync`/`job` |
+| Ticket | `Ticket`, `ticketId` | `Issue`, `Card`, `Task` |
+| Board | `Board`, `boardId` | `Project` (that is a pjangler Project) |
+| Project / Project Record | `Project`, `ProjectRecord` | `Repo`, `Workspace` |
+| Cockpit | `Cockpit` | `Panel`, `Sidebar`, `SidePanel` — except where naming Chrome's own API surface |
+| Bridge | `Bridge` | `Server`, `Daemon`, `Api` |
+| Agent / PM | `Agent`, `PM` | `Bot`, `Assistant` |
+
+---
+
+### P2 — Every failure is a `DsCode`. There are no ad-hoc error strings.
+
+`EXPERIENCE.md` defines **DS-1 through DS-22** — each with its own trigger, its own pane-gating, its own exact wording and its own recovery affordance. That enumeration is the error model.
+
+- **MUST** — the `contract/` package exports `DsCode` as a string union of the literals `'DS-1' … 'DS-22'`. The Bridge returns one; the Cockpit renders it. Adding a failure mode means adding a `DsCode` and its `EXPERIENCE.md` row **in the same change**, never a new free-text message.
+- **MUST NOT** — the Bridge never sends user-facing prose. It sends a code plus typed parameters. **All copy lives in the Cockpit**, sourced from `EXPERIENCE.md`, because FR-3 requires each state be *separately worded* and a wording change must not require redeploying the daemon on `big-chungus`.
+- **Exception, and it is deliberate:** remedy command text (DS-11's provisioning command, DS-14's board-binding command) **is** sent by the Bridge, verbatim as it composed it. `EXPERIENCE.md` records the reason — the Bridge knows the installed pjangler and Hermes surface, and a command the Cockpit invents goes stale the first time a flag changes.
+
+```ts
+// contract/src/state.ts
+export type DsCode = 'DS-1' | 'DS-2' | /* … */ | 'DS-22'
+export type Degraded = { ds: DsCode; params?: Record<string, string>; remedy?: string }
+```
+
+**Anti-pattern.** `throw new Error('bridge unreachable')` — untyped, unrenderable, and it collapses DS-3 (laptop off the tailnet) and DS-4 (`big-chungus` not answering) into one, which FR-3 explicitly requires be distinguishable.
+
+---
+
+### P3 — Bloodbank subjects: five tokens, no version, no identity.
+
+`bb contract` is the authority. Getting this wrong is not a style issue — **a producer on an illegal subject publishes into the void and a consumer on one receives nothing.**
+
+```
+type     bloodbank.<domain>.<entity>.<action>          4 tokens
+subject  bloodbank.<kind>.<domain>.<entity>.<action>   5 tokens, kind = evt|cmd|rpy
+```
+
+- **MUST NOT** — put a version token (`v1`) or an identity slug (a repo name, an agent id, a pjid) in a subject. Versioning lives **only** in `schemaref` / `dataschema`. Identity lives in `data.*` and `actor.*`.
+- **MUST** — validate every new producer with `bb emit --check --type <type>` before publishing. `bb emit` derives `subject`, `schemaref`, `dataschema`, `kind`, `domain` and `actor` itself; do not hand-assemble them.
+- **MUST** — implement any Project-scoped event view as a **`data.repo` payload filter through Candystore**, never a NATS subscription. The subscription form is unrepresentable in this grammar, and several documents across the fleet still describe it.
+
+`[NOTE FOR PM: illegal forms are live right now, and one of them blocks FR-8 in practice. `agents/hermes/pm/role.yaml` — the manifest of the very PM that FR-7 and FR-8 target — subscribes to `bloodbank.evt.repo.sidepiece.>` and `bloodbank.cmd.agent.sidepiece-pm.>`, both embedding an identity slug as a token. A PM subscribed to an illegal subject receives nothing. `docs/product-brief.md` carries `bloodbank.evt.v1.repo.sidepiece.>` — version token *and* slug. Finding these is routine; **fix rather than imitate**.]`
+
+---
+
+### P4 — JSON casing splits at the Bloodbank boundary, and that is intentional.
+
+Two conventions meet, and picking one globally would corrupt the other.
+
+- **Sidepiece's own surfaces** — the Bridge's HTTP/SSE API and everything in `contract/` — are **`camelCase`**. It is TypeScript on both sides of the wire; a translation layer would exist only to satisfy a convention neither end uses.
+- **Bloodbank envelopes keep Bloodbank's names, byte for byte.** `data.repo`, `actor.agent_id`, `command_id`, `idempotency_key`, and — note the spelling — **`correlationid`**, which has no separator and must not be "corrected" to `correlationId` or `correlation_id` when it is a Bloodbank field.
+- **MUST** — rename at the boundary, once, in the adapter that touches Bloodbank. Foreign names never travel inward past that adapter, and Sidepiece names never travel outward past it.
+
+**Anti-pattern.** A camelCase-ifying middleware applied to everything. It silently rewrites `correlationid` and breaks correlation — the one mechanism PRD §12 Q2 confirmed actually works today.
+
+---
+
+### P5 — Response shape: flat, because FR-15 means a human reads it.
+
+FR-15 makes `curl`-inspectability a hard requirement, which makes the response body a **user interface**, not just a transport.
+
+- **MUST** — success responses are the resource itself, unwrapped. `GET /v1/project/:pjid` returns a `ProjectRecord`, not `{ data: ProjectRecord }`. An envelope that exists to hold a `data` key makes every `curl` one `jq` deeper for no gain.
+- **MUST** — degradation rides alongside, not instead: `{ …resource, degraded: Degraded[] }`. This is what lets a pane fail independently while the rest of the response stays usable, which is the failure posture stated as an NFR.
+- **MUST** — HTTP status reflects the transport, `degraded[]` reflects the product. A resolved Project whose Board is unreachable is **`200` with a DS-19 in `degraded[]`**, not a `502` — because the Cockpit's chat pane is fine and a `502` would say otherwise.
+- **MUST** — timestamps are ISO-8601 UTC strings. Readable in a terminal without conversion; epoch integers are not.
+- **MUST** — SSE frames carry a named `event:` type and a JSON `data:` payload, one JSON object per frame, never a bare string. `curl -N` must produce something a person can follow live.
+
+---
+
+### P6 — SQLite naming, and the one place casing crosses.
+
+- Tables: **plural `snake_case`** — `turns`, `dispatches`, `registry_snapshots`.
+- Columns: **`snake_case`** — `turn_id`, `created_at`, `board_id`.
+- **`pjid` stays `pjid`.** It is already lowercase and it is the join key; P1 outranks the casing convention. Never `project_id`, not even in SQL.
+- **MUST** — map `snake_case` ↔ `camelCase` in exactly one repository layer per table. Never in a route handler, never twice.
+- Timestamps stored as **ISO-8601 TEXT**, not integers. SQLite has no date type, this sorts lexically, and it keeps `sqlite3` CLI output readable — which is the same argument as FR-15, applied to the store.
+- **MUST** — every persisted row carries `clone_path` and `board_id` alongside `pjid` (decision D5). These are recovery metadata, never keys.
+
+---
+
+### P7 — Loading, failure and retry are three different things, and never a spinner.
+
+Directly enforcing the NFR *"no pane may render a failure as an empty state or a permanent spinner."*
+
+- **MUST** — every async surface is a discriminated union, never a boolean pair:
+  `{ status: 'idle' | 'loading' | 'ready' | 'degraded' }`. `isLoading` plus `error` admits the illegal `loading && error` state and invites exactly the spinner this product forbids.
+- **MUST** — every in-flight state has a deadline and a terminal transition. Including under a DERP relay: the relay changes what the expiry *says*, never whether one exists.
+- **MUST NOT** — auto-retry a Ticket create whose outcome is unknown. `EXPERIENCE.md` records that create is **not idempotent** — nothing in the source set gives Plane's create an idempotency key — so a retry after an unknown outcome can double-file. The honest path is the refetch control. `[NOTE FOR ARCHITECTURE: if the Bridge can mint an idempotency key for create, this rule relaxes and should.]`
+- **MUST** — retry only idempotent reads, with backoff, and surface the attempt rather than hiding it.
+
+---
+
+### P8 — Log in the vocabulary, and never log a secret.
+
+- **MUST** — structured JSON lines, with `pjid` as a top-level key on anything Project-scoped and `correlationid` on anything dispatch-scoped. These are the two keys that make a cross-component trace possible at all.
+- **MUST** — a failure logs its `DsCode`. A log line describing a failure that maps to no `DsCode` is a missing state, not a log message.
+- **MUST NOT** — log a resolved credential, ever. FR-16 resolves from the vault at startup; an `op://` reference is safe to log, its resolved value never is.
+- **MUST** — read `X-Forwarded-For` for the client address. `tailscale serve` rewrites the peer to `127.0.0.1`, so anything reading the socket address logs one client forever.
+
+---
+
+### P9 — Structure: co-located tests, feature folders, one place for shared types.
+
+- Tests **co-located** as `*.test.ts` beside the unit. One fewer tree to keep in sync, and an untested module is visible by absence.
+- Bridge organised **by capability**, matching the component list from step 2 — `registry/`, `sessions/`, `tickets/`, `turns/`, `health/` — not by layer. Layer folders (`controllers/`, `services/`) scatter one capability across three places, which is precisely how two agents end up implementing half of it each.
+- Extension follows **WXT's entrypoint convention** — `entrypoints/` for the content script, service worker and panel. Do not invent a parallel structure beside a framework that has one.
+- **MUST** — anything crossing the network boundary lives in `contract/`, and **only** there. A type defined in `contract/` must never be re-declared in `extension/` or `bridge/`, however convenient the local copy looks.
+
+---
+
+### Enforcement
+
+**Machine-checkable, and therefore not optional:**
+
+- `contract/` is the only source of cross-boundary types — enforced by `tsc`, which is the entire reason D-decision 4 chose a shared package over mirrored types.
+- Casing, formatting and import order → Biome or ESLint + Prettier. Not adjudicated here; delegated deliberately.
+- **A lint rule banning the identifier `project_id` and the string `projectId` outside a Plane adapter is worth writing.** It is five lines and it forecloses the one mistake this project has already made once, in its own specification.
+- `bb emit --check --type <type>` in CI, or in a pre-publish script, for every Bloodbank producer.
+
+**Human-checked, because no linter can see it:**
+
+- Does a new failure mode have a `DsCode` *and* an `EXPERIENCE.md` row? Both, same change.
+- Does a new user-facing string exist in `EXPERIENCE.md`? If not, it is invented copy and the spine is the authority.
+- Does a Glossary term appear under a synonym?
+
+**When a pattern is wrong, change it here first.** These are load-bearing for consistency, not for correctness, so a pattern that fights the code is a pattern to fix — but fixed in this document, in one change, rather than worked around per file.
