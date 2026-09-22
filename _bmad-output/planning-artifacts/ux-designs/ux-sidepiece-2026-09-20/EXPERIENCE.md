@@ -629,6 +629,14 @@ FR-4's atomicity rule forbids showing an identity we cannot currently vouch for.
 dependency table already encodes exactly this split — Tailnet and Registry are marked
 "Total", everything else names one pane.
 
+*(Amended 2026-09-22, in the same change as DS-6 and DS-7's rows. "The Registry behind it is
+down" is total only while **nothing can be true**. `architecture.md` D2 gives the Bridge a
+last-good snapshot on disk, and when it holds one the Project resolves from it: the header
+renders marked stale, the panes stay live, and DS-23 carries the age — a **partial** outage
+by this rule's own test. With no snapshot the sentence above stands unchanged. §6's "Total"
+for the Registry was written against a Bridge with no fallback; the rule is unchanged, the
+fact underneath it moved.)*
+
 **Rule 3 — no state is carried by hue alone.** Every state renders a glyph and a word
 alongside its `{colors.state.*}` value. This is behavioral, not visual: the glyph is part of
 the state's identity, and `DESIGN.md` must pair one with each state color.
