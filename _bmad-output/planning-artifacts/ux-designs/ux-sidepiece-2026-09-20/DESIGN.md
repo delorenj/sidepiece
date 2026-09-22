@@ -1594,7 +1594,7 @@ real Sidepiece roundel achievable — is recorded in **Gaps** rather than assume
 
 **DECIDED 2026-09-20 — Sidepiece ships two grounds in one register.
 `prefers-color-scheme: dark` renders Night Paper: the paper is dimmed, never inverted.
-Nine values change; fifteen do not; the stamp device and the signature survive intact.**
+Fifteen values change; seventeen do not; the stamp device and the signature survive intact.**
 
 The rest of this section is the derivation, and it is worth keeping in full because it
 records *why* dimming and inversion are not the same kind of change. Two things it rules out
@@ -1678,7 +1678,7 @@ cd/m²** on a 300-nit display, against paper's 255. Ink stays at 12.72:1. It is 
 unmistakably warm paper rather than a dark panel, so nothing in **Brand & Style** has to be
 re-argued.
 
-All 24 colour tokens, measured:
+All 32 colour tokens, measured (28 rows — the five `overlay.*` tokens share one):
 
 | Token | Day | Night | On night panel `#E0D9C8` |
 |---|---|---|---|
@@ -1711,7 +1711,7 @@ All 24 colour tokens, measured:
 | `selection.ground` | `#FFE4EC` | `#F7CFDB` | ink **12.70:1** ✓ |
 | `selection.ink` | `#191713` | **unchanged** | ✓ |
 
-**Nine values change. Fifteen do not.** Compare an inversion, which changes all of them and
+**Fifteen values change. Seventeen do not.** Compare an inversion, which changes all of them and
 leaves the stamp device with no meaning.
 
 **One accepted failure, stated rather than fixed.** `{colors.action.mark}` measures **2.56:1**
@@ -1740,7 +1740,9 @@ It switches the ground to Night Paper and hardens the sheet offset. Nothing else
 
 @media (prefers-color-scheme: dark) {
   :root {
-    /* the nine values that change — every other token is identical in both modes */
+    /* the fifteen values that change, in thirteen declarations — `--text-muted` also
+       carries state.ok and state.unknown, which is the whole of the difference.
+       Every other token is identical in both modes */
     --surface-panel:     #E0D9C8;
     --surface-raised:    #EAE4D6;
     --surface-sunken:    #D3CAB6;
@@ -1780,7 +1782,7 @@ the Cockpit to follow an OS theme change while open, and the media query does th
 **For Jarad**
 
 1. ~~**One ground or two?**~~ **CLOSED 2026-09-20 — two, in one register.**
-   `prefers-color-scheme: dark` ships **Night Paper**: nine values, measured, material intact,
+   `prefers-color-scheme: dark` ships **Night Paper**: fifteen values, measured, material intact,
    stamp device intact, signature invariant. The full inversion stays rejected and stays
    priced above, because it is a second design system rather than a token swap.
    **Be honest about the size of the win:** Night Paper takes the 2am figure from ≈255 cd/m²
@@ -1892,8 +1894,10 @@ the Cockpit to follow an OS theme change while open, and the media query does th
   The behavioral guarantee EXPERIENCE.md states ("must be the same mark in both") is satisfied
   and strengthened by that, but any sentence that treats the signature as *only* a colour is
   now too narrow.
-- **`{typography}`'s note reads "Sans for people, mono for machines."** The chosen direction is
-  **serif** for people; the mono half is unchanged. One word.
+- ~~**`{typography}`'s note reads "Sans for people, mono for machines."** The chosen direction is
+  **serif** for people; the mono half is unchanged. One word.~~ **APPLIED 2026-09-22** —
+  `EXPERIENCE.md` now reads "Serif for people, mono for machines" and "the serif/mono split",
+  matching **Typography → The Two Voices Rule**.
 - **EXPERIENCE.md writes the column as 320px throughout.** The direction is drawn at 340px with
   a **304px** usable column after the spine, border and gutter. 320px is Chrome's floor, not the
   design target; at 320px the usable column is 284px and the ticket title column drops to 207px
@@ -1902,7 +1906,7 @@ the Cockpit to follow an OS theme change while open, and the media query does th
   Here state markers are drawn marks and `pill` has exactly two `[v2]` consumers. The intent is
   over-satisfied but the sentence is now wrong.
 - **Component count agrees.** EXPERIENCE.md's Foundation says "25 components — 17 v1 and 8
-  marked `[v2]`," and this document defines all 25 at exactly those paths, plus
+  marked `[v2]`," and this document defines all 25 at exactly those paths, including
   `{components.freehandLayer}`.
 - **EXPERIENCE.md's dark-mode resolution says "the Cockpit is dark-first."** Superseded by the
   section above, subject to Jarad's ruling — and note that the answer to its Gaps item 3 ("what

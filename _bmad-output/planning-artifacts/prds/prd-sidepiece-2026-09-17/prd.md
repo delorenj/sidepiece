@@ -2,7 +2,7 @@
 title: Sidepiece
 status: final
 created: 2026-09-17
-updated: 2026-09-17
+updated: 2026-09-20
 ---
 
 # PRD: Sidepiece

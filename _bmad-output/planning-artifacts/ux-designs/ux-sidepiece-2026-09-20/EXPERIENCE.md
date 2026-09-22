@@ -1,6 +1,6 @@
 ---
 status: draft
-updated: 2026-09-20
+updated: 2026-09-22
 project: sidepiece
 sources:
   - ../../prds/prd-sidepiece-2026-09-17/prd.md
@@ -141,7 +141,7 @@ assume.
 
 **Consequence for `DESIGN.md`:** it cannot be an override layer over a component library's
 defaults. It must carry the full primitive set from zero — surfaces, borders, text roles, a
-state palette **paired with glyphs**, a focus ring, control heights, and the sans/mono
+state palette **paired with glyphs**, a focus ring, control heights, and the serif/mono
 split — because this spine references those primitives by name and nothing else defines
 them.
 
@@ -155,7 +155,7 @@ The primitives this spine names, and which `DESIGN.md` must therefore define:
 | State | `{colors.state.ok}` · `{colors.state.pending}` · `{colors.state.degraded}` · `{colors.state.failed}` · `{colors.state.unknown}` | The five values the health marker, the pane-switch markers and every state notice resolve to. **Each must ship with a paired glyph** — State Patterns Rule 3 makes the glyph part of the state's identity, not decoration |
 | Action | `{colors.action.primary}` | Exactly one: the current pane's submit. A second action colour would make "which control writes" a guess |
 | Overlay | `{colors.overlay.outline}` `[v2]` · `{colors.overlay.scrim}` `[v2]` · `{colors.overlay.signature}` | The hover outline and the freehand stroke, drawn over a page whose own colours are unknown; both must read against an arbitrary background. `signature` is **not** `[v2]` and is the one token shared by the Cockpit and the in-page layer: it is what makes a mark identifiable as Sidepiece's on a white docs site and a black dashboard alike, and the chosen direction's whole argument rests on it being one treatment rather than three |
-| Type | `{typography.heading}` · `{typography.body}` · `{typography.label}` · `{typography.micro}` · `{typography.mono}` | Sans for people, mono for machines, never mixed within one value. `micro` is the floor for static chrome only; anything variable sits at `label` or above, because density comes from leading rather than from shrinking type |
+| Type | `{typography.heading}` · `{typography.body}` · `{typography.label}` · `{typography.micro}` · `{typography.mono}` | Serif for people, mono for machines, never mixed within one value. `micro` is the floor for static chrome only; anything variable sits at `label` or above, because density comes from leading rather than from shrinking type |
 | Shape | `{rounded.control}` · `{rounded.panel}` · `{rounded.pill}` | `pill` is reserved for state markers so a state is never shaped like a control |
 | Rhythm | `{spacing.gutter}` · `{spacing.stack}` · `{spacing.inset}` · `{spacing.row}` | `gutter` is the only horizontal inset in the column and it is what makes the usable column survivable; `row` is the list-row rhythm the Accessibility Floor's 32px minimum is expressed against |
 | Focus | `{colors.focus.ring}` | One ring, on every interactive element, including the clone-path region |
@@ -1530,8 +1530,9 @@ specific failure this table exists to avoid. Silent failure is the enemy, not br
   observable without the page's cooperation — this is one of the few places Sidepiece is
   structurally better off than the category.
 - **A redeploy under an open session.** Not detectable from the page. The annotation's
-  captured `outerHTML` — and, for the freehand kind, its image — is what lets a human, or the
-  PM, see what it *was*.
+  captured `outerHTML` — and, for the freehand kind, the captured context of every element its
+  strokes crossed — is what lets a human, or the PM, see what it *was*. There is no image;
+  nothing is captured as a raster `[DECIDED 2026-09-20]`.
 
 ---
 
@@ -1578,8 +1579,9 @@ Each item names its source. These are what to steal and what to refuse, not a su
   exit.
 - **GitHub's `Y` permalink.** The only prior art anywhere in the sweep for *deliberately
   trading liveness for durability at capture time*. It is the philosophical ancestor of
-  capturing `outerHTML` and a text quote alongside the selector — and of keeping the freehand
-  image as the ground truth its coordinates are read against.
+  capturing `outerHTML` and a text quote alongside the selector — and of capturing the
+  freehand kind's crossed-element context at the moment the strokes are drawn, which is what
+  it has instead of an image `[DECIDED 2026-09-20: nothing is captured as a raster]`.
 - **Excalidraw's hand-drawn register.** The one thing worth keeping from the incumbent:
   freehand markup reads as *a thought*, not *a spec*, which is exactly the right voice for
   "this is supposed to be a guy but looks like garbage."
@@ -1780,8 +1782,8 @@ changes what gets built rather than how it is worded.
    variant in the same register.** `prefers-color-scheme: dark` renders **Night Paper**: the
    paper is *dimmed, not inverted*. Inversion was priced as a second design system rather
    than a token swap — the seven `#191713`-valued tokens all collapse to ~1.02:1 on an
-   inverted panel, because "stamped = inverted" has no inverse left. Night Paper changes nine
-   values and keeps the stamp device intact. **This spine's one behavioral constraint held:**
+   inverted panel, because "stamped = inverted" has no inverse left. Night Paper changes
+   fifteen of the thirty-two colour tokens and keeps the stamp device intact. **This spine's one behavioral constraint held:**
    `{colors.overlay.signature}` is the same mark in both grounds, at the cost of a 2.56:1
    spine on Night Paper, accepted so the signature stays invariant. The OS-signal caveat
    stands — `prefers-color-scheme` reports the OS and never Chrome's theme. See
