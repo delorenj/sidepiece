@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sidepiece — Key Screens (320px)</title>
+<style>
+/* ============================================================================
+   SIDEPIECE — KEY SCREENS
+   bmad-ux run ux-sidepiece-2026-09-20 · Finalize · rendered 2026-09-22
+
+   GOVERNING SPINES, per screen (check these, not this file):
+     S1 Chat        DESIGN.md Components → v1 the Cockpit (identityHeader,
+                    paneSwitch, turnCard, turnComposer) · EXPERIENCE.md
+                    IA → The column top to bottom · Normal-path states · UJ-2
+     S2 Composer    DESIGN.md Layout → The one fit that decided a product
+                    question · Components → classificationControl, contextChip
+                    EXPERIENCE.md Component Patterns → classificationControl,
+                    contextChip · UJ-2 steps 2 and 6
+     S3 Tickets     DESIGN.md Components → ticketGroupHeader, ticketRow,
+                    ticketCreateBox, refetchControl · Layout → Verified fits
+                    EXPERIENCE.md IA → What collapses · UJ-1
+     S4 Total       EXPERIENCE.md State Patterns Rule 2 · DS-3
+                    DESIGN.md Colors → The One Black Rule (band vs control)
+     S5 Partial     EXPERIENCE.md State Patterns Rule 2 · DS-17 · UJ-1 failure
+                    DESIGN.md Components → stateNotice, reResolveControl
+     S6 Night       DESIGN.md Dark mode → Night Paper, costed in full
+     S7 [v2] layer  DESIGN.md Shapes → The signatures by surface · Components →
+                    [v2] the in-page layer · Colors → The Foreign Hue Is Not
+                    Enough Rule · EXPERIENCE.md Annotation Anchoring and Drift
+
+   WIDTH. Every panel is exactly 320px border-box — Chrome's floor and the
+   ruled design width (S2, closed 2026-09-22). 320 − 2 sheet border − 6 spine
+   − 28 gutter = 284px usable column. Nothing here cheats that.
+     panel left edge → column        = 21px  (1 border + 6 spine + 14 gutter)
+     column → composer inner         = 10px  (1 border + 9 inset)  → 264px
+     composer inner → classification = 10px  (1 border + 9 padding) → 244px
+
+   FONTS. No font is fetched; MV3 forbids it and the product bundles seven
+   faces. Named stacks are DESIGN.md's, verbatim:
+     serif "Charis SIL", Georgia, "Noto Serif", "Liberation Serif", serif
+     mono  "IBM Plex Mono", "Cascadia Mono", ui-monospace, "DejaVu Sans Mono", monospace
+   WHAT A COLD INSTALL ACTUALLY SEES, verified on this machine: Charis SIL is
+   installed nowhere, so the serif resolves to Georgia → fontconfig returns
+   Noto Serif; IBM Plex Mono is installed nowhere, so the mono resolves to
+   Cascadia Mono, which IS installed. So this file renders Noto Serif + Cascadia
+   Mono, with font-size-adjust holding the x-heights (serif .481, mono .516).
+   Consequence, stated because it is measurable: Noto Serif's x-height ratio is
+   .536, so it is used at .897× and every serif measure here runs ~10% NARROWER
+   than the bundled Charis SIL the fits table was computed against; Cascadia
+   Mono's advance is .5859em against Plex's .6em, ~2.6% narrower. Both errors
+   run in the safe direction. The register — Charter's small-size engineering —
+   is what a cold install loses, and that is why the bundle is mandatory.
+
+   COLOUR. Day tokens on :root. Night Paper is the .night class rather than
+   @media (prefers-color-scheme: dark) for ONE reason: this sheet has to show
+   both grounds at once. In the product it is the media query and the thirteen
+   declarations are identical. color-scheme stays light in BOTH modes.
+
+   WHAT IS NOT PRODUCT. Anything outside a .panel / .sheet / .pagemock —
+   captions, the S2 measuring rule, the grey ground — is harness. It is set in
+   the same faces so it cannot be mistaken for a fifth type role, but nothing
+   out there is a component.
+   ========================================================================= */
+
+:root{
+  color-scheme: light;
+
+  /* ---- grounds ---- */
+  --paper:#F2EDE3; --raised:#FBF8F1; --sunken:#E8E0D0; --stamp:#191713;
+  --overlay-sheet:#F2EDE3; --spotwash:#FFE4EC;
+  /* ---- borders ---- */
+  --hairline:#CFC3AB; --faint:#E0D7C4; --strong:#191713; --sheetedge:#C9BDA6;
+  /* ---- inks ---- */
+  --ink:#191713; --muted:#645D4E; --machine:#1B3FA0; --inverse:#F2EDE3; --onspot:#191713;
+  /* ---- states ---- */
+  --ok:#645D4E; --pending:#4C463A; --degraded:#8A5A0B; --failed:#191713; --unknown:#645D4E;
+  /* ---- action / signature ---- */
+  --primary:#191713; --mark:#FF2E63; --markdeep:#C2003F;
+  --sig:#FF2E63; --kl-dark:#191713; --kl-light:#FFFFFF; --scrim:rgba(255,46,99,0.14);
+  --ring:#191713; --ring-inner:#F2EDE3;
+  --sel-g:#FFE4EC; --sel-i:#191713;
+  /* ---- the two shadows ---- */
+  --sheet-offset:3px 3px 0 rgba(25,23,19,.26);
+  --sheet-offset-dark:3px 3px 0 rgba(0,0,0,.45);
+  /* ---- spacing ---- */
+  --hair:4px; --tight:6px; --inset:9px; --glyph:11px; --gutter:14px;
+  --stack:15px; --section:24px; --row:32px;
+  /* ---- faces ---- */
+  --serif:"Charis SIL", Georgia, "Noto Serif", "Liberation Serif", serif;
+  --mono:"IBM Plex Mono", "Cascadia Mono", ui-monospace, "DejaVu Sans Mono", monospace;
+  /* ---- harness only ---- */
+  --grey:#7D7D7D;
+  font-synthesis: none;   /* a missing face fails loudly, never silently */
+}
+
+/* Night Paper — the fifteen values that change, in thirteen declarations.
+   surface.stamp, border.strong, text.primary, state.failed, action.primary,
+   focus.ring and ALL FIVE overlay.* tokens are byte-identical in both modes. */
+.night{
+  --paper:#E0D9C8; --raised:#EAE4D6; --sunken:#D3CAB6; --spotwash:#F7CFDB;
+  --hairline:#BCAF93; --faint:#CFC5AE; --sheetedge:#B3A68C;
+  --muted:#565040; --ok:#565040; --unknown:#565040;
+  --degraded:#6F460A; --markdeep:#A3002F;
+  --inverse:#E0D9C8; --ring-inner:#E0D9C8; --sel-g:#F7CFDB;
+  --sheet-offset:3px 3px 0 rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--grey);font-family:var(--serif);color:var(--ink);
+     padding:30px 20px 70px;-webkit-font-smoothing:antialiased}
+::selection{background:var(--sel-g);color:var(--sel-i)}
+
+/* ============================ type ramp ================================== */
+.t-heading{font-family:var(--serif);font-size:22px;font-weight:700;line-height:1.05;
+           letter-spacing:-.015em;font-size-adjust:.481}
+.t-body{font-family:var(--serif);font-size:13.5px;font-weight:400;line-height:1.55;
+        font-size-adjust:.481}
+.t-label{font-family:var(--mono);font-size:11.5px;font-weight:500;line-height:1.35;
+         letter-spacing:.04em;font-variant-numeric:tabular-nums;font-size-adjust:.516}
+.t-micro{font-family:var(--mono);font-size:10.5px;font-weight:500;line-height:1.3;
+         letter-spacing:.10em;text-transform:uppercase;font-size-adjust:.516}
+.t-mono{font-family:var(--mono);font-size:11.5px;font-weight:400;line-height:1.45;
+        letter-spacing:.01em;font-variant-numeric:tabular-nums;font-size-adjust:.516}
+.t-numeral{font-family:var(--mono);font-size:10px;font-weight:600;line-height:1;
+           letter-spacing:0;font-variant-numeric:tabular-nums;font-size-adjust:.516}
+
+/* ============================ the five marks =============================
+   Drawn in CSS in currentColor, centred in an 11px box. Never SVG, never an
+   icon font, never an emoji. One size, three consumers. Only `pending` is
+   typed — U+00BB, the one block every fallback guarantees. */
+.mk{display:inline-flex;width:11px;height:11px;flex:none;
+    align-items:center;justify-content:center;line-height:0}
+.mk-ok::before{content:"";width:7px;height:1px;background:currentColor}
+.mk-degraded::before{content:"";width:0;height:0;border-left:4px solid transparent;
+    border-right:4px solid transparent;border-bottom:7px solid currentColor}
+.mk-failed::before{content:"";width:7px;height:7px;background:currentColor}
+.mk-unknown::before{content:"";width:7px;height:7px;border:1px solid currentColor;
+    border-radius:9999px}
+.mk-pending{font-family:var(--mono);font-size:10.5px;font-weight:500;line-height:1;
+    font-size-adjust:.516}
+
+/* ============================ harness ==================================== */
+.wrap{max-width:1420px;margin:0 auto}
+.masthead{background:var(--paper);border:1px solid var(--hairline);
+  box-shadow:var(--sheet-offset);padding:15px 18px 16px;max-width:780px;
+  margin-bottom:34px;position:relative}
+.masthead::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--mark)}
+.masthead .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.10em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 6px 10px;font-weight:500;font-size-adjust:.516}
+.masthead h1{font-size:21px;line-height:1.1;margin:0 0 7px 10px;letter-spacing:-.015em;font-weight:700}
+.masthead p{font-size:13.5px;line-height:1.55;margin:0 0 0 10px;max-width:68ch;color:var(--ink)}
+.masthead p+p{margin-top:7px}
+.masthead code{font-family:var(--mono);font-size:11.5px;color:var(--machine)}
+
+.grid{display:flex;flex-wrap:wrap;gap:40px 38px;align-items:flex-start}
+.screen{position:relative}
+.cap{margin:0 0 11px 0;max-width:340px}
+.cap .n{font-family:var(--mono);font-size:10.5px;letter-spacing:.10em;text-transform:uppercase;
+  color:#EFEAE0;font-weight:500;display:block;font-size-adjust:.516}
+.cap .n b{color:#fff;font-weight:500}
+.cap .ev{display:block;margin-top:6px;font-size:12.5px;line-height:1.5;color:#F2EDE3;
+  max-width:36ch;font-style:italic}
+.note-grey{max-width:320px;margin:11px 0 0;font-size:11.5px;line-height:1.5;color:#EDE7DD}
+.note-grey code{font-family:var(--mono);font-size:10.5px;color:#fff}
+
+/* ============================ THE COCKPIT ================================
+   320px border-box. 1px sheet edge, 6px ticked spine on the inboard edge,
+   14px gutters. No offset shadow — the Cockpit IS the side-panel viewport
+   and cannot paint outside itself. Two INBOARD registration ticks, inset
+   3px INSIDE the sheet; the four detached ticks belong to free-standing
+   sheets only. */
+.panel{width:320px;background:var(--paper);border:1px solid var(--sheetedge);
+  position:relative;overflow:hidden;display:flex;flex-direction:column;
+  color:var(--ink)}
+.clip{height:24px;flex:none;background:var(--mark);display:flex;align-items:center;
+  justify-content:space-between;padding:0 8px 0 9px;color:var(--onspot)}
+.clip .m,.clip .b{font-family:var(--mono);font-size:10.5px;letter-spacing:.10em;
+  text-transform:uppercase;font-weight:500;font-size-adjust:.516}
+.clip.down{background:var(--stamp)}
+.clip.down .m{color:var(--inverse)}
+.clip.down .b{color:var(--mark)}          /* 4.96:1 — spot on a failed clip */
+.spine{position:absolute;left:0;top:24px;bottom:0;width:6px;background:var(--mark);z-index:3}
+.spine::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(
+  to bottom, transparent 0 11px, rgba(255,255,255,.55) 11px 12px)}
+.crop-top{border-top:1px dashed var(--sheetedge)}
+.crop-top .spine{top:0}
+.tick{position:absolute;width:9px;height:9px;z-index:4;pointer-events:none}
+.tick.tl{left:3px;top:3px;border-left:1px solid var(--ink);border-top:1px solid var(--ink)}
+.tick.bl{left:3px;bottom:3px;border-left:1px solid var(--ink);border-bottom:1px solid var(--ink)}
+.col{margin-left:6px;flex:1;min-height:0;display:flex;flex-direction:column}
+
+/* ---- identity header: pinned, raised, closed by a strong seam ---- */
+.head{background:var(--raised);padding:13px var(--gutter) 12px;flex:none}
+.head .repo{margin:0 0 7px}
+.well{background:var(--sunken);border-left:2px solid var(--hairline);padding:5px 7px;
+  display:block;color:var(--machine);word-break:break-all;
+  user-select:all;-webkit-user-select:all;cursor:text}   /* 268px inside */
+.meta{display:flex;align-items:center;gap:var(--tight);margin-top:9px}
+.chip-board{background:var(--stamp);color:var(--inverse);padding:3px 7px 3px 8px;
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.10em;text-transform:uppercase;
+  font-weight:500;font-size-adjust:.516}        /* a BAND: no inset keyline */
+.health{display:flex;align-items:center;gap:var(--hair)}
+.health .w{font-family:var(--mono);font-size:11.5px;font-weight:500;letter-spacing:.04em;
+  text-transform:uppercase;font-size-adjust:.516}
+.copy{height:32px;display:inline-flex;align-items:center;padding:0 8px;margin-left:auto;
+  background:transparent;border:1px solid var(--hairline);color:var(--muted);
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.10em;text-transform:uppercase;
+  font-weight:500;font-size-adjust:.516}
+
+/* ---- pane switch: 32px strip on the header's bottom edge ---- */
+.switch{flex:none;height:32px;background:var(--raised);display:flex;padding:0 var(--gutter);
+  border-top:1px solid var(--strong);border-bottom:1px solid var(--strong)}
+.sw{flex:1;display:flex;align-items:center;gap:var(--hair);padding:0 10px;position:relative;
+  color:var(--muted);font-family:var(--mono);font-size:11.5px;font-weight:500;
+  letter-spacing:.04em;text-transform:uppercase;font-size-adjust:.516}
+.sw+.sw{border-left:1px solid var(--hairline)}
+.sw.on{color:var(--ink)}
+.sw.on::after{content:"";position:absolute;left:10px;right:10px;bottom:0;height:2px;background:var(--mark)}
+
+/* ---- the one scroll region ---- */
+.pane{flex:1;min-height:0;overflow:hidden;padding:0 var(--gutter);background:var(--paper)}
+.srule{display:flex;align-items:center;gap:8px;margin:13px 0 11px}
+.srule .s{font-family:var(--mono);font-size:10.5px;letter-spacing:.10em;text-transform:uppercase;
+  color:var(--muted);font-weight:500;flex:none;font-size-adjust:.516}
+.srule .r{flex:1;height:1px;background:var(--hairline)}
+.refetch{height:28px;display:inline-flex;align-items:center;padding:0 10px;flex:none;
+  background:transparent;border:1px solid var(--strong);color:var(--ink);
+  font-family:var(--mono);font-size:11.5px;font-weight:500;letter-spacing:.04em;
+  text-transform:uppercase;font-size-adjust:.516}
+
+/* ---- turn cards ---- */
+.turn{margin-bottom:var(--stack)}
+.op{border-left:2px solid var(--mark);padding:1px 0 1px var(--inset);margin:0;color:var(--ink)}
+.kick{font-family:var(--mono);font-size:10.5px;letter-spacing:.10em;text-transform:uppercase;
+  color:var(--muted);font-weight:500;margin:9px 0 3px;display:block;font-size-adjust:.516}
+.reply{margin:0;color:var(--ink)}
+.tsep{height:1px;background:var(--faint);margin:var(--stack) 0}
+.disp{margin-top:10px;border:1px solid var(--strong)}
+.disp .band{background:var(--stamp);color:var(--inverse);display:flex;align-items:center;
+  gap:var(--hair);padding:0 7px;height:24px}
+.disp .band .w{font-family:var(--mono);font-size:10.5px;letter-spacing:.10em;
+  text-transform:uppercase;font-weight:500;font-size-adjust:.516}
+.disp .band .cid{margin-left:auto;font-family:var(--mono);font-size:11.5px;letter-spacing:.01em;
+  color:#C9BDA6;font-variant-numeric:tabular-nums;font-size-adjust:.516;
+  user-select:all;-webkit-user-select:all}
+.disp .in{background:var(--raised);padding:var(--inset)}
+.ack{margin:0;color:var(--machine);font-family:var(--mono);font-size:11.5px;line-height:1.45;
+  letter-spacing:.01em;font-size-adjust:.516;user-select:all;-webkit-user-select:all}
+.outcome{display:inline-block;margin-top:8px;border:1px solid var(--strong);padding:2px 6px;
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.10em;text-transform:uppercase;
+  font-weight:500;color:var(--ink);font-size-adjust:.516}
+.result{margin:9px 0 0;padding-top:9px;border-top:1px dashed var(--hairline);color:var(--ink)}
+
+/* ---- action bar / composer ---- */
+.bar{flex:none;margin-top:auto;background:var(--paper);border-top:1px solid var(--strong);
+  padding:10px var(--gutter) 12px}
+.composer{background:var(--raised);border:1px solid var(--hairline);padding:var(--inset)}
+.ctx{background:var(--sunken);border-bottom:1px dashed var(--hairline);padding:6px 8px}
+.ctx .k{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.10em;
+  text-transform:uppercase;color:var(--muted);font-weight:500;font-size-adjust:.516}
+.ctx .t{display:block;color:var(--ink)}
+.ctx .u{display:block;margin-top:2px;color:var(--machine);font-family:var(--mono);
+  font-size:11.5px;line-height:1.45;letter-spacing:.01em;word-break:break-all;
+  font-size-adjust:.516;user-select:all;-webkit-user-select:all}
+.cls{margin-top:8px;border:1px solid var(--strong)}
+.cls .row{height:30px;display:flex;align-items:center;padding:0 var(--inset);position:relative;
+  color:var(--muted);font-family:var(--mono);font-size:11.5px;font-weight:500;
+  letter-spacing:.04em;text-transform:uppercase;font-size-adjust:.516}
+.cls .row+.row{border-top:1px solid var(--strong)}
+.cls .row.on{color:var(--ink)}
+.cls .row.on::after{content:"";position:absolute;left:var(--inset);right:var(--inset);bottom:0;
+  height:2px;background:var(--mark)}
+.cls-line{margin:8px 0 0;color:var(--muted)}
+.field{margin-top:8px;border-top:1px solid var(--faint);padding:9px 0 6px;color:var(--muted);
+  font-style:italic}
+.draft{margin-top:6px;color:var(--ink)}
+
+/* ---- state notice ---- */
+.notice{background:var(--raised);border:1px solid var(--strong);margin-top:13px}
+.notice .band{background:var(--stamp);color:var(--inverse);display:flex;align-items:center;
+  gap:var(--hair);padding:0 var(--inset);height:24px}
+.notice .band .w{font-family:var(--mono);font-size:10.5px;letter-spacing:.10em;
+  text-transform:uppercase;font-weight:500;font-size-adjust:.516}
+.notice .in{padding:10px var(--inset) 11px}
+.notice p{margin:0;color:var(--ink)}
+.notice p+p{margin-top:6px;color:var(--muted)}
+.notice .machine{font-family:var(--mono);font-size:11.5px;letter-spacing:.01em;
+  color:var(--machine);font-size-adjust:.516;user-select:all;-webkit-user-select:all}
+.acts{display:flex;gap:7px;align-items:center;margin-top:11px}
+.stampbtn{height:32px;display:inline-flex;align-items:center;padding:0 11px;
+  background:var(--primary);color:var(--inverse);
+  font-family:var(--mono);font-size:11.5px;font-weight:500;letter-spacing:.04em;
+  text-transform:uppercase;font-size-adjust:.516;
+  box-shadow:inset 0 0 0 2px var(--primary), inset 0 0 0 3px var(--paper)}  /* struck plate, 2px in */
+.stampbtn.plain{box-shadow:none}                 /* a BAND never carries one */
+
+/* ---- tickets ---- */
+.grp{display:flex;align-items:center;gap:7px;height:30px;padding:4px 0 6px;
+  background:var(--paper);border-bottom:1px solid var(--strong);position:sticky;top:0}
+.grp .n{font-family:var(--mono);font-size:11.5px;font-weight:500;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--ink);font-size-adjust:.516}
+.grp .c{margin-left:auto;font-family:var(--mono);font-size:11.5px;font-weight:500;
+  letter-spacing:.04em;color:var(--muted);font-variant-numeric:tabular-nums;font-size-adjust:.516}
+.trow{display:grid;grid-template-columns:var(--glyph) max-content 1fr;gap:8px;
+  padding:8px 0;border-bottom:1px solid var(--faint);align-items:start}
+.trow .k{font-family:var(--mono);font-size:11.5px;line-height:1.45;letter-spacing:.01em;
+  color:var(--machine);font-variant-numeric:tabular-nums;font-size-adjust:.516;white-space:nowrap;
+  user-select:all;-webkit-user-select:all}
+.trow .ti{color:var(--ink)}
+.trow .mk{margin-top:4px}
+.create{margin-top:14px}
+.create .k{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.10em;
+  text-transform:uppercase;color:var(--muted);font-weight:500;margin-bottom:6px;font-size-adjust:.516}
+.create .box{border-top:1px solid var(--strong);background:var(--raised);padding:var(--inset)}
+.blank{border-bottom:1px solid var(--strong);padding:0 0 5px;color:var(--muted);font-style:italic}
+.submitrow{display:grid;grid-template-columns:32px 1fr 32px;gap:8px;margin-top:11px;height:32px}
+.slot{border-bottom:1px solid var(--hairline)}   /* ruled space, not a gap */
+.submit{display:flex;align-items:center;justify-content:flex-start;padding:0 11px;
+  background:var(--primary);color:var(--inverse);
+  font-family:var(--mono);font-size:11.5px;font-weight:500;letter-spacing:.04em;
+  text-transform:uppercase;font-size-adjust:.516;
+  box-shadow:inset 0 0 0 2px var(--primary), inset 0 0 0 3px var(--paper)}
+.submit.off{background:var(--sunken);color:var(--muted);border:1px solid var(--hairline);
+  box-shadow:none}                                /* the universal disabled form */
+.off-blank{border-bottom-color:var(--hairline)}
+
+/* ============================ S2 measuring rule ==========================
+   Harness, not product. Drawn at true scale and aligned to the panel's own
+   left edge so the 244px row and the 132.5px string can be checked with a
+   screenshot and a ruler. */
+.measure{position:relative;width:320px;height:46px;margin-top:2px;color:#F2EDE3}
+.measure .bar244{position:absolute;left:41px;width:244px;top:8px;height:11px;
+  border-left:1px solid #fff;border-right:1px solid #fff}
+.measure .bar244::before{content:"";position:absolute;left:0;right:0;top:5px;height:1px;
+  background:rgba(255,255,255,.55)}
+.measure .fill{position:absolute;left:41px;width:132.5px;top:22px;height:9px;
+  background:var(--sig);box-shadow:0 0 0 1px #191713}
+.measure .lab{position:absolute;font-family:var(--mono);font-size:10px;font-weight:600;
+  letter-spacing:0;color:#fff;font-size-adjust:.516}
+.measure .lab.a{left:41px;top:33px}
+.measure .lab.b{left:180px;top:33px}
+
+/* ============================ [v2] — the page ============================ */
+.pagemock{width:470px;height:490px;position:relative;overflow:hidden;
+  background:#0E1116;border:1px solid #000;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}  /* THE PAGE is sans */
+.pg-top{height:30px;border-bottom:1px solid #21262D;display:flex;align-items:center;
+  padding:0 12px;gap:8px}
+.pg-top .dot{width:7px;height:7px;border-radius:50%;background:#21262D}
+.pg-top .u{font-size:10px;color:#7D8590}
+.pg-in{padding:16px 14px}
+.pg-h{font-size:17px;font-weight:600;color:#C9D1D9;margin:0 0 3px;letter-spacing:-.01em}
+.pg-sub{font-size:11px;color:#7D8590;margin:0 0 14px}
+.pg-cards{display:flex;gap:9px;margin-bottom:15px}
+.pg-card{flex:1;background:#161B22;border:1px solid #21262D;border-radius:6px;padding:9px 10px}
+.pg-card .l{font-size:9px;color:#7D8590;text-transform:uppercase;letter-spacing:.08em}
+.pg-card .v{font-size:19px;color:#C9D1D9;font-weight:600;margin-top:3px}
+.pg-fig{background:#161B22;border:1px solid #21262D;border-radius:6px;padding:11px 12px}
+.pg-fig .l{font-size:9px;color:#7D8590;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.pg-guy{height:70px;display:flex;align-items:flex-end;gap:6px}
+.pg-guy .figbody{display:flex;flex-direction:column;align-items:center}
+.pg-guy .head2{width:19px;height:19px;border-radius:50%;background:#39404A;margin-bottom:3px}
+.pg-guy .torso{width:26px;height:41px;background:#2E343D;border-radius:3px 3px 0 0}
+.pg-guy .arm{width:8px;height:30px;background:#333A44;border-radius:3px}
+.pg-btn{margin-top:12px;display:inline-block;background:#2F6FEB;color:#fff;font-size:11px;
+  padding:6px 13px;border-radius:5px}
+
+/* ---- the Sidepiece marks, drawn ON somebody else's page ----------------
+   Tri-tone on every stroke: 1px keylineDark OUTSIDE, the signature, 1px
+   keylineLight INSIDE. ≥4.23:1 on any sRGB ground, bought entirely by the
+   black and white hairlines — the spot guarantees identity, not contrast. */
+.ol{position:absolute;pointer-events:none}
+.ol .box{position:absolute;inset:0;border:2px solid var(--sig);background:var(--scrim);
+  box-shadow:0 0 0 1px var(--kl-dark), inset 0 0 0 1px var(--kl-light)}
+.ol .olspine{position:absolute;left:0;top:0;bottom:0;width:7px;background:var(--sig);
+  box-shadow:-1px 0 0 var(--kl-dark), inset -1px 0 0 var(--kl-light)}
+.ol .olspine::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(
+  to bottom, transparent 0 11px, rgba(255,255,255,.55) 11px 12px)}
+/* detached registration ticks: 10 x 10 at 2px, set 3px CLEAR of the box */
+.rt{position:absolute;width:10px;height:10px}
+.rt i{position:absolute;background:var(--sig)}
+.rt i.h{width:10px;height:2px;box-shadow:0 -1px 0 var(--kl-dark), 0 1px 0 var(--kl-light)}
+.rt i.v{width:2px;height:10px;box-shadow:-1px 0 0 var(--kl-dark), 1px 0 0 var(--kl-light)}
+.rt.tl{left:-13px;top:-13px}    .rt.tl i.h{left:0;top:0}   .rt.tl i.v{left:0;top:0}
+.rt.tr{right:-13px;top:-13px}   .rt.tr i.h{right:0;top:0}  .rt.tr i.v{right:0;top:0}
+.rt.bl{left:-13px;bottom:-13px} .rt.bl i.h{left:0;bottom:0}.rt.bl i.v{left:0;bottom:0}
+.rt.br{right:-13px;bottom:-13px}.rt.br i.h{right:0;bottom:0}.rt.br i.v{right:0;bottom:0}
+
+/* free-standing Sidepiece sheet: all three signatures are mandatory */
+.sheet{position:absolute;background:var(--overlay-sheet);border:1px solid var(--sheetedge);
+  box-shadow:var(--sheet-offset-dark);font-family:var(--serif);color:var(--ink)}
+.sheet .sp{position:absolute;left:0;top:0;bottom:0;width:7px;background:var(--sig)}
+.sheet .sp::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(
+  to bottom, transparent 0 11px, rgba(255,255,255,.55) 11px 12px)}
+.sheet .in{margin-left:7px;padding:7px 9px 8px}
+.sel{font-family:var(--mono);font-size:11.5px;line-height:1.45;letter-spacing:.01em;
+  color:var(--ink);word-break:break-all;display:block;font-size-adjust:.516}
+.dim{display:block;margin-top:4px;font-family:var(--mono);font-size:10.5px;letter-spacing:.10em;
+  text-transform:uppercase;color:var(--muted);font-weight:500;font-size-adjust:.516}
+.tiphint{display:block;margin-top:6px;padding-top:5px;border-top:1px dashed var(--hairline);
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.10em;text-transform:uppercase;
+  color:var(--muted);font-weight:500;font-size-adjust:.516}
+.bub-hd{display:flex;align-items:center;justify-content:space-between;gap:6px;
+  padding-bottom:6px;border-bottom:1px solid var(--hairline)}
+.bub-hd .a{font-family:var(--mono);font-size:11.5px;letter-spacing:.01em;color:var(--machine);
+  font-size-adjust:.516;user-select:all;-webkit-user-select:all}
+.bub-hd .n{background:var(--mark);color:var(--onspot);padding:3px 6px;
+  font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:0;font-size-adjust:.516}
+.bub-txt{margin:8px 0 0;color:var(--ink)}
+.bub-ft{display:flex;align-items:center;justify-content:space-between;margin-top:9px;
+  padding-top:8px;border-top:1px dashed var(--hairline)}
+.bub-ft .c{font-family:var(--mono);font-size:11.5px;font-weight:500;letter-spacing:.04em;
+  color:var(--muted);font-size-adjust:.516}
+/* the only curved shape in the system, and the curve is the point */
+.pin{position:absolute;width:18px;height:18px;border-radius:9999px;background:var(--mark);
+  color:var(--onspot);display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:0;font-size-adjust:.516;
+  box-shadow:inset 0 0 0 1.5px var(--kl-light), 0 0 0 1px var(--kl-dark)}
+.leader{position:absolute;height:1.5px;background:var(--sig);
+  box-shadow:0 -1px 0 var(--kl-dark), 0 1px 0 var(--kl-light)}
+.leader.v{width:1.5px;height:auto;box-shadow:-1px 0 0 var(--kl-dark), 1px 0 0 var(--kl-light)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead">
+    <p class="k">bmad-ux · ux-sidepiece-2026-09-20 · Finalize · key screens</p>
+    <h1>Seven surfaces at 320px, drawn to the shipped tokens.</h1>
+    <p>Direction 04, <b>Deliberately Foreign</b>. Every panel below is <b>exactly 320px</b> border-box with a <b>284px usable column</b>, which is the ruled design width and Chrome&rsquo;s own floor — so these are worst cases, not expected ones. The source mock was drawn at 340px with a pre-final token set; nothing numeric was carried over from it. <code>DESIGN.md</code> as it stands today is the authority, <code>EXPERIENCE.md</code> owns every string.</p>
+    <p>Where a fit is tight, it is drawn tight. Where a specified stack does not fit its own cap, it is drawn overflowing rather than shrunk — see the notes under S1 and S2.</p>
+  </div>
+
+  <div class="grid">
+
+    <!-- ══════════════════════ S1 — RESOLVED, CHAT ══════════════════════ -->
+    <div class="screen">
+      <p class="cap"><span class="n">S1 &nbsp;<b>Resolved &middot; Chat pane</b> &nbsp;· the hero</span>
+        <span class="ev">Evidence: identity survives a pinned header at 284px, and a Dispatched Command reads as a different <em>kind of object</em> from a Streamed Exchange — printed vs stamped — without a second colour.</span></p>
+
+      <div class="panel" style="height:862px">
+        <i class="tick tl"></i><i class="tick bl"></i>
+        <div class="clip"><span class="m">Sidepiece</span><span class="b">Bridge up &middot; LAN</span></div>
+        <div class="spine"></div>
+        <div class="col">
+
+          <div class="head">
+            <h2 class="t-heading repo">sidepiece</h2>
+            <span class="well t-mono">/home/delorenj/code/sidepiece</span>
+            <div class="meta">
+              <span class="chip-board">SIDE</span>
+              <span class="health" style="color:var(--ok)"><i class="mk mk-ok"></i><span class="w">Reachable</span></span>
+              <span class="copy">Copy</span>
+            </div>
+          </div>
+
+          <div class="switch">
+            <div class="sw"><i class="mk mk-ok"></i>Tickets</div>
+            <div class="sw on"><i class="mk mk-ok"></i>Chat</div>
+          </div>
+
+          <div class="pane">
+            <div class="srule"><span class="s">Conversation</span><span class="r"></span></div>
+
+            <div class="turn">
+              <p class="op t-body">what&rsquo;s in progress?</p>
+              <span class="kick">PM &middot; Streamed Exchange</span>
+              <p class="reply t-body">Nothing is started — all 44 Tickets on SIDE are sitting in Backlog. The Bridge is the critical path: SIDE-12 and SIDE-21 both run through it, so it gates everything else on the Board.</p>
+            </div>
+
+            <div class="tsep"></div>
+
+            <div class="turn">
+              <p class="op t-body">start on the resolver ticket</p>
+              <div class="disp">
+                <div class="band"><i class="mk mk-ok"></i><span class="w">Dispatched</span><span class="cid">c7f2a91e</span></div>
+                <div class="in">
+                  <p class="ack">Published to sidepiece-pm. Acknowledged in 412ms.</p>
+                  <span class="outcome">Completed &middot; 2m41s</span>
+                  <p class="result t-body">Completed. The gateway returned no result content.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bar">
+            <div class="composer">
+              <div class="ctx">
+                <span class="k">Riding along</span>
+                <span class="t t-body">SIDE &middot; Issues — Plane</span>
+              </div>
+              <div class="cls">
+                <div class="row">Streamed exchange</div>
+                <div class="row on">Dispatched command</div>
+              </div>
+              <p class="cls-line t-body">This will be published and acknowledged. The result arrives later.</p>
+              <div class="field t-body">Ask the PM, or hand it work&hellip;</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <p class="note-grey">Drawn honestly: this composer is <b>233px</b> tall against <code>turnComposer.height: 188px</code>. Chip 48 + 8 + control 63 + 8 + consequence line 42 + 8 + field 36 + 20 border and padding. It only fits the cap in one state — chip collapsed, <em>Streamed</em> selected (a one-line consequence), one line of draft, zero separation. The switch is drawn <b>two-up at 141.5px a cell</b>, which is <code>DESIGN.md</code>'s own fits table; its <code>paneSwitch</code> paragraph asks for an empty ruled third cell instead, and the two cannot both be true at 284px.</p>
+    </div>
+
+    <!-- ══════════════════════ S2 — THE COMPOSER ════════════════════════ -->
+    <div class="screen">
+      <p class="cap"><span class="n">S2 &nbsp;<b>The composer</b> &nbsp;· 1:1, panel crop</span>
+        <span class="ev">Evidence: <code style="font-family:var(--mono);font-size:10.5px">DISPATCHED COMMAND</code> sets complete in the deepest box in the product. The measuring rule below is drawn at true scale against the panel&rsquo;s own left edge.</span></p>
+
+      <div class="panel crop-top" style="height:430px">
+        <i class="tick bl"></i>
+        <div class="spine"></div>
+        <div class="col">
+          <div class="pane" style="flex:none;padding-bottom:14px">
+            <div style="height:15px"></div>
+            <p class="op t-body">open a PR for the width fix</p>
+            <span class="kick">PM &middot; Streamed Exchange</span>
+            <p class="reply t-body">SIDE-12 is the only one that touches the resolver contract&hellip;</p>
+          </div>
+          <div class="bar" style="border-top:1px solid var(--strong)">
+            <div class="composer">
+              <div class="ctx">
+                <span class="k">Riding along</span>
+                <span class="t t-body">SIDE &middot; Issues — Plane</span>
+                <span class="u">https://plane.delo.sh/33god/projects/side/issues</span>
+              </div>
+              <div class="cls">
+                <div class="row">Streamed exchange</div>
+                <div class="row on">Dispatched command</div>
+              </div>
+              <p class="cls-line t-body">This will be published and acknowledged. The result arrives later.</p>
+              <div class="field t-body">Ask the PM, or hand it work&hellip;</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="measure">
+        <div class="bar244"></div>
+        <div class="fill"></div>
+        <span class="lab a">132.5</span><span class="lab b">244 &mdash; 111.5 spare</span>
+      </div>
+
+      <p class="note-grey">Both glossary terms set complete, uppercase, <code>label</code> 11.5px / 0.04em, in two full-width 30px rows. Selection is a <b>2px underline</b>, never a fill — a filled row would be the largest resting spot area in the product. The FR-10 URL is shown revealed: 47 characters, <b>two lines</b> in a 248px chip, never elided. The composer in this state is <b>269px</b> tall &mdash; 81px over its own cap.</p>
+    </div>
+
+    <!-- ══════════════════════ S3 — RESOLVED, TICKETS ═══════════════════ -->
+    <div class="screen">
+      <p class="cap"><span class="n">S3 &nbsp;<b>Resolved &middot; Tickets pane</b></span>
+        <span class="ev">Evidence: the worst ticket measure in the product, drawn rather than asserted — an 11-character key leaves <b>179px</b> of title, about 28 serif characters a line. This is the measure flagged for Jarad&rsquo;s eye.</span></p>
+
+      <div class="panel" style="height:862px">
+        <i class="tick tl"></i><i class="tick bl"></i>
+        <div class="clip"><span class="m">Sidepiece</span><span class="b">Bridge up &middot; LAN</span></div>
+        <div class="spine"></div>
+        <div class="col">
+
+          <div class="head">
+            <h2 class="t-heading repo">holocene</h2>
+            <span class="well t-mono">/home/delorenj/code/holocene</span>
+            <div class="meta">
+              <span class="chip-board">HOLOCENE</span>
+              <span class="health" style="color:var(--ok)"><i class="mk mk-ok"></i><span class="w">Reachable</span></span>
+              <span class="copy">Copy</span>
+            </div>
+          </div>
+
+          <div class="switch">
+            <div class="sw on"><i class="mk mk-ok"></i>Tickets</div>
+            <div class="sw"><i class="mk mk-ok"></i>Chat</div>
+          </div>
+
+          <div class="pane">
+            <div class="srule"><span class="s">Board</span><span class="r"></span><span class="refetch">Refetch</span></div>
+
+            <div class="grp"><i class="mk mk-unknown" style="color:var(--unknown)"></i><span class="n">Backlog</span><span class="c">12</span></div>
+            <div class="trow">
+              <i class="mk mk-unknown" style="color:var(--unknown)"></i>
+              <span class="k">HOLOCENE-12</span>
+              <span class="ti t-body">Systems table row renders at 0 height</span>
+            </div>
+            <div class="trow">
+              <i class="mk mk-unknown" style="color:var(--unknown)"></i>
+              <span class="k">HOLOCENE-7</span>
+              <span class="ti t-body">Timeline zoom loses the cursor anchor</span>
+            </div>
+            <div class="trow">
+              <i class="mk mk-unknown" style="color:var(--unknown)"></i>
+              <span class="k">HOLOCENE-41</span>
+              <span class="ti t-body">Event toaster fires twice on reconnect</span>
+            </div>
+            <div class="trow">
+              <i class="mk mk-unknown" style="color:var(--unknown)"></i>
+              <span class="k">HOLOCENE-9</span>
+              <span class="ti t-body">Candystore projection lags the stream &mdash;</span>
+            </div>
+
+            <div class="grp" style="margin-top:13px"><i class="mk mk-unknown" style="color:var(--unknown)"></i><span class="n">Todo</span><span class="c">3</span></div>
+            <div class="grp" style="margin-top:13px"><i class="mk mk-pending" style="color:var(--pending)">&#187;</i><span class="n">In progress</span><span class="c">2</span></div>
+            <div class="grp" style="margin-top:13px"><i class="mk mk-pending" style="color:var(--pending)">&#187;</i><span class="n">In review</span><span class="c">1</span></div>
+            <div class="grp" style="margin-top:13px"><i class="mk mk-ok" style="color:var(--ok)"></i><span class="n">Done</span><span class="c">41</span></div>
+
+          </div>
+
+          <div class="bar" style="border-top:none">
+            <div class="create" style="margin-top:0">
+              <span class="k">New ticket</span>
+              <div class="box">
+                <div class="blank t-body">Title&hellip;</div>
+                <div class="submitrow">
+                  <span class="slot"></span>
+                  <span class="submit">Create on HOLOCENE</span>
+                  <span class="slot"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="note-grey">The key column is <code>max-content</code>, sized to the longest key <em>in this fetch</em> (78px), not across all Projects — which is what returns 28px of title to every row. A missing field renders as an ink em-dash, never as blank space (row four). Four collapsed groups still render their zero-and-non-zero counts: the Board&rsquo;s shape is what the pane is for.</p>
+    </div>
+
+    <!-- ══════════════════════ S4 — TOTAL OUTAGE ════════════════════════ -->
+    <div class="screen">
+      <p class="cap"><span class="n">S4 &nbsp;<b>Total outage</b> &nbsp;· DS-3, the Bridge is unreachable</span>
+        <span class="ev">Evidence: one shared notice, the header <em>replaced</em> rather than dimmed, an inert switch, and the draft visibly kept. Nothing on this screen claims a Project we cannot vouch for.</span></p>
+
+      <div class="panel" style="height:504px">
+        <i class="tick tl"></i><i class="tick bl"></i>
+        <div class="clip down"><span class="m">Sidepiece</span><span class="b">Bridge unreachable</span></div>
+        <div class="spine"></div>
+        <div class="col">
+
+          <div class="switch">
+            <div class="sw"><i class="mk mk-failed"></i>Tickets</div>
+            <div class="sw"><i class="mk mk-failed"></i>Chat</div>
+          </div>
+
+          <div class="pane">
+            <div class="notice">
+              <div class="band"><i class="mk mk-failed"></i><span class="w">Every pane</span></div>
+              <div class="in">
+                <p class="t-body">The laptop is off the tailnet.</p>
+                <p class="t-body"><span class="machine">burro-salmon.ts.net</span> isn&rsquo;t up on this machine, so the Bridge can&rsquo;t be reached.</p>
+                <div class="acts"><span class="stampbtn">Re-resolve</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bar">
+            <div class="composer" style="background:var(--sunken)">
+              <span class="t-micro" style="color:var(--muted)">Your last turn &middot; kept</span>
+              <p class="draft t-body">draft the resolver test plan</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="note-grey">The clip inverts to the stamp ground and the Bridge word goes to the signature on it (<b>4.96:1</b>) — the one place the spot is allowed to set type. The spine is unchanged, so it is still plainly the same object. <b>No command string:</b> DS-3 mandates none and the Cockpit never composes one itself.</p>
+    </div>
+
+    <!-- ══════════════════════ S5 — PARTIAL OUTAGE ══════════════════════ -->
+    <div class="screen">
+      <p class="cap"><span class="n">S5 &nbsp;<b>Partial outage</b> &nbsp;· DS-17, Plane is failing</span>
+        <span class="ev">Evidence: the other half of the error model, and a deliberately different shape — header intact, switch live and marked, one pane notice, the rest of the Cockpit fully usable.</span></p>
+
+      <div class="panel" style="height:560px">
+        <i class="tick tl"></i><i class="tick bl"></i>
+        <div class="clip"><span class="m">Sidepiece</span><span class="b">Bridge up &middot; LAN</span></div>
+        <div class="spine"></div>
+        <div class="col">
+
+          <div class="head">
+            <h2 class="t-heading repo">sidepiece</h2>
+            <span class="well t-mono">/home/delorenj/code/sidepiece</span>
+            <div class="meta">
+              <span class="chip-board">SIDE</span>
+              <span class="health" style="color:var(--degraded)"><i class="mk mk-degraded"></i><span class="w">Unhealthy</span></span>
+              <span class="copy">Copy</span>
+            </div>
+          </div>
+
+          <div class="switch">
+            <div class="sw on"><i class="mk mk-degraded" style="color:var(--degraded)"></i>Tickets</div>
+            <div class="sw"><i class="mk mk-ok"></i>Chat</div>
+          </div>
+
+          <div class="pane">
+            <div class="srule"><span class="s">Board</span><span class="r"></span><span class="refetch">Refetch</span></div>
+
+            <div class="notice" style="margin-top:2px">
+              <div class="band"><i class="mk mk-degraded"></i><span class="w">Tickets pane</span></div>
+              <div class="in">
+                <p class="t-body">The Bridge is up. Plane is failing.</p>
+                <p class="machine" style="display:block;margin-top:7px">502 from plane.delo.sh/api/v1 &mdash; upstream closed the connection</p>
+                <div class="acts"><span class="stampbtn">Re-resolve</span></div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="bar" style="border-top:none">
+            <div class="create" style="margin-top:0">
+              <span class="k">New ticket</span>
+              <div class="box" style="background:var(--sunken)">
+                <div class="blank off-blank t-body">Title&hellip;</div>
+                <div class="submitrow">
+                  <span class="slot"></span>
+                  <span class="submit off">Create on SIDE</span>
+                  <span class="slot"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="note-grey">Create is <b>disabled with the reason, not failing on submit</b> — but the create box is <em>pinned</em> and the reason is in the scroll region, so the two are only adjacent while the pane is short. The box has nowhere to restate the reason without duplicating the sentence or inventing a second one. The previous list is <em>not</em> left on screen under a failure: a list we cannot refresh is a list we cannot vouch for.</p>
+    </div>
+
+    <!-- ══════════════════════ S6 — NIGHT PAPER ═════════════════════════ -->
+    <div class="screen night">
+      <p class="cap"><span class="n">S6 &nbsp;<b>Night Paper</b> &nbsp;· S1, dimmed</span>
+        <span class="ev">Evidence: fifteen values move and seventeen do not. The paper dims 18%; the stamp, the strong rule, the ink, the machine blue and the signature are byte-identical to S1.</span></p>
+
+      <div class="panel" style="height:862px">
+        <i class="tick tl"></i><i class="tick bl"></i>
+        <div class="clip"><span class="m">Sidepiece</span><span class="b">Bridge up &middot; LAN</span></div>
+        <div class="spine"></div>
+        <div class="col">
+
+          <div class="head">
+            <h2 class="t-heading repo">sidepiece</h2>
+            <span class="well t-mono">/home/delorenj/code/sidepiece</span>
+            <div class="meta">
+              <span class="chip-board">SIDE</span>
+              <span class="health" style="color:var(--ok)"><i class="mk mk-ok"></i><span class="w">Reachable</span></span>
+              <span class="copy">Copy</span>
+            </div>
+          </div>
+
+          <div class="switch">
+            <div class="sw"><i class="mk mk-ok"></i>Tickets</div>
+            <div class="sw on"><i class="mk mk-ok"></i>Chat</div>
+          </div>
+
+          <div class="pane">
+            <div class="srule"><span class="s">Conversation</span><span class="r"></span></div>
+
+            <div class="turn">
+              <p class="op t-body">what&rsquo;s in progress?</p>
+              <span class="kick">PM &middot; Streamed Exchange</span>
+              <p class="reply t-body">Nothing is started — all 44 Tickets on SIDE are sitting in Backlog. The Bridge is the critical path: SIDE-12 and SIDE-21 both run through it, so it gates everything else on the Board.</p>
+            </div>
+
+            <div class="tsep"></div>
+
+            <div class="turn">
+              <p class="op t-body">start on the resolver ticket</p>
+              <div class="disp">
+                <div class="band"><i class="mk mk-ok"></i><span class="w">Dispatched</span><span class="cid">c7f2a91e</span></div>
+                <div class="in">
+                  <p class="ack">Published to sidepiece-pm. Acknowledged in 412ms.</p>
+                  <span class="outcome">Completed &middot; 2m41s</span>
+                  <p class="result t-body">Completed. The gateway returned no result content.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bar">
+            <div class="composer">
+              <div class="ctx">
+                <span class="k">Riding along</span>
+                <span class="t t-body">SIDE &middot; Issues — Plane</span>
+              </div>
+              <div class="cls">
+                <div class="row">Streamed exchange</div>
+                <div class="row on">Dispatched command</div>
+              </div>
+              <p class="cls-line t-body">This will be published and acknowledged. The result arrives later.</p>
+              <div class="field t-body">Ask the PM, or hand it work&hellip;</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <p class="note-grey">The signature is the same <code>#FF2E63</code> on both grounds — <b>2.56:1</b> here, under the 3:1 non-text floor, accepted rather than fixed because a spine that is one pink by day and another by night is three treatments again. In the product this is <code>@media (prefers-color-scheme: dark)</code>; it is a class here only so both grounds can be seen at once.</p>
+    </div>
+
+    <!-- ══════════════════════ S7 — [v2] IN-PAGE LAYER ══════════════════ -->
+    <div class="screen">
+      <p class="cap"><span class="n">S7 &nbsp;<b>[v2] the in-page layer</b> &nbsp;· somebody else&rsquo;s dashboard</span>
+        <span class="ev">Evidence: the thesis. Detached registration ticks and a ticked spine carry identity where the hue cannot — no page owns that geometry, and plenty of pages own <code>#FF2E63</code>.</span></p>
+
+      <div class="pagemock">
+        <div class="pg-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="u">slowburns.app/overview</span></div>
+        <div class="pg-in">
+          <h3 class="pg-h">Slow Burns</h3>
+          <p class="pg-sub">Overview &middot; updated 4 minutes ago</p>
+          <div class="pg-cards">
+            <div class="pg-card"><div class="l">Listings</div><div class="v">128</div></div>
+            <div class="pg-card"><div class="l">Burning</div><div class="v">6</div></div>
+            <div class="pg-card"><div class="l">Cleared</div><div class="v">41</div></div>
+          </div>
+          <div class="pg-fig">
+            <div class="l">Your collector</div>
+            <div class="pg-guy">
+              <span class="arm"></span>
+              <span class="figbody"><span class="head2"></span><span class="torso"></span></span>
+              <span class="arm"></span>
+            </div>
+            <span class="pg-btn">Publish batch</span>
+          </div>
+        </div>
+
+        <!-- hover outline on the middle stat card: 2px signature, scrim, tri-tone,
+             four DETACHED ticks at 3px clear, and the 7px ticked spine inboard -->
+        <div class="ol" style="left:165px;top:96px;width:141px;height:57px">
+          <span class="box"></span>
+          <span class="olspine"></span>
+          <span class="rt tl"><i class="h"></i><i class="v"></i></span>
+          <span class="rt tr"><i class="h"></i><i class="v"></i></span>
+          <span class="rt bl"><i class="h"></i><i class="v"></i></span>
+          <span class="rt br"><i class="h"></i><i class="v"></i></span>
+        </div>
+
+        <!-- resolved-selector tooltip: a full free-standing sheet -->
+        <div class="sheet" style="left:190px;top:176px;width:250px">
+          <span class="sp"></span>
+          <span class="rt tl"><i class="h"></i><i class="v"></i></span>
+          <span class="rt tr"><i class="h"></i><i class="v"></i></span>
+          <span class="rt bl"><i class="h"></i><i class="v"></i></span>
+          <span class="rt br"><i class="h"></i><i class="v"></i></span>
+          <div class="in">
+            <span class="sel">div.pg-cards &gt; div.pg-card:nth-of-type(2)</span>
+            <span class="dim">141 &times; 57 &nbsp;&middot;&nbsp; div.pg-card</span>
+            <span class="tiphint">Click to comment &middot; Esc disarms</span>
+          </div>
+        </div>
+
+        <!-- a committed mark, its leader, and the open bubble -->
+        <div class="pin" style="left:44px;top:215px">2</div>
+        <div class="leader v" style="left:52px;top:233px;height:64px"></div>
+        <div class="sheet" style="left:36px;top:295px;width:280px">
+          <span class="sp"></span>
+          <span class="rt tl"><i class="h"></i><i class="v"></i></span>
+          <span class="rt tr"><i class="h"></i><i class="v"></i></span>
+          <span class="rt bl"><i class="h"></i><i class="v"></i></span>
+          <span class="rt br"><i class="h"></i><i class="v"></i></span>
+          <div class="in">
+            <div class="bub-hd"><span class="a">div.pg-guy</span><span class="n">2</span></div>
+            <p class="bub-txt t-body">This is supposed to be a guy. It reads as a lamp &mdash; the head is too small for the torso and there are no legs.</p>
+            <div class="bub-ft"><span class="c">2 marks on this page</span><span class="stampbtn" style="height:32px">Keep</span></div>
+          </div>
+        </div>
+      </div>
+      <p class="note-grey">Both sheets are the <em>same paper</em> as the Cockpit — <code>surface.overlay</code> equals <code>surface.panel</code> on purpose, and it is never dimmed by Night Paper: a guest sheet is not themed by its host&rsquo;s operator. Every stroke drawn on the page is tri-tone (1px ink outside, signature, 1px white inside). The pin is the only curve in the system, and the curve is the point.</p>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>
