@@ -163,7 +163,7 @@ The primitives this spine names, and which `DESIGN.md` must therefore define:
 | Action | `{colors.action.primary}` | Exactly one: the current pane's submit. A second action colour would make "which control writes" a guess |
 | Overlay | `{colors.overlay.outline}` `[v2]` · `{colors.overlay.scrim}` `[v2]` · `{colors.overlay.signature}` | The hover outline and the freehand stroke, drawn over a page whose own colours are unknown; both must read against an arbitrary background. `signature` is **not** `[v2]` and is the one token shared by the Cockpit and the in-page layer: it is what makes a mark identifiable as Sidepiece's on a white docs site and a black dashboard alike, and the chosen direction's whole argument rests on it being one treatment rather than three |
 | Type | `{typography.heading}` · `{typography.body}` · `{typography.label}` · `{typography.micro}` · `{typography.mono}` | Serif for people, mono for machines, never mixed within one value. `micro` is the floor for static chrome only; anything variable sits at `label` or above, because density comes from leading rather than from shrinking type |
-| Shape | `{rounded.control}` · `{rounded.panel}` · `{rounded.pill}` | `pill` is reserved for state markers so a state is never shaped like a control |
+| Shape | `{rounded.control}` · `{rounded.panel}` · `{rounded.pill}` | A state is never shaped like a control. *(Amended 2026-09-22 at Finalize, absorbing `DESIGN.md`'s last live handoff item. This row previously read "`pill` is reserved for state markers"; `DESIGN.md` resolves state markers as **drawn marks** and gives `{rounded.pill}` exactly two consumers, both outside the Cockpit — the `[v2]` `{components.annotationPin}` and `{components.iconBadge}`, which Chrome draws. **Nothing inside the Cockpit is ever a pill.** The intent this row was protecting is over-satisfied, not departed from: a drawn mark is not shaped like anything else in the system.)* |
 | Rhythm | `{spacing.gutter}` · `{spacing.stack}` · `{spacing.inset}` · `{spacing.row}` | `gutter` is the only horizontal inset in the column and it is what makes the usable column survivable; `row` is the list-row rhythm the Accessibility Floor's 32px minimum is expressed against |
 | Focus | `{colors.focus.ring}` | One ring, on every interactive element, including the clone-path region |
 | **Components** | **The 25 `{components.*}` names enumerated in Component Patterns** | Every `{components.*}` name in **Component Patterns** is a `DESIGN.md.Components` key as well as a behavioral spec. The count is stated so the `DESIGN.md` author can check it off: **25 components — 17 v1 and 8 marked `[v2]`.** (Component Patterns has 26 rows: the 25 keys plus the clone-path line, which is a sub-element of `{components.identityHeader}` and not a key of its own.) A component with a behavioral row here and no visual row there is an incomplete handoff, and `references/validate.md` Pass 1 #3 checks exactly that |
@@ -261,9 +261,13 @@ see `{components.refetchControl}`.
 
 **What collapses.** Inside the Tickets pane, a Board-state group collapses to its header and
 count; the group holding the Board's default entry state is expanded and the rest are
-collapsed on first render `[ASSUMPTION: collapse state is per-Project in
-chrome.storage.local (permitted by Rule 4); rationale — a Board with eight states cannot show
-eight expanded groups in 320px, and the default entry state is the group UJ-1 writes into.]`
+collapsed on first render `[CONFIRMED 2026-09-22 — `architecture.md` D6 names "Ticket group
+collapse state" in the `chrome.storage.local` continuity tier, so the placement is settled and
+the MUST that governs it ("authority for nothing") is stated there. The per-Project keying and
+the which-group-opens rule remain this spine's and are unchanged. Assumption kept as the record
+of why: collapse state is per-Project in chrome.storage.local (permitted by Rule 4); rationale —
+a Board with eight states cannot show eight expanded groups in 320px, and the default entry
+state is the group UJ-1 writes into.]`
 Inside the Chat pane, the Turn list renders the most recent Turns and loads older on demand
 rather than rendering the whole history on open `[ASSUMPTION: cold-start cost plus SM-C1;
 FR-11 requires history be restored, not that all of it be rendered at once.]` Inside the
@@ -274,7 +278,9 @@ composer are collapsed by default.
 switch, and the current pane's input.
 
 **Which pane opens.** The Cockpit opens on the pane it was last showing **for this
-Project**; a Project change resets to **Tickets** `[ASSUMPTION: deterministic-on-change
+Project**; a Project change resets to **Tickets** `[CONFIRMED 2026-09-22 — `architecture.md` D6
+names "pane selection" in the `chrome.storage.local` continuity tier; the reset rule is this
+spine's and is unchanged. Assumption kept as the record of why: deterministic-on-change
 beats globally-remembered. Tickets is the reset target because SM-1 is the primary metric
 and FR-5 guarantees Tickets survives both degraded Agent states, so it is the pane most
 likely to be usable. The stored value is a single key plus the pjid it was set under, in
@@ -333,7 +339,10 @@ lands on a DERP fallback. Accepted as unclosed rather than inventing a journey f
 an ambient marker on the header, not a destination.
 
 **(c) §9's recent-Projects list has no surface that does not cost the one-click open.** The
-obvious home is an action popup on the extension icon. `[ASSUMPTION: an action with a
+obvious home is an action popup on the extension icon. `[CONFIRMED 2026-09-22 —
+`architecture.md` D16 declares the `action` with **no `default_popup`**, citing this note by
+name, so the conclusion is now a manifest decision rather than an inference and v1 cannot
+regress into a popup by accident. Assumption kept as the record of why: an action with a
 `default_popup` opens the popup on click, which displaces
 `setPanelBehavior({openPanelOnActionClick: true})` — not verified in this run's sweep, but
 it is how the action API is shaped.]` v1 therefore keeps the action **popup-less** so the
@@ -382,6 +391,12 @@ honest about what v1 actually constructs — a row claiming a seat that does not
 worse than no row. What v1 *does* owe v2 is not a widget but a scoped prohibition: see
 **State Patterns § Extension icon states**, where "no badge" is stated as a v1 rule rather
 than as an absolute, so v2 is not re-litigating a principle.
+
+**Also not a reserved seat: the two `[v2]` keyboard chords.** *(Added 2026-09-22.)*
+`Alt+Shift+A` and `Alt+Shift+D` are **allocated** in **Interaction Primitives § Keyboard** so
+`[v2]` inherits a plan, and they are **not declared in v1's manifest** (`architecture.md` D16).
+A declared chord that does nothing is a disabled control wearing a keystroke, and the rule
+below applies to it unchanged.
 
 The one rule that makes the seam safe: **a reserved seat renders as nothing in v1, not as a
 disabled control.** A greyed-out attachment button is a promise; an empty slot is a layout
@@ -489,7 +504,11 @@ times and the *sentence* five times; the five are literal and are never paraphra
    distinction (obligations 1–5 in `research-prd-behaviors.md` §6).
 3. **Name the fix when there is one, and let the Bridge write it.** A remedy command is
    rendered verbatim as the Bridge returned it, in `{typography.mono}`, selectable, never
-   truncated. The Cockpit never composes a command string itself `[ASSUMPTION: the Bridge
+   truncated. The Cockpit never composes a command string itself `[CONFIRMED 2026-09-22 —
+   `architecture.md`'s wire rules carve remedy command text out as the one deliberate
+   exception: DS-11's provisioning command and DS-14's board-binding command "**is** sent by
+   the Bridge, verbatim as it composed it", for this spine's stated reason. Assumption kept as
+   the record of why: the Bridge
    owns command text because it knows the installed pjangler and Hermes surface; a command
    the Cockpit invents goes stale the first time a flag changes. FR-5 and FR-12 require the
    command be named, not that the Cockpit author it.]` Where an FR *requires* a command and
@@ -575,8 +594,8 @@ of `{components.identityHeader}` and carries behavior of its own without being a
 | `{components.jumpToLatest}` | Appears in the Chat pane when the operator has scrolled up away from a streaming Turn; returns to the bottom and re-arms bottom-anchoring | — | Appears only while the anchor is broken and something is arriving. It never appears on a quiet thread, because a control that offers to move you somewhere is a control that pulls |
 | `{components.ticketGroupHeader}` | One per Board state, in the Board's own state order (FR-12, P7). Collapses to name plus count | Collapse state per Project in `chrome.storage.local` (Rule 4) | A group with zero Tickets renders with a zero count rather than disappearing — the Board's shape includes its empty columns. On an empty Board the group skeleton still renders, **beneath** the `This Board is empty.` line, because the shape is the point |
 | `{components.ticketRow}` | Human key, title, state (FR-12). Opens the Plane URL in a new tab | — | A Ticket missing a field renders the fields it has and marks the gap; it is never dropped from the list. **No row survives a pjid change** (P13) |
-| `{components.ticketCreateBox}` | Creates with a title alone. Description and target state optional (FR-13). **Renders a submit row containing a leading slot, the primary submit, and one secondary slot; the leading and secondary slots are empty in v1** and are the seats for `[v2]`'s attachment and batch-create. Submit names the Board it will write to | Draft debounced to `chrome.storage.local` keyed by pjid (Rule 4) | Does not wait on the Board read: `[ASSUMPTION: when target state is omitted the **Bridge** applies the Board's default entry state server-side and the created Ticket comes back carrying the state it was assigned. Rationale — FR-13 says the omitted state "uses the Board's default entry state" without saying who resolves it, and the Bridge is the only component that already derives the Board from the pjid. The alternative, holding the submit until the Board read lands, costs UJ-1 its entire margin. NOTE FOR ARCHITECTURE.]` On failure the entered text is preserved and the error is shown (FR-13). With no Board it is **disabled with the reason, not failing on submit** (FR-12, P19); with a Board that returns zero states, likewise (DS-22). A stale generation is refused before the network call, and says so (§5) |
-| `{components.refetchControl}` | User-initiated Board refetch (FR-12) | — | **The never-blank guarantee is scoped to one Project.** While a refetch *within* the current Project runs, the current list stays on screen and a failure leaves the previous list in place with the failure stated above it. A **Project change is not a refetch**: the list is discarded in the same frame as the header and the pane renders `Reading the Board.` for the new Project. FR-12 is explicit that the list is fetched fresh on resolution and never served from a prior Project's cache (P13), and a row that outlives its pjid is the SM-3 failure |
+| `{components.ticketCreateBox}` | Creates with a title alone. Description and target state optional (FR-13). **Renders a submit row containing a leading slot, the primary submit, and one secondary slot; the leading and secondary slots are empty in v1** and are the seats for `[v2]`'s attachment and batch-create. Submit names the Board it will write to | Draft debounced to `chrome.storage.local` keyed by pjid (Rule 4) | Does not wait on the Board read: `[CONFIRMED 2026-09-22 — `architecture.md` **D20** adopts it verbatim: "Default entry state is resolved server-side… `POST …/ticket` with no `state` applies the Board's default and the created Ticket comes back carrying the state it was assigned", and D20 names this spine's own reason — it is what licenses the create box to be live before the Board read lands, and holding the submit "costs UJ-1 its entire margin". ~~NOTE FOR ARCHITECTURE~~ — answered; the note is discharged. Assumption kept as the record of why: when target state is omitted the **Bridge** applies the Board's default entry state server-side and the created Ticket comes back carrying the state it was assigned. Rationale — FR-13 says the omitted state "uses the Board's default entry state" without saying who resolves it, and the Bridge is the only component that already derives the Board from the pjid.]` On failure the entered text is preserved and the error is shown (FR-13). With no Board it is **disabled with the reason, not failing on submit** (FR-12, P19); with a Board that returns zero states, likewise (DS-22). A stale generation is refused before the network call, and says so (§5) |
+| `{components.refetchControl}` | User-initiated Board refetch (FR-12) | — | **The never-blank guarantee is scoped to one Project.** While a refetch *within* the current Project runs, the current list stays on screen and a failure leaves the previous list in place with the failure stated above it. A **Project change is not a refetch**: the list is discarded in the same frame as the header and the pane renders `Reading the Board.` for the new Project. FR-12 is explicit that the list is fetched fresh on resolution and never served from a prior Project's cache (P13), and a row that outlives its pjid is the SM-3 failure. **One state gives this control a second mechanism under the same word** *(added 2026-09-22)*: in **Ticket created, not renderable** it re-issues the create under the held `createKey` rather than re-reading the Board, which returns the exact Ticket and cannot double-file (`architecture.md` D20). Everywhere else it is a Board read, unchanged |
 | `{components.commandString}` | Renders a remedy command the Bridge returned: mono, selectable, complete, with a copy control and one empty action slot `[v2]` | — | Two rules, because the states differ. **Where an FR mandates a command** — DS-11 (FR-5, "names the exact provisioning command") and DS-14 (FR-12, "names the command that binds one") — a missing command is a **Bridge contract violation**, not a rendering variant: the notice renders its sentence plus `The Bridge did not return the command for this. That is a Bridge bug.` and the client logs it. **Where no FR mandates one** — DS-6, DS-8 and any notice that merely benefits from a remedy — the block is omitted entirely rather than rendered empty. The Cockpit never invents command text in either case |
 | `{components.hoverOutline}` `[v2]` | Outlines the element under the cursor while the select tool is armed, and prints the resolved selector **before** the click | — | If the layer cannot render on this page, the arm gesture reports that it could not arm. It never arms invisibly |
 | `{components.commentBubble}` `[v2]` | Opens at the clicked element; collects text; yields selector + context, **no image** | Draft to `chrome.storage.local` keyed by (pjid, page URL) | Escape closes it and **keeps** the draft (Linear P16). A navigation while it is open keeps the draft against that URL |
@@ -607,7 +626,15 @@ Dispatched Command**, and anything the rule cannot place goes to Dispatched Comm
 bias). The rule's form — verb allowlist, LLM pre-pass, mode toggle — is an architecture
 decision; these six are its test cases.
 
-**When it recomputes.** `[ASSUMPTION: classification is computed on a typing pause, never on
+**When it recomputes.** `[CONFIRMED 2026-09-22 — `architecture.md` **D13** makes this the
+constraint that *picks the classifier's form*: because every typing pause is a classification,
+an LLM pre-pass or a Bridge-side rule would cost a call or a tailnet round trip per pause with
+no budget and an in-flight state to render under the caret, so the rule is a **verb allowlist**
+— a pure function in `contract/src/classify.ts`, evaluated in the Cockpit on the pause, at zero
+latency. The Bridge re-evaluates authoritatively at send and **honours an explicit override**
+rather than second-guessing it, which is what keeps the flip a product guarantee. This spine's
+six-Turn corpus is adopted verbatim as the acceptance set. Assumption kept as the record of
+why: classification is computed on a typing pause, never on
 a keystroke, and once the operator flips it the classification is pinned until send. An
 empty composer shows the standing default, Dispatched Command, and the first pause after
 typing begins replaces it. Rationale — the PRD is explicitly silent here
@@ -641,15 +668,25 @@ next rule is "Missing a budget renders a timeout state, never an indefinite pend
 (P5), and Rule 1 is absolute. So while DS-15 is up, every in-flight state keeps a deadline
 and changes only what expiry **says** — a relay-aware timeout naming the relay as the reason
 there is no budget, with a retry, e.g. `Still waiting on the Board read. The connection is
-relayed, so there is no budget for this.` `[ASSUMPTION: the relayed deadline is generous
+relayed, so there is no budget for this.` `[ASSUMPTION — STILL LIVE at Finalize 2026-09-22,
+and deliberately so. `architecture.md`'s wire rules confirm the half this spine owns —
+"**MUST** — every in-flight state has a deadline and a terminal transition. Including under a
+DERP relay: the relay changes what the expiry *says*, never whether one exists" — so the rule
+is settled. What is **not** set anywhere is the number. Recorded as the one open item this
+spine hands forward rather than answers: the relayed deadline is generous
 relative to the direct budget rather than equal to it, since a relay is genuinely slower and
 a timeout that fires on every relayed read teaches the operator to ignore it. The multiple is
-an architecture tuning value, not a UX one.]`
+an architecture tuning value, not a UX one, and it is still unset — it belongs in the
+implementation story that builds the deadline, not in a spine.]`
 
 **Rule 2 — total outage is one message; partial outage is per-pane.** §5 says "Every pane
 fails independently and says why." UJ-3 says when the Bridge is unreachable "every pane says
 so with one shared message rather than each failing in its own way." The PRD never
-reconciles these. **`[ASSUMPTION: the split is total versus partial. When the Bridge itself
+reconciles these. **`[CONFIRMED 2026-09-22 — this reconciliation is now load-bearing downstream
+rather than a UX guess. `architecture.md` builds its failure posture on the total/partial line,
+and **D2** moves DS-6 and DS-7 across it *by this rule's own test* rather than by overruling the
+rule — which is exactly what the amendment below records. Assumption kept as the record of why:
+the split is total versus partial. When the Bridge itself
 is unreachable, or the Registry behind it is down, nothing in the Cockpit can be true — the
 body renders ONE shared notice, the header is replaced by it, and the pane switch is
 inert. When the Bridge answers and a single dependency behind it has failed, the panes that
@@ -676,7 +713,14 @@ drafts, pane selection and group-collapse state in `chrome.storage.local`, and `
 annotations too. PRD §5 says, verbatim: *"Anything that must outlive it is held by the Bridge
 (FR-15), **not persisted client-side**."* That is a direct conflict and it is resolved here
 rather than left for an architect to discover.
-**`[ASSUMPTION: §5's sentence governs system-of-record state, not UI continuity. Everything
+**`[CONFIRMED 2026-09-22 — `architecture.md` **D6** adopts this rule's test verbatim ("if losing
+the state would make the product *wrong*, it is the Bridge's; if losing it would only make the
+product *annoying*, it may be the client's"), restates it as an architectural boundary rather
+than a UI preference, and gives it the sentence it never had: **MUST — nothing in
+`chrome.storage.local` may be the *only* source of a rendered fact, and anything rendered from
+it carries its age.** D6 also names every member of the tier this rule enumerates, including
+`[v2]`'s pre-discharge annotation batch. Assumption kept as the record of why: §5's sentence
+governs system-of-record state, not UI continuity. Everything
 the product is answerable for — Turns, their answers, dispatch outcomes, Tickets — lives in
 the Bridge, exactly as FR-15 and P26 require, and the Cockpit caches none of it beyond FR-2's
 explicitly bounded resolution cache. What `chrome.storage.local` holds is per-operator
@@ -787,12 +831,17 @@ kept below, struck, because the handover is the useful part of the record.)*
 
 - **Local Network Access denial.** Chrome's prompt reads "Look for and connect to any device
   on your local network." The blog documents no denial behavior and no recovery path
-  (`research-mv3-platform.md` §6.3). `[ASSUMPTION: a denial presents to the Cockpit as an
+  (`research-mv3-platform.md` §6.3). `[ASSUMPTION — narrowed to a one-off confirmation,
+  2026-09-22. The prior has now moved in three places rather than one: `addendum.md` §C was
+  rewritten on 2026-09-20, `architecture.md`'s constraint list closes LNA outright ("extensions
+  holding the correct host permissions are stated to be exempt"), and **D16** makes the
+  `<all_urls>` host permission the transport's exemption as well as the detection decision, so
+  PRD §12 Q7 is a single confirmation on `carries-macbook-air` with **no prompt** as the
+  expected result. What stays live is only the contingency, and it is unchanged: a denial
+  presents to the Cockpit as an
   ordinary fetch failure and therefore renders as DS-5, which is honest but unhelpful. If
   the failure is distinguishable in practice, it earns its own row with its own wording
-  naming the permission. Prior has moved: CGNAT `100.64.0.0/10` is explicitly `local` in the
-  WICG spec and Chrome states extensions with host permissions are unaffected, so the
-  expected result is no prompt at all.]`
+  naming the permission. No row is minted for a state nobody expects to see.]`
 - ~~**Bridge contract drift** — a Bridge older or newer than the Cockpit expects. Nothing in
   the source set specifies a version handshake. Not invented here; flagged for
   architecture.~~ **CLOSED 2026-09-22 — `architecture.md` D12, rendered as DS-27.** The
@@ -829,7 +878,7 @@ kept below, struck, because the handover is the useful part of the record.)*
 | **Dispatched — failed / timed out** | Turn card | The terminal status as reported, with whatever the outcome carried |
 | **Creating a Ticket** | Create box | Submit disabled with an in-progress marker; the title text stays visible and editable-on-failure |
 | **Ticket created** | Tickets pane + create box | The row appears at the top of its group without a manual refresh (FR-13), carrying the state the Bridge assigned it. Title clears, focus stays in the title field, description collapses. Nothing navigates. **If the Board read has not landed yet**, the pane is still showing `Reading the Board.` and the created row renders as a single row above that line, marked as just created; when the list arrives it takes its place inside its group and the standalone row is gone |
-| **Ticket created, not renderable** | Create box + Tickets pane | The write was acknowledged and the response could not be used — a 2xx whose body did not parse, or the connection lost after the write. `Created, but the Board read didn't come back. Refetch to see it.` **The title field clears**, because the work landed and leaving it populated invites a duplicate. **Resubmitting the same text is not offered**: `[ASSUMPTION: create is not idempotent — nothing in the source set gives Plane's create an idempotency key — so a retry after an unknown outcome can double-file, and "a confidently wrong ticket is worse than a failed one" (§5) has a duplicated sibling. The honest path is the refetch control, which is pointed at explicitly. NOTE FOR ARCHITECTURE: if the Bridge can mint an idempotency key for create, this state gains a safe retry and should.]` |
+| **Ticket created, not renderable** | Create box + Tickets pane | The write was acknowledged and the response could not be used — a 2xx whose body did not parse, or the connection lost after the write. `Created, but the Board read didn't come back. Refetch to see it.` **The title field clears**, because the work landed and leaving it populated invites a duplicate. **Resubmitting the same text is still not offered**, and the reason is now sharper rather than weaker — see the amendment below. `[AMENDED 2026-09-22 — the precondition this row asked for exists, so the row's own conditional fires. `architecture.md` **D20** mints a `createKey` UUID **at submit, in the Cockpit**, carries it on the request, and records it on the Bridge's `ticket_creates` row; a create carrying a key already recorded **returns the Ticket that key produced rather than filing a second one**. Two consequences, and this row takes both. **First, the refetch this state points at is upgraded in place**: on this state only, the control re-issues the create under the *same* `createKey` instead of re-reading the Board, so it returns the exact Ticket rather than hunting for it in a list, and it cannot double-file. The operator's word is unchanged — *refetch* still means *go get it* — so no literal in **Voice and Tone** moves. **Second, the no-resubmit rule survives with a better argument**: a retype mints a **new** key and therefore genuinely does double-file, so the safe path is the control and never the keyboard. That is why the title field still clears. ~~NOTE FOR ARCHITECTURE~~ — answered, and `architecture.md`'s `[NOTE FOR UX]` back ("whether the row now offers one is yours") is discharged here. Assumption kept as the record of why: create is not idempotent — nothing in the source set gives Plane's create an idempotency key — so a retry after an unknown outcome can double-file, and "a confidently wrong ticket is worse than a failed one" (§5) has a duplicated sibling.]` |
 | **Ticket create failed** | Create box | The entered text is preserved and the error is shown (FR-13), e.g. `Plane refused the create: 403. Your title is still here.` |
 | **Generation stale** | Wherever the mutation was attempted | `The Project changed while that was in flight. Nothing was written.` Refused by both the Cockpit and the Bridge (§5). A confidently wrong Ticket is worse than a failed one. **It carries no re-resolve control, and that is correct rather than an omission**: resolution already happened — that is *why* the generation is stale — so re-resolving is the one action guaranteed to change nothing. The text is kept; the operator resubmits against the new Project deliberately, or does not. This is a mutation-scoped refusal, not a degraded state, which is why it is here and not in the DS table |
 | **Outcome reconciliation on open** | Chat pane | Outcomes that arrived while the Cockpit was closed land on their originating Turns on next open (FR-9). They appear in place in the thread, not as a notification |
@@ -904,16 +953,22 @@ The rendering rule, in order:
 6. **The subscription is silent unless it fails.** If SSE cannot be established:
    `Not subscribed to outcomes. Dispatched results won't land here until this reconnects.`
    with a retry. This is the one reopen read that has no PRD-stated budget
-   `[ASSUMPTION: treat it as the dispatch acknowledgement budget, ≤2s, for lack of a better
-   anchor.]` It lives here rather than in the DS table because it is a property of this
+   `[ASSUMPTION — STILL LIVE at Finalize 2026-09-22. `architecture.md` confirms the *placement*
+   — SSE-not-established gets its own code space, `SubscriptionState` in `contract/src/state.ts`,
+   precisely because this spine keeps it outside the DS taxonomy — but sets no number. The
+   anchor stands unchallenged and unverified: treat it as the dispatch acknowledgement budget,
+   ≤2s, for lack of a better anchor.]` It lives here rather than in the DS table because it is a property of this
    open, not of the Project: it resolves on retry without re-resolution and gates no pane.
 
 `chrome.sidePanel.onOpened` and `onClosed` exist as of Chrome 141+, and the fleet runs
 151–155 (`research-mv3-platform.md` §1.4). They are the save/restore hooks for the drafts
-and pane selection Rule 4 puts in `chrome.storage.local`. `[ASSUMPTION: onClosed is
-treated as a notification, not a guaranteed drain — nothing in the sweep establishes it
-fires early enough to flush. Drafts are therefore debounced continuously during typing and
-onClosed is a belt, not the braces.]`
+and pane selection Rule 4 puts in `chrome.storage.local`. `[ASSUMPTION — STILL LIVE at
+Finalize 2026-09-22, and independently corroborated rather than answered: `architecture.md`'s
+constraint list reaches the same wall in the same words — "nothing documents whether `onClosed`
+fires early enough to be trusted as one." Two sweeps found no answer, so the belt-and-braces
+design is the answer. onClosed is
+treated as a notification, not a guaranteed drain. Drafts are therefore debounced continuously
+during typing and onClosed is a belt, not the braces.]`
 
 ---
 
@@ -1004,7 +1059,11 @@ Derived from what Chrome actually permits, not from what feels natural.
   Cockpit, and it is why the service worker's `onMessage` handler is written callback-style
   in v1 even though v1 has nothing to summon it with.
 - A known Chromium bug throws the gesture error on the *second* open after a manual close
-  (issues.chromium.org/415694848), unverified on 151–155. `[ASSUMPTION: if it reproduces,
+  (issues.chromium.org/415694848), unverified on 151–155. `[ASSUMPTION — the *handling* is
+  settled, the *reproduction* is still unverified. `architecture.md` gives the transient its own
+  code space, `IconTransient` in `contract/src/state.ts`, alongside the two other typed failures
+  this spine deliberately keeps out of the DS taxonomy — so the surface exists whether or not
+  the bug fires. Unchanged: if it reproduces,
   the failure is silent-to-the-user and must not be swallowed — the icon click that does
   nothing is the worst possible first impression, so the service worker surfaces it through
   the icon's transient title, enumerated under **Extension icon states**, rather than only to
@@ -1024,12 +1083,26 @@ The manifest budget is **exactly four** suggested shortcuts; each must contain `
 |---|---|---|---|---|---|
 | 1 | **Toggle** the Cockpit | `_execute_action` | `Alt+Shift+S` | No | Reserved name; triggers the action, which with `setPanelBehavior({openPanelOnActionClick:true})` **opens a closed Cockpit and closes an open one**. Requires the action stay popup-less — see IA note (c) |
 | 2 | File a Ticket | `focus-ticket-title` | `Alt+Shift+N` | No | Opens the Cockpit if closed, switches to Tickets, puts the caret in the title field. Never closes it — it is its own command calling `open()`, not the action. A `commands` keypress is a permitted gesture, so the open call is legal from this handler |
-| 3 | Arm the select tool `[v2]` | `arm-picker` | `Alt+Shift+A` | No | Messages the active tab's content script. Renders nothing in v1 |
-| 4 | Discharge the batch `[v2]` | `discharge-batch` | `Alt+Shift+D` | No | Renders nothing in v1 |
+| 3 | Arm the select tool `[v2]` | `arm-picker` | `Alt+Shift+A` | No | Messages the active tab's content script. **Reserved, not declared in v1** — see below |
+| 4 | Discharge the batch `[v2]` | `discharge-batch` | `Alt+Shift+D` | No | **Reserved, not declared in v1** — see below |
 
-`[ASSUMPTION: all four are Alt+Shift rather than Ctrl+Shift, to stay clear of Chrome's own
+**The budget is four; v1 spends two.** *(Amended 2026-09-22 at Finalize, absorbing
+`architecture.md` **D16**.)* The table above is the whole **allocation** — the four verbs and the
+chord each one owns, so `[v2]` inherits a plan rather than a scramble. What v1 puts in the
+manifest is **rows 1 and 2 only**: `_execute_action` at `Alt+Shift+S` and `focus-ticket-title`
+at `Alt+Shift+N`. D16's reason is this spine's own rule about reserved seats, applied to the
+keyboard — *"a declared-but-dead shortcut occupies a slot Chrome will not give back and shows
+the operator a keystroke that does nothing, and there is zero headroom to recover it from."* A
+`[v2]` chord declared in v1 is the greyed-out attachment button of **Version Seam and Reserved
+Seats**, in another surface. `_execute_action` is a reserved command name and needs no handler,
+so v1 ships exactly one command listener.
+
+`[CONFIRMED 2026-09-22 — `architecture.md` D16 declares both v1 commands on Alt+Shift, neither
+global, for this reason. Assumption kept as the record of why: all four are Alt+Shift rather
+than Ctrl+Shift, to stay clear of Chrome's own
 Ctrl+Shift chords (C inspect, J console, T reopen tab, N incognito, D bookmark-all).]`
-`[ASSUMPTION: none is global. Global buys firing when Chrome lacks focus and costs the
+`[CONFIRMED 2026-09-22 — D16, same row: neither declared command is global. Assumption kept as
+the record of why: Global buys firing when Chrome lacks focus and costs the
 Ctrl+Shift+[0..9] straitjacket; all four verbs operate on the active tab, which is
 meaningless with Chrome unfocused.]`
 
@@ -1229,7 +1302,9 @@ list on screen is untouched.
 
 **Failure — created, but the result could not be read.**
 `Created, but the Board read didn't come back. Refetch to see it.` The title field clears,
-because the work landed. No resubmit is offered against the same text; the refetch is.
+because the work landed. No resubmit is offered against the same text; the refetch is — and in
+this one state the refetch re-issues the create under the held `createKey`, so it comes back
+with the exact Ticket and cannot file a second one (`architecture.md` D20).
 
 **Failure — the Board read timed out while he typed.** The Tickets pane shows
 `The Board read didn't come back inside 2s.` with a retry. **Create still works** — creating
@@ -1469,7 +1544,10 @@ that did not, says which, and the discharge control stays. It never reports four
 
 **Failure — the page reloads mid-session.** Annotations survive: they live in
 `chrome.storage.local` keyed by (pjid, page URL) per Rule 4, not in the page and not in the
-Cockpit document. `[ASSUMPTION: this answers the open question of where annotation state
+Cockpit document. `[CONFIRMED 2026-09-22 — `architecture.md` **D6** names "the `[v2]` annotation
+batch pre-discharge" as a member of the `chrome.storage.local` continuity tier, and D6's MUST
+holds for it like everything else in that tier. Assumption kept as the record of why: this
+answers the open question of where annotation state
 lives. Not the Cockpit — the document is destroyed on every collapse. Not the page — a reload
 eats it, which is the single worst failure for a working-memory externalization tool (A7).
 Not the Bridge in v2's first cut — a network round trip per annotation is friction on the one
@@ -1773,9 +1851,13 @@ guarantee were fixed by Chrome 144, below the fleet's entire 151–155 range.
 
 **Expected UX: no prompt.** If one appears anyway, the Cockpit's only honest handling is DS-5
 plus the note in **State Patterns**, because Chrome's own documentation states no denial
-behavior and no recovery path. `[NOTE FOR ARCHITECTURE: correct addendum §C before
+behavior and no recovery path. ~~`[NOTE FOR ARCHITECTURE: correct addendum §C before
 `bmad-create-architecture` and `bmad-create-epics-and-stories` consume it — §12 Q7 drops from
-discovery to confirmation.]`
+discovery to confirmation.]`~~ **DISCHARGED 2026-09-22.** `addendum.md` §C was rewritten on
+2026-09-20 with all four facts corrected, and `bmad-create-architecture` consumed the corrected
+version — its constraint list carries the LNA closure and cites §C by name, and **D16** makes
+the `<all_urls>` host permission the transport's exemption. The note is kept struck rather than
+deleted because the handover is the useful part of the record.
 
 ### Printing a page the marks are on `[v2]`
 
@@ -1839,10 +1921,83 @@ Jarad ever wants annotated printouts, that is the change, and it is not a styles
 
 ---
 
+## Open Items Register
+
+*Written 2026-09-22 by `bmad-ux`'s Finalize step, whose contract is that open items are
+**triaged rather than carried**. This spine carried **27 `[ASSUMPTION]` tags** and **three
+`[NOTE FOR ARCHITECTURE]` items** into Finalize; the `bmad-create-architecture` run that
+consumed this document in between settled a number of them and filed notes back. The register
+exists because a settled item that still reads as open is litter, and litter is what makes the
+live ones hard to see. Each row states its disposition and its citation. Nothing here is a new
+decision — every disposition is either a citation to a decision made elsewhere or a statement
+that the item is still live.*
+
+**Twelve settled — confirmed by the architecture run, marked in place:**
+
+| Item | Where | Settled by |
+|---|---|---|
+| Group-collapse state in `chrome.storage.local` | IA § What collapses | `architecture.md` D6 (tier membership) |
+| Pane selection in `chrome.storage.local` | IA § Which pane opens | D6 |
+| No `default_popup` on the action | IA note (c) | D16 (manifest) |
+| The Bridge owns remedy command text | Voice rule 3 | Wire rules, remedy-command exception |
+| The Bridge resolves the omitted entry state | `{components.ticketCreateBox}` | **D20** — also discharges a `NOTE FOR ARCHITECTURE` |
+| Classification recomputes on a typing pause | Classifier § When it recomputes | **D13** — the pause is what *picks* the verb allowlist |
+| Total versus partial outage | State Patterns Rule 2 | D2 moves DS-6/DS-7 by this rule's own test |
+| Rule 4's client/Bridge line | State Patterns Rule 4 | **D6**, which gives it the MUST it never had |
+| Create has no idempotency key | Ticket created, not renderable | **D20**'s `createKey` — precondition met, row amended |
+| `[v2]` annotation batch in `chrome.storage.local` | UJ-4 failure branch | D6 (tier membership) |
+| All chords are Alt+Shift; none is global | Interaction Primitives § Keyboard | D16 |
+| Addendum §C is stale | Responsive & Platform § LNA | `addendum.md` §C rewritten 2026-09-20 — note discharged |
+
+*(Twelve rows, twelve assumptions plus one note: the Alt+Shift row covers two tags, and the
+last row is a `[NOTE FOR ARCHITECTURE]` rather than an assumption.)*
+
+**Two amendments applied here, not merely noted:**
+
+- **v1 declares two chords, not four** (D16). The allocation stays at four; the manifest gets
+  rows 1 and 2. See **Interaction Primitives § Keyboard** and the seam note.
+- **`{rounded.pill}`'s reservation sentence was wrong** and is rewritten in **Foundation**'s
+  primitives table. This was `DESIGN.md`'s last live handoff item; its handoff list is now
+  fully absorbed.
+
+**Twelve still live, and deliberately so. None blocks anything:**
+
+| Live item | Where | Owner | Why it stays open |
+|---|---|---|---|
+| The relayed deadline's **multiple** | Rule 1a | Implementation | The rule is confirmed by architecture's wire MUST; the number is set nowhere, and a spine is the wrong place to set it |
+| The SSE-subscription **budget**, ≤2s by analogy | Reopen cold start rule 6 | Implementation | Architecture types the state (`SubscriptionState`) and sets no number |
+| `onClosed` as a flush point | Reopen cold start | Nobody — unanswerable today | Two independent sweeps found no documentation. The belt-and-braces design *is* the answer |
+| The Chromium reopen-gesture bug reproducing on 151–155 | Interaction Primitives | Implementation | Handling is settled and typed (`IconTransient`); only the reproduction is unverified |
+| Turn history renders recent-first, older on demand | IA § What collapses | This spine | A UX call with a stated rationale; architecture is silent and does not need to speak |
+| The copy control beyond FR-4's letter | `{components.copyControl}` | This spine | A decision with its justification attached, not a question |
+| No per-window pane-selection key | Lifecycle § Window switch | This spine | Priced and accepted for a two-item toggle |
+| No in-product nudge to pin the icon | First run | This spine | Priced and accepted |
+| `Alt+M` flips, `Alt+1`/`Alt+2` select a pane | Interaction Primitives § Keyboard | This spine | In-document handlers; they cost nothing from the `commands` budget and nothing downstream reads them |
+| A Chrome restart leaves the Cockpit closed | Lifecycle § Chrome restart | Nobody — unanswerable today | The cache half was **ruled** on 2026-09-22 and the row corrected; whether Chrome reopens the panel document, and whether it restores a resized width, is confirmed by no source. Designing for a restored document would be designing for behaviour nothing observed |
+| An LNA denial reads as an ordinary fetch failure | DS table footnote | Implementation | **Narrowed, not settled.** The prompt itself is closed three ways over — `addendum.md` §C, architecture's constraint list, and D16's `<all_urls>` exemption — so **no prompt** is the expected result and PRD §12 Q7 is one confirmation on `carries-macbook-air`. What stays live is the contingency: if a denial ever does fire and proves distinguishable, it earns its own DS row. No row is minted for a state nobody expects |
+
+*(Eleven rows, twelve assumptions — the keyboard row covers `Alt+M` and the two pane keys as
+one decision with one rationale.)*
+
+**Three live `[v2]` assumptions, none of which v1 builds against:** the annotation batch's
+Project scope and non-expiry (→ **Gaps** 6), the (pjid, page URL) key stripping query and
+fragment, and no print-with-marks mode (→ `DESIGN.md` **Gaps** 8). **12 settled + 12 live + 3
+`[v2]` = 27**, which is every tag this document carried in.
+
+**Nothing was overtaken silently.** Two items *were* overtaken and are struck where they
+stand rather than deleted: the **Bridge contract drift** flag, answered by D12 as DS-27, and
+the **addendum §C** note, discharged above. `DESIGN.md`'s handoff list carries two more
+strikes of the same kind.
+
+---
+
 ## Gaps
 
 Decisions only Jarad can make. Carried forward rather than assumed away, because each one
-changes what gets built rather than how it is worded.
+changes what gets built rather than how it is worded. *(Triaged 2026-09-22 at Finalize: items
+1, 3 and 5 were already closed and stay struck; item 4 is narrowed to the half that is still a
+question; item 8 is half-closed by `architecture.md` D14. Items 2, 6 and 7 are untouched and
+are the live ones.)*
 
 1. ~~**Does `[v2]`'s element picker justify the `debugger` permission?**~~ **CLOSED
    2026-09-20 — hand-built closed shadow root; `chrome.debugger` rejected, no fallback
@@ -1870,10 +2025,17 @@ changes what gets built rather than how it is worded.
    spine on Night Paper, accepted so the signature stays invariant. The OS-signal caveat
    stands — `prefers-color-scheme` reports the OS and never Chrome's theme. See
    `.decision-log.md`.
-4. **Is "selector + comment" the whole element-anchored payload, or the PRD §9 payload
-   (selector + tag + text snippet + `outerHTML` + URL)?** This spine assumes the larger one
-   because a lost anchor has to degrade rather than die — but it changes what the comment
-   bubble shows him before he commits.
+4. **What the comment bubble shows before he commits.** *(Narrowed 2026-09-22 at Finalize. The
+   payload half is no longer open: the 2026-09-20 freehand ruling specifies the freehand kind
+   as carrying "their selectors and **captured context**", and **Annotation Anchoring and
+   Drift** states that each crossed element carries "the same selector and context payload the
+   element-anchored kind sends" — so the element-anchored payload is the **PRD §9** one, and
+   the freehand decision is built on top of that. Settling it the other way now would break the
+   freehand kind, which is why it is recorded as settled rather than left looking open.)* What
+   is still yours is the display question the payload question was standing in front of: the
+   bubble captures tag, text snippet and `outerHTML`, and **how much of that he sees before he
+   commits** is a choice between proving what was captured and keeping the bubble a place to
+   type one sentence. `[v2]`; nothing in v1 turns on it.
 5. ~~**Is the freehand image load-bearing for the PM?**~~ **CLOSED 2026-09-20 — it is not.**
    "It has to feel like drawing" was the requirement. Strokes render as SVG over the live
    DOM, which deletes `captureVisibleTab`, its two-calls-per-second limit, HiDPI
@@ -1893,4 +2055,13 @@ changes what gets built rather than how it is worded.
    than capturing an anchor that never resolves.
 8. **PRD §12 Q4 — what emits the `pjid` declaration into served pages?** Not a design
    question, but it decides whether DS-1 is an edge case or the product's default state, and
-   therefore how much care the unresolved state deserves.
+   therefore how much care the unresolved state deserves. *(Half-closed 2026-09-22:
+   `architecture.md` **D14** now specifies the declaration exactly —
+   `<meta name="pjid" content="<pjid>">` in `<head>`, read by
+   `document.head.querySelector('meta[name="pjid"]')`, value never normalised, first in
+   document order wins on a disagreeing duplicate, empty content is DS-1 — and states that
+   "whatever closes PRD §12 Q4 … emits exactly this". So the **contract** exists and nothing
+   downstream is blocked on the answer. What is still open is the **emitter**: a pjangler
+   recipe, a per-project template, or a hand edit. Until one exists, DS-1 remains the
+   browser's default condition on almost every page, which is why this spine spends a
+   paragraph on making it quiet rather than a notice.)*

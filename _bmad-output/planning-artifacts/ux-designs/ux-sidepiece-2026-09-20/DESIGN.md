@@ -1889,6 +1889,15 @@ the Cockpit to follow an OS theme change while open, and the media query does th
 
 ## Gaps, conflicts and open questions
 
+*Triaged 2026-09-22 at `bmad-ux` Finalize. **This document carries zero `[ASSUMPTION]` tags** —
+verified by scan, not asserted; every judgement in it is either a measured value or a decision
+with its arithmetic attached, and the ones that are still questions are all below. Dispositions:
+item 1 was already closed and stays struck; items 2–8 are live and every one of them is a
+**taste or tolerance call only Jarad can make** — none blocks a downstream workflow, and item 4
+has since been re-tested at the ruled 320px width and held. The rejected-findings and
+spec-conflict lists below are records of closed decisions, not open items. The handoff list at
+the foot is now **fully discharged**.*
+
 **For Jarad**
 
 1. ~~**One ground or two?**~~ **CLOSED 2026-09-20 — two, in one register.**
@@ -1999,10 +2008,13 @@ the Cockpit to follow an OS theme change while open, and the media query does th
 
 **For EXPERIENCE.md's parallel revision**
 
-*Six items were handed over. **Four are struck below** — three absorbed into `EXPERIENCE.md`
-on 2026-09-22, and one (the column width) resolved against this document — leaving two live:
-`{rounded.pill}` and the dark-mode sentence. This list is the handoff, not a second home for
-behaviour, so an item that has landed in the peer spine is struck here rather than kept in both.*
+*Six items were handed over. **All six are now discharged** *(closed 2026-09-22 at `bmad-ux`
+Finalize, which is the step `architecture.md`'s S3 said would absorb this list)* — four on
+2026-09-22's earlier passes, and the last two at Finalize: `{rounded.pill}` was **applied** into
+`EXPERIENCE.md`'s Foundation primitives table, and the dark-mode item was found **already
+overtaken** and is struck as stale. **Nothing in this list is live.** It is the handoff, not a
+second home for behaviour, so an item that has landed in the peer spine is struck here rather
+than kept in both.*
 
 - **`{colors.overlay.signature}` is now defined**, at `#FF2E63`, as the one signature ink shared
   by the Cockpit and the in-page layer, invariant across surfaces and across both grounds. All
@@ -2028,16 +2040,27 @@ behaviour, so an item that has landed in the peer spine is struck here rather th
   the nine measurements that moved and **The one fit that decided a product question** for the
   one that mattered. `EXPERIENCE.md` now cites 284px rather than "roughly 300". No handoff
   remains: the two documents state the same number and derive it the same way.
-- **`{rounded.pill}` "is reserved for state markers so a state is never shaped like a control."**
+- ~~**`{rounded.pill}` "is reserved for state markers so a state is never shaped like a control."**
   Here state markers are drawn marks and `pill` has exactly two `[v2]` consumers. The intent is
-  over-satisfied but the sentence is now wrong.
+  over-satisfied but the sentence is now wrong.~~ **APPLIED 2026-09-22 at Finalize.**
+  `EXPERIENCE.md`'s Foundation primitives table now reads "A state is never shaped like a
+  control", records that state markers resolve as **drawn marks**, and names `pill`'s two
+  consumers — the `[v2]` `{components.annotationPin}` and `{components.iconBadge}` — as the only
+  two, both outside the Cockpit. The intent the sentence was protecting survives; the false
+  reservation does not.
 - **Component count agrees.** EXPERIENCE.md's Foundation says "25 components — 17 v1 and 8
   marked `[v2]`," and this document defines all 25 at exactly those paths, including
   `{components.freehandLayer}`.
-- **EXPERIENCE.md's dark-mode resolution says "the Cockpit is dark-first."** Superseded by the
+- ~~**EXPERIENCE.md's dark-mode resolution says "the Cockpit is dark-first."** Superseded by the
   section above, subject to Jarad's ruling — and note that the answer to its Gaps item 3 ("what
   is dark mode?") is now **Night Paper**, a fourth option its three-way framing (no dark mode /
-  an inverted paper / a genuine second token set) did not contain.
+  an inverted paper / a genuine second token set) did not contain.~~ **STALE — struck
+  2026-09-22 at Finalize.** This item was overtaken before it could be applied. `EXPERIENCE.md`
+  no longer asserts a dark-first Cockpit anywhere: its **Dark mode** section was rewritten on
+  2026-09-20 and now opens by saying the dark-first default "no longer holds", its Gaps item 3
+  is closed with **Night Paper** by name, and the only surviving use of "dark-first" is a
+  description of the *house posture* the chosen direction deliberately breaks. Kept struck
+  rather than deleted so the handover stays legible.
 - ~~**EXPERIENCE.md should carry the three `[v2]` platform rules this document added**, because
   all three change behavior rather than appearance: the in-page layer does not print; a mark
   whose anchor is occluded collapses to an edge-docked stub; and the outline samples the page's
