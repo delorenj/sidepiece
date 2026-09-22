@@ -1106,6 +1106,56 @@ Each is authoritative in its own domain and defers in the others. Where this doc
 - **Never name the pjangler identifier anything but `pjid`** — not in a field, a column, a JSON key, or a local variable. This project has already made that mistake once, in its own specification.
 - **A lint rule banning `project_id` outside the Plane adapter is five lines and forecloses it permanently.** Write it early.
 
+### Post-completion coherence sweep — the handoff is NOT clean
+
+*Appended 2026-09-22, after this document had been marked complete. A final end-to-end read of all
+four artifacts — the first since the step-7 multi-agent remediation — returned **`clean: false`**.
+Ten mechanical defects were fixed in place (commit `3a6254a`); four substantive ones were not,
+because each needs a judgement rather than a correction. They are recorded here rather than
+softened, because the next workflow reads these documents as a specification.*
+
+**S1 — The step-7 fix for blocker B1 created a new B1-style seam, and it is the most expensive
+item here.** D10 moved FR-2's cache into the Cockpit document, in memory, one per window, where it
+"dies with the document". Three `EXPERIENCE.md` behaviours depend on that cache surviving a reopen
+and are now unimplementable: the reopen path's *"the identity header paints next, from cache … the
+difference between a reopen that feels instant and one that feels like a load"*; UJ-1 step 3's
+*"the identity header is already painted from the FR-2 cache"*; and the extension icon's
+**Resolvable** state, which fires *"or that is cached as resolved"* **with the Cockpit closed** —
+from the service worker, which cannot read a panel-document's memory. **D10's own TTL rationale is
+self-refuting**: five minutes chosen as "long enough that a dip-out-and-back reopen is served from
+cache", from a cache that is empty on every reopen. `[NOTE FOR ARCHITECTURE: this needs a third
+placement — the service worker, or `chrome.storage.local` keyed by pjid with D11's generation as
+the staleness guard. PRD §5's "independent caches" described a consequence of per-document state,
+not a requirement, and §5 itself accepts that per-window independence is a convenience rather than
+a correctness property. Whichever is chosen, D6, D10, the tree, the FR-2 map row and the data-flow
+diagram move together — the same five surfaces B1 moved.]`
+
+**S2 — The four documents disagree about the panel's design width, and every measured fit hangs off
+it.** `DESIGN.md` computes at **340px** ("Sidepiece's design width", 304px usable column);
+`EXPERIENCE.md`, `addendum.md` §C.1 and this document all treat **320px** as the design target.
+`DESIGN.md` states the cost itself: at 320px the usable column is 284px. So its entire "verified
+fits" table — including the load-bearing claim that `DISPATCHED COMMAND` fits spelled out, which is
+what refused the PRD-literal abbreviation — is computed twenty pixels wider than three of four
+documents say the panel will be. `[NOTE FOR PM: this is a three-way call and it has a visible
+product consequence. Resolve the width first, then re-verify the fits at whatever it is.]`
+
+**S3 — `bmad-ux` was never finalized, and it is not a formality.** Both spines carry
+`status: draft`. The skill's Finalize step is specifically what would have absorbed `DESIGN.md`'s
+six-item handoff list into `EXPERIENCE.md` — **two items of which are live contradictions today**,
+including S2. The run folder is intact and the workflow supports resuming.
+
+**S4 — A P-number namespace collision.** `EXPERIENCE.md` carries 22 unqualified `P<n>` references
+that predate this document, and this document then defined its own P1…P9. An unqualified "P5" now
+resolves to two different rules depending on which file the reader has open. `[NOTE FOR
+ARCHITECTURE: cheapest fix is to qualify this document's series as `A-P1…A-P9` or
+`arch:P1…arch:P9` wherever it is cited from outside.]`
+
+**Status, honestly stated.** The architecture *workflow* is complete: all eight steps ran and this
+document is internally coherent. The *document set* is not yet one specification. S1 and S2 should
+close before `bmad-create-epics-and-stories` runs, because both produce wrong stories — S1 would
+have someone build a cache path that cannot fire, and S2 would have them build to a width that may
+not fit. S3 and S4 are cheap and can follow.
+
 ### A note on how this was produced
 
 Three of this document's own factual claims were wrong and were corrected rather than quietly dropped: `node:sqlite`'s stability (it is a Release Candidate, not stable), a `DsCode` cited in the one worked example of the most important wire rule, and a dark-mode token count that was stale in five places across three documents. Two of the three sat behind sentences asserting they had been verified.

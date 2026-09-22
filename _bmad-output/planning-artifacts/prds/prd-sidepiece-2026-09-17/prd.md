@@ -2,7 +2,7 @@
 title: Sidepiece
 status: final
 created: 2026-09-17
-updated: 2026-09-20
+updated: 2026-09-22
 ---
 
 # PRD: Sidepiece
@@ -99,7 +99,7 @@ Given a detected pjid, Sidepiece obtains the full Project Record from the Bridge
 - A pjid present in the Registry resolves to repo name, local clone path, Board binding, and Agent bindings.
 - A pjid absent from the Registry produces a distinct "declared but unknown" state, worded differently from "no pjid declared" — the two have different causes and different fixes.
 - Resolution results are cached per pjid and the cache is explicitly bounded: it expires on a stated TTL, is invalidated when Bridge health transitions from unreachable to reachable, and every FR-3 failure state offers a re-resolve control. An unbounded "cached for the panel session" is not acceptable — it makes FR-3's stale states unreachable.
-- Each resolution is stamped with a monotonically increasing generation number, carried by every subsequent call for that Project (see §5, "cost of being wrong").
+- Each resolution is stamped with a generation number, carried by every subsequent call for that Project (see §5, "cost of being wrong"). **AMENDED 2026-09-22 — the generation is *content-addressed*, not per-resolution.** `architecture.md` D11 specifies it: the Bridge hashes the Project Record it derived and advances the generation only when the hash changes, so re-resolving an unchanged record is not an event. The sequence remains monotonic and never reuses a value. The original literal wording — a stamp on *each resolution* — was wrong in a way that would have made the guard useless: a second window merely re-resolving would advance the number and refuse the first window's perfectly valid mutation, so the check would fire constantly on the safe case and never on the dangerous one. This amendment adopts the downstream correction rather than leaving the contract and the design disagreeing.
 - Resolution completes within the §5 latency budget, measured over the tailnet rather than on loopback.
 
 #### FR-3: Report the unresolved and degraded states honestly
@@ -289,7 +289,7 @@ Sidepiece produces almost no data of its own; nearly every requirement is a read
 | Dependency | Used for | On failure |
 |---|---|---|
 | Tailnet (`burro-salmon.ts.net`) | Reaching the Bridge at all (FR-14, FR-15) | Total. Every pane renders Bridge-unreachable. The most likely real-world outage — a laptop off the tailnet. |
-| pjangler Registry | pjid → Project Record (FR-2) | Total. Nothing resolves; the Cockpit cannot open. |
+| pjangler Registry | pjid → Project Record (FR-2) | **AMENDED 2026-09-22 — partial, not total.** Was "Total. Nothing resolves; the Cockpit cannot open." That was written against a Bridge with no fallback. `architecture.md` D2 gives it one: a last-good registry snapshot on disk. The Project resolves from the snapshot, the identity header renders **marked stale**, the panes stay live, and DS-23 carries the snapshot's age. Total remains correct for the Tailnet row, where nothing can be true. |
 | Plane (via the `33god` workspace) | Ticket read and create (FR-12, FR-13) | Tickets pane only. Chat and resolution unaffected. |
 | Hermes PM gateway | Streamed Exchange (FR-7) | Chat pane only. Renders as agent-unreachable, distinct from no-agent-declared (FR-5). |
 | Bloodbank | Dispatched Command publish (FR-8) | Dispatch only. Streaming chat still works. |
@@ -316,7 +316,7 @@ This is not only a documentation problem. `agents/hermes/pm/role.yaml` — the l
 
 - Detect a declared pjid on the active tab, including SPA navigation (FR-1).
 - Resolve it to a Project Record through the Bridge, with a bounded cache and a generation stamp (FR-2).
-- Distinguish all six unresolved and degraded states honestly (FR-3).
+- Distinguish every unresolved and degraded state honestly (FR-3). **AMENDED 2026-09-22 — the count is twenty-eight, not six.** FR-3 claims to be the single authoritative enumeration and named six; `EXPERIENCE.md` found that FR-5's two Agent states and FR-12's no-Board state each gate a whole pane and appeared in none of them, and the architecture's step-7 validation added six more that its own decisions required (DS-23…DS-28). The built taxonomy is **DS-1…DS-28**, defined in `EXPERIENCE.md` and typed in `contract/src/state.ts`. `[NOTE FOR PM: this line is what `bmad-create-epics-and-stories` reads to size FR-3. Sizing it at six budgets six sentences and six recovery affordances for a requirement that needs twenty-eight plus three non-DS typed code spaces — a 4.7x error, and the single most likely place the backlog goes wrong.]`
 - Display the resolved identity — repo, clone path, board (FR-4).
 - Report PM presence, distinguishing declared from running (FR-5).
 - Classify each Turn, visibly and overridably (FR-6).
