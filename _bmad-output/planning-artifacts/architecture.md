@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3, 4, 5]
+stepsCompleted: [1, 2, 3, 4, 5, 6]
 inputDocuments:
   - _bmad-output/planning-artifacts/prds/prd-sidepiece-2026-09-17/prd.md
   - _bmad-output/planning-artifacts/prds/prd-sidepiece-2026-09-17/addendum.md
@@ -473,3 +473,188 @@ Directly enforcing the NFR *"no pane may render a failure as an empty state or a
 - Does a Glossary term appear under a synonym?
 
 **When a pattern is wrong, change it here first.** These are load-bearing for consistency, not for correctness, so a pattern that fights the code is a pattern to fix — but fixed in this document, in one change, rather than worked around per file.
+
+---
+
+## Project Structure & Boundaries
+
+*Step 6. The tree below is the real one, not a sketch — every directory named here has a stated owner and a mapped requirement. Where something is deliberately absent, it says so, because an unexplained absence reads as an oversight to the next agent.*
+
+### Complete Project Directory Structure
+
+```
+sidepiece/
+├── package.json                      # workspace root; scripts only, no deps
+├── pnpm-workspace.yaml
+├── tsconfig.base.json                # strict; extended by all three packages
+├── biome.json                        # formatting + lint, incl. the P1 project_id ban
+├── mise.toml                         # exists; gains dev/build/deploy tasks
+├── .env.op                           # exists; op:// references only, never values
+├── .project.json                     # pjangler SOT — Sidepiece's own pjid
+│
+├── packages/
+│   ├── contract/                     # ── imported by both. Owns nothing at runtime.
+│   │   ├── package.json
+│   │   └── src/
+│   │       ├── index.ts
+│   │       ├── state.ts              # DsCode 'DS-1'…'DS-22', Degraded  [P2]
+│   │       ├── project.ts            # Project, ProjectRecord, pjid      [P1]
+│   │       ├── turn.ts               # Turn, TurnKind, StreamFrame
+│   │       ├── ticket.ts             # Ticket, BoardState
+│   │       ├── health.ts             # BridgeHealth, DependencyHealth
+│   │       ├── annotation.ts         # [v2] — shape locked, unbuilt
+│   │       └── *.test.ts
+│   │
+│   ├── bridge/                       # ── systemd --user on big-chungus
+│   │   ├── package.json
+│   │   └── src/
+│   │       ├── main.ts               # entry; wires capabilities, starts server
+│   │       ├── server/
+│   │       │   ├── http.ts           # routes; flat bodies                [P5]
+│   │       │   ├── sse.ts            # named event frames, curl -N        [FR-15]
+│   │       │   └── errors.ts         # thrown → Degraded. No prose out.   [P2]
+│   │       ├── registry/
+│   │       │   ├── client.ts         # GET /v1/registry, client-side index
+│   │       │   ├── snapshot.ts       # last-good on disk                  [D2]
+│   │       │   └── cache.ts          # bounded, generation-stamped        [FR-2]
+│   │       ├── sessions/
+│   │       │   ├── gateway.ts        # JSON-RPC over WS to tui_gateway
+│   │       │   ├── pool.ts           # LRU 3–5 warm; never evicts in-flight [D3]
+│   │       │   └── errors-4090.ts    # session cap → named state, not retry
+│   │       ├── turns/
+│   │       │   ├── store.ts          # node:sqlite                        [D1]
+│   │       │   ├── stream.ts         # Streamed Exchange
+│   │       │   ├── dispatch.ts       # Dispatched Command + correlation
+│   │       │   └── reconcile.ts      # outcomes arriving while panel closed
+│   │       ├── tickets/
+│   │       │   └── plane.ts          # the ONLY place Plane's "project" is renamed [P1]
+│   │       ├── bloodbank/
+│   │       │   └── adapter.ts        # 5-token subjects; bb emit --check  [P3][P4]
+│   │       ├── health/
+│   │       │   ├── aggregator.ts     # feeds FR-3, never its own list
+│   │       │   └── degradation.ts    # silent credential degradation      [FR-14]
+│   │       ├── credentials/
+│   │       │   └── vault.ts          # op:// resolved at startup          [FR-16]
+│   │       └── db/
+│   │           ├── schema.sql
+│   │           └── migrations/       # forward-only, user_version         [D7]
+│   │
+│   └── extension/                    # ── WXT. Ships to Chrome only.
+│       ├── package.json
+│       ├── wxt.config.ts
+│       ├── tailwind.css              # @theme from DESIGN.md tokens       [step 3]
+│       ├── components.json           # shadcn; components added one at a time
+│       └── src/
+│           ├── entrypoints/
+│           │   ├── content.ts        # pjid detection + SPA re-detect     [FR-1]
+│           │   ├── background.ts     # service worker; curried gesture    [§C.1]
+│           │   └── sidepanel/
+│           │       ├── index.html
+│           │       └── main.tsx
+│           ├── cockpit/
+│           │   ├── IdentityHeader.tsx    # repo, clone path, board        [FR-4]
+│           │   ├── PaneSwitch.tsx
+│           │   ├── StateNotice.tsx       # renders a DsCode. ALL copy here [P2]
+│           │   ├── chat/                 # Chat pane                      [FR-6–11]
+│           │   ├── tickets/              # Tickets pane                   [FR-12–13]
+│           │   └── annotations/          # [v2] — seat reserved, empty
+│           ├── copy/
+│           │   └── states.ts         # DS-1…DS-22 strings, from EXPERIENCE.md
+│           ├── lib/
+│           │   ├── bridge.ts         # the only module that fetches
+│           │   └── storage.ts        # chrome.storage.local; convenience only [D6]
+│           └── styles/
+│               └── tokens.css        # generated from DESIGN.md; hex is SOT
+│
+└── _bmad-output/planning-artifacts/  # exists — PRD, UX spines, this document
+```
+
+**Deliberately absent, so nobody adds them by reflex:**
+
+- **No `.github/workflows/`.** There is no CI. One operator, one machine; `mise` tasks are the pipeline. Adding CI would be adding a system to maintain, not a safety net someone is waiting on.
+- **No `docker-compose.yml`.** The Bridge is a `systemd --user` unit on a box that already exists. A container would add a network hop between the Bridge and the filesystem it is specifically there to touch.
+- **No `e2e/` directory.** Deferred honestly rather than scaffolded and left empty — MV3 end-to-end harnesses are their own project, and PRD §11's metrics are behavioural rather than automated.
+- **No `packages/ui/`.** EPIC A proposed a shared UI kit. There is exactly one consumer; extracting a package for one consumer is speculative generality, and step 3 already recorded that shadcn components are added one at a time as a real need appears.
+
+### Architectural Boundaries
+
+**The three boundaries that matter**, in order of how expensive they are to get wrong:
+
+| Boundary | Crosses | Enforced by |
+|---|---|---|
+| **Cockpit ↔ Bridge** | The tailnet. HTTP + SSE. | `contract/`, checked by `tsc` on both sides |
+| **Bridge ↔ upstreams** | Process/network to six services | One adapter per upstream; foreign names die at the adapter `[P1][P4]` |
+| **Content script ↔ service worker ↔ panel** | Chrome contexts, all three non-durable | `runtime.sendMessage`; **callbacks only on the gesture path** `[§C.1]` |
+
+**API boundary — the Bridge's surface is the whole contract.** FR-15 requires every capability be `curl`-inspectable, so the HTTP surface *is* the architecture's public face, not an implementation detail. `packages/bridge/src/server/` is the only place routes are defined; no capability exists that the extension can reach and `curl` cannot.
+
+**Component boundary — `lib/bridge.ts` is the only module in the extension that performs a fetch.** Every pane asks it. This is what makes the FR-3 taxonomy renderable at all: one place converts transport reality into a `Degraded[]`, rather than each pane inventing its own failure vocabulary — the exact drift FR-3 exists to prevent.
+
+**Data boundary — `turns/store.ts` is the only module that opens the database.** Capabilities call it; nothing else imports `node:sqlite`. The `snake_case` ↔ `camelCase` mapping happens there and nowhere else `[P6]`.
+
+**The boundary that is *not* a boundary:** the panel document and the service worker are **not** a client/server pair. Both are non-durable, both die (the panel on collapse, the worker at ~30s idle), and neither is a system of record. State that matters crosses to the Bridge; state that does not lives in `chrome.storage.local` `[D6]`. Treating the service worker as a cache tier is the most likely wrong turn here, and it would fail intermittently — the worst failure shape.
+
+### Requirements → Structure Mapping
+
+| FR | Requirement | Bridge | Extension |
+|---|---|---|---|
+| FR-1 | Detect a declared pjid, incl. SPA nav | — | `entrypoints/content.ts` |
+| FR-2 | Resolve to a Project Record, bounded cache | `registry/client.ts`, `registry/cache.ts` | `lib/bridge.ts` |
+| FR-3 | Report all degraded states honestly | `health/aggregator.ts`, `server/errors.ts` | `cockpit/StateNotice.tsx`, `copy/states.ts` |
+| FR-4 | Display resolved identity | `registry/client.ts` | `cockpit/IdentityHeader.tsx` |
+| FR-5 | Agent presence, declared vs running | `sessions/gateway.ts`, `health/aggregator.ts` | `cockpit/StateNotice.tsx` |
+| FR-6 | Classify a Turn, visibly, overridably | `turns/dispatch.ts` (classifier) | `cockpit/chat/` composer |
+| FR-7 | Streamed Exchange | `turns/stream.ts`, `server/sse.ts` | `cockpit/chat/` |
+| FR-8 | Dispatched Command + ack | `turns/dispatch.ts`, `bloodbank/adapter.ts` | `cockpit/chat/` |
+| FR-9 | Outcome **with result content** | `turns/reconcile.ts` | `cockpit/chat/` |
+| FR-10 | Turns carry page URL + title | `turns/store.ts` | `entrypoints/content.ts` → composer |
+| FR-11 | Per-Project continuity | `turns/store.ts` `[D1][D5]` | `cockpit/chat/` |
+| FR-12 | Tickets grouped by state, no-Board state | `tickets/plane.ts` | `cockpit/tickets/` |
+| FR-13 | Create a Ticket, title alone | `tickets/plane.ts` | `cockpit/tickets/` |
+| FR-14 | Bridge health, incl. silent degradation | `health/aggregator.ts`, `health/degradation.ts` | `cockpit/IdentityHeader.tsx` |
+| FR-15 | Lifecycle, binding, Turn state | `server/`, `main.ts` | — |
+| FR-16 | Vault-resolved credentials | `credentials/vault.ts` | — |
+
+**Note the asymmetry, because it is the shape of this product:** every FR has a Bridge column except FR-1, and every FR has an extension column except FR-15 and FR-16. Detection is the one thing only the browser can do; lifecycle and secrets are the two things only the daemon may do. Everything between them is a collaboration, which is why `contract/` carries the weight it does.
+
+**Cross-cutting concerns → location:**
+
+- **The DS-1…DS-22 taxonomy** — defined in `contract/src/state.ts`, produced by `health/aggregator.ts`, rendered by `StateNotice.tsx`, worded in `copy/states.ts`. Four files, one source of truth, and a new state touches all four or it is incomplete.
+- **Correlation** — minted in `turns/dispatch.ts`, preserved through `bloodbank/adapter.ts`, matched in `turns/reconcile.ts`. `correlationid` keeps Bloodbank's spelling throughout `[P4]`.
+- **pjid discipline** — `contract/src/project.ts` is the only definition; `tickets/plane.ts` is the only place a foreign "project" is renamed `[P1]`.
+- **Credential degradation detection** — `health/degradation.ts`, feeding FR-14. It exists because nothing else on the machine will notice.
+
+### Integration Points
+
+**Internal.** Cockpit → Bridge over HTTPS on the tailnet: JSON for reads and writes, SSE for streams. Content script → service worker → panel by `runtime.sendMessage`, with the **gesture path callback-only and one hop** `[§C.1]`.
+
+**External** — six upstreams, one adapter each, no exceptions:
+
+| Upstream | Adapter | Protocol |
+|---|---|---|
+| pjangler registry | `registry/client.ts` | HTTP `GET /v1/registry` |
+| Hermes `tui_gateway` | `sessions/gateway.ts` | JSON-RPC over WebSocket |
+| Plane | `tickets/plane.ts` | REST |
+| Bloodbank | `bloodbank/adapter.ts` | NATS via `bb emit` |
+| Candystore | `bloodbank/adapter.ts` | HTTP, `data.repo` filter `[P3]` |
+| 1Password | `credentials/vault.ts` | `op` at startup |
+
+**Data flow, end to end** — the product in one line:
+
+```
+page <meta pjid>  →  content script  →  service worker  →  panel
+                                                            ↓  lib/bridge.ts
+                                    tailnet (HTTPS + SSE)   ↓
+  registry ← cache ← snapshot  ←   Bridge   →  sessions → tui_gateway → PM
+                                     ↓  ↓  ↓
+                                 sqlite  Plane  Bloodbank → Candystore
+```
+
+The resolution leg is the one with a fallback; every other leg fails to a `DsCode`.
+
+### Development Workflow
+
+- **Dev.** `pnpm dev` in `extension/` runs WXT's dev server and opens Chrome with the extension installed. The Bridge runs locally against the real registry and a local SQLite file. `[NOTE: the extension must point at a configurable Bridge origin — localhost in dev, the MagicDNS name in use — and that origin is the one piece of extension config that is not a DESIGN or EXPERIENCE decision.]`
+- **Build.** `pnpm build` → `contract` first, then `bridge` and `extension` in parallel. WXT's `zip` produces the loadable artifact.
+- **Deploy.** `mise` task: build `bridge`, rsync to `big-chungus`, `systemctl --user restart`. No container, no registry, no CI. The extension is loaded unpacked and **never** published — PRD §7's "not publicly reachable" is a deployment property, not just a policy.
+- **Dev-loop hazard, already a rendered state.** Reloading the extension invalidates content-script contexts and the panel does not hot-reload. `DS-16` exists for exactly this, and it is the only state that tells the operator to reload anything — because in a repo whose one operator is also its developer, a dev-loop failure *is* a user-facing failure.
