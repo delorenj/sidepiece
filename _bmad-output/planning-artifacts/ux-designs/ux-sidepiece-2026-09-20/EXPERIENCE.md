@@ -666,7 +666,14 @@ dev-reload case, the Board with no states, and the tab Chrome will not let Sidep
 all appear nowhere in the document set.
 
 **The enumeration below is resolution-, transport-, dependency-, Agent-, Board- and
-environment-scoped, and it runs to twenty-two.** Two further classes of degradation are
+environment-scoped, and it runs to twenty-eight.** *(Twenty-two until 2026-09-22.
+`bmad-create-architecture`'s validation step allocated **DS-23 through DS-28** and wrote them
+here in the same change, which is the rule this table already imposed on itself: a failure
+mode gets a code and a row together or it gets neither. Five of the six were demanded by
+architectural decisions that named a state and never made one; the sixth, DS-27, is this
+document's own **Bridge contract drift**, handed to architecture below the table and now
+answered. `architecture.md` D2, D3, D7, D12 and D15 carry the reasoning.)* Two further classes
+of degradation are
 real and deliberately live elsewhere, named here so the enumeration does not pretend to
 cover them: **mutation-scoped** refusals — the stale-generation refusal — are in the
 normal-path table below, because the mutation is the thing that failed and nothing is
@@ -681,8 +688,8 @@ Project. Each state below is separately worded, as FR-3 requires.
 | **DS-3** | Transport | Bridge unreachable, laptop off the Tailnet (FR-3 ③, distinguishable case) | **Total** — one shared notice | `The laptop is off the tailnet.` / `` `burro-salmon.ts.net` isn't up on this machine, so the Bridge can't be reached. `` | Re-resolve | Tailnet returns; the FR-2 cache is invalidated on the unreachable→reachable transition |
 | **DS-4** | Transport | Bridge unreachable, Tailnet up, host not answering (FR-3 ③, distinguishable case) | **Total** | `` `big-chungus` isn't answering. `` / `The tailnet is up. Nothing is listening at the Bridge.` | Re-resolve | Host or Bridge returns — including a Bridge restart, which needs no extension reload (FR-15) |
 | **DS-5** | Transport | Bridge unreachable, cause not distinguishable | **Total** | `Can't reach the Bridge.` / `The tailnet looks up, but Sidepiece can't tell whether the host is down or the Bridge is stopped.` | Re-resolve | Either of the above becomes true and DS-3/DS-4 replaces this |
-| **DS-6** | Dependency | Bridge up, pjangler Registry **service not running** (FR-14) | **Total** — §6 marks Registry failure total | `The pjangler Registry service isn't running.` + command when the Bridge returns one | Re-resolve | Service starts |
-| **DS-7** | Dependency | Bridge up, Registry **returned an error** (FR-14 — "the former has a different fix") | **Total** | `The Registry answered with an error.` / `<the error, as the Bridge reported it>` | Re-resolve | Registry answers cleanly |
+| **DS-6** | Dependency | Bridge up, pjangler Registry **service not running** (FR-14) | **Total when the Bridge holds no snapshot** — §6 marks Registry failure total, and with nothing to fall back on nothing can be true, so Rule 2 applies unchanged. **Partial when it holds one:** the Project resolves from the last-good snapshot, the header renders marked stale, the panes stay live, and **DS-23** carries the age *(amended 2026-09-22 — `architecture.md` D2 gave the Bridge a fallback, which moves this row across the total/partial line whenever the fallback exists)* | `The pjangler Registry service isn't running.` + command when the Bridge returns one | Re-resolve | Service starts |
+| **DS-7** | Dependency | Bridge up, Registry **returned an error** (FR-14 — "the former has a different fix") | **Total without a snapshot, partial with one** — exactly as DS-6, and for the same reason *(amended 2026-09-22)* | `The Registry answered with an error.` / `<the error, as the Bridge reported it>` | Re-resolve | Registry answers cleanly |
 | **DS-8** | Dependency | Bridge up, a credential did not resolve from `DeLoSecrets` (FR-16 → FR-14) | Whichever dependency it feeds; named | `` The Bridge started without `<credential>`. `<dependency>` can't be trusted. `` | Re-resolve | Credential resolves at the next Bridge start or per-request retry |
 | **DS-9** | Resolution | Registry readable, clone path missing on disk (FR-3 ⑤) | None — informational; header renders and marks the path | `` `<path>` isn't on disk. `` / `The Registry has this Project. big-chungus doesn't have the clone.` | Re-resolve, plus the path stays selectable and copyable | Clone appears. Sidepiece never clones it (§4.1 Out of Scope) |
 | **DS-10** | Agent | A **non-PM** Agent binding whose `role_dir` does not exist (FR-3 ⑥) | **None — informational.** The Scrum Master role "may be declared but is **not a chat target**" (§3), and FR-5 gates Chat on the PM's three states alone; FR-3 ⑥ asks for a separate *message*, never a pane gate | `` `<agent>` is bound to `<role_dir>`, which doesn't exist. `` / `That role isn't a chat target, so nothing here depends on it.` | Re-resolve | The directory exists, or the binding changes. **Occurs today:** `.project.json` binds `sidepiece-scrum-master` to a path not in this repo — and gating Chat on it would kill Chat on the repo being built, for a reason the PRD says is irrelevant to Chat |
@@ -698,6 +705,12 @@ Project. Each state below is separately worded, as FR-3 requires.
 | **DS-20** | Agent | The **PM's own** `role_dir` does not exist (FR-3 ⑥ ∩ FR-5) | Chat only | `` `<pm>` is bound to a role directory that isn't on disk. `` / `The PM is declared, but the directory it runs out of isn't there.` | Re-resolve | The directory exists, or the binding changes. Split from DS-10 because the blast radius differs: this is the one Agent whose broken binding FR-5 makes a Chat concern |
 | **DS-21** | Resolution | Chrome will not run the content script on this tab — a `chrome://` page, the new-tab page, another extension's page, the Web Store, a `data:` URL | All — body shows the resting line; no header | `Sidepiece can't read this page.` / `Chrome doesn't let an extension look at its own pages, other extensions' pages, or the Web Store.` | **None, and that is deliberate** — see below the table | A readable tab becomes active |
 | **DS-22** | Board | Board binding present, Board returns **zero states** | Tickets — the list renders whatever it has; **create disabled with the reason** (P19, mirroring DS-14) | `This Board has no states. Nothing to create into.` + command when the Bridge returns one | Re-resolve, plus refetch | The Board gains a state. A DS-14 sibling, not an empty Board: DS-14 is no *binding*, `This Board is empty.` is a Board with states and no Tickets, and this is a Board with neither |
+| **DS-23** | Resolution | Registry not answering, and the Bridge **has a last-good snapshot on disk** (`architecture.md` D2) | None — informational; the header renders and carries the snapshot's age | `` Resolved from a snapshot taken <age> ago. `` / `The Registry isn't answering. This is the last good copy big-chungus had.` | Re-resolve | The Registry answers and the resolution is refetched. The age is **surfaced, never enforced** (D9): a snapshot is never withheld for being old, because expiry turns a working degraded state into a broken one and the operator is the only reader. **Produced by the Bridge.** It is what stops DS-6 and DS-7 being total, and it is the reason serving a snapshot silently was never an option |
+| **DS-24** | Agent | Bridge up, the Hermes gateway refused a new session at its **active-session cap** — gateway error 4090 | Chat only — Tickets and resolution fully live | `The Hermes gateway is at its session limit.` / `Something else on big-chungus is holding the sessions. Nothing here can free one.` | Re-resolve; the Turn text is kept | A session frees up elsewhere. **Produced by the Bridge.** Distinct from DS-28: this cap is the *gateway's*, shared with every other Hermes consumer on the machine, and no amount of Sidepiece restraint reaches it — which is why the sentence says so rather than offering a retry |
+| **DS-25** | Environment | The Bridge's Turn store is at a `user_version` this Bridge binary does not recognise — a rollback, not an upgrade (`architecture.md` D7) | Chat — Turn history and Turn state *are* the store. Resolution and Tickets are storeless reads and stay fully live | `This Bridge is older than its Turn store.` / `The store was written by a newer Bridge. Nothing has been read, and nothing has been migrated.` | Re-resolve, which will keep failing until the Bridge is redeployed, and says so | The Bridge is redeployed at or above the version that wrote the store. **Produced by the Bridge.** Migrations are forward-only, so there is no downgrade path and the Bridge refuses rather than guessing — a Bridge that half-reads a store it does not understand is the confidently-wrong outcome §5 forbids |
+| **DS-26** | Agent | Bridge up, `tui_gateway` **answering** but not with the JSON-RPC surface this Bridge pinned — a method it calls has been renamed or removed | Chat only | `` The Hermes gateway answered with a surface Sidepiece doesn't know. `` / `<the method, as the Bridge named it>` | Re-resolve; the Turn text is kept | The pinned Hermes release and the running one agree again. **Produced by the Bridge.** Distinct from DS-13: the gateway is **not** silent here, so `isn't answering` would be the wrong sentence and a restart would be the wrong fix. The surface is Hermes *internals*, not a published API, so this is a version pin drifting rather than an outage |
+| **DS-27** | Environment | The Bridge's `CONTRACT_VERSION` and the Cockpit's disagree (`architecture.md` D12) | **Total** — no response body can be trusted to parse into what a pane expects, and a half-parsed Project Record is worse than none | `` Sidepiece and the Bridge are on different contracts. `` / `` `<side>` is the older one. `` — where `<side>` is `Sidepiece` or `the Bridge`, because naming it *is* the fix | Re-resolve, which re-checks the handshake and says which side to move | The older side is rebuilt: reload the extension, or redeploy the Bridge. **Produced by the Cockpit** — the Bridge cannot know what the client was built against. This is the state flagged below this table on 2026-09-20 as *Bridge contract drift* and handed to architecture; it is answered and grounded here. It is **not** DS-16: nothing needs reloading a *tab*, and FR-15's promise that a Bridge restart costs no extension reload is exactly the condition that lets the two halves drift apart routinely |
+| **DS-28** | Agent | Every warm session is busy and the bounded wait expired without one freeing (`architecture.md` D3, D15) | Chat only — and the Turn was **not** started | `No PM session was free for that turn.` / `Your other Projects are mid-Turn. Nothing was sent, and the text is still here.` | Re-resolve, plus resend — the text is kept | A session goes idle. **Produced by the Bridge.** Distinct from DS-24: that cap is the gateway's and is shared, this one is Sidepiece's own pool of 3–5 — so one of his *own* Turns finishing is the fix, and the sentence says which. It exists because a request that waits without a deadline is the permanent pending state Rule 1 forbids |
 
 **DS-1 and DS-21 are not failures, and are not dressed as them.** Every other row above
 renders a `{components.stateNotice}`: a failure glyph, a headline, a detail line, and at
@@ -724,8 +737,12 @@ page until something starts emitting the declaration. Their treatment:
   declaration is bound by its host match pattern," and a broad match does not reach Chrome's
   own pages. Asserting a fact we do not have is exactly what Voice rule 1 forbids.
 
-Two further states are real but not yet groundable, and are recorded rather than designed
-around:
+One further state is real but not yet groundable, and is recorded rather than designed
+around. *(There were two. The second — **Bridge contract drift** — was flagged for
+architecture on 2026-09-20 and answered on 2026-09-22: `architecture.md` D12 specifies a
+`CONTRACT_VERSION` exported from `contract/`, echoed on health and on every response, and
+compared once per open. It is **DS-27** in the table above. The paragraph that flagged it is
+kept below, struck, because the handover is the useful part of the record.)*
 
 - **Local Network Access denial.** Chrome's prompt reads "Look for and connect to any device
   on your local network." The blog documents no denial behavior and no recovery path
@@ -735,8 +752,14 @@ around:
   naming the permission. Prior has moved: CGNAT `100.64.0.0/10` is explicitly `local` in the
   WICG spec and Chrome states extensions with host permissions are unaffected, so the
   expected result is no prompt at all.]`
-- **Bridge contract drift** — a Bridge older or newer than the Cockpit expects. Nothing in
-  the source set specifies a version handshake. Not invented here; flagged for architecture.
+- ~~**Bridge contract drift** — a Bridge older or newer than the Cockpit expects. Nothing in
+  the source set specifies a version handshake. Not invented here; flagged for
+  architecture.~~ **CLOSED 2026-09-22 — `architecture.md` D12, rendered as DS-27.** The
+  handshake is one integer in `contract/`, echoed as a header on every response and compared
+  once per open. Worth noting why it was not an edge case: FR-15 requires that "restarting
+  the Bridge does not require reloading the extension", the Bridge is rsynced to a box the
+  operator is not sitting at, and the extension is loaded unpacked and reloaded by hand —
+  every one of those is a routine way for the two halves to end up at different commits.
 
 ### Normal-path states
 
