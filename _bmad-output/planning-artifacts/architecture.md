@@ -1213,10 +1213,35 @@ what refused the PRD-literal abbreviation — is computed twenty pixels wider th
 documents say the panel will be. `[NOTE FOR PM: this is a three-way call and it has a visible
 product consequence. Resolve the width first, then re-verify the fits at whatever it is.]`
 
-**S3 — `bmad-ux` was never finalized, and it is not a formality.** Both spines carry
-`status: draft`. The skill's Finalize step is specifically what would have absorbed `DESIGN.md`'s
-six-item handoff list into `EXPERIENCE.md` — **two items of which are live contradictions today**,
-including S2. The run folder is intact and the workflow supports resuming.
+**S3 — RESOLVED 2026-09-22.** `bmad-ux` Finalize ran. Both spines read `status: final`; the
+handoff list was absorbed; seven key screens were rendered at the ruled 320px against the final
+token set and promoted to `ux-designs/ux-sidepiece-2026-09-20/mockups/key-screens.html`, with the
+2026-09-20 direction mock promoted beside it and banner-labelled historical. Inputs reconciled was
+a genuine no-op (`imports/` was empty) and the Reviewer Gate was declined on the grounds that both
+spines had already been through two adversarial audits each, this document's four step-7 lenses,
+a cross-artifact sweep and the S1/S2 verification.
+
+**And it earned its keep, which is the part worth recording.** Drawing the screens at true width
+surfaced **thirteen findings that computing the same numbers had missed** — the arithmetic was
+right and the composition was not. The two that matter most are a straight contradiction between
+the spines: `EXPERIENCE.md`'s action bar *"grows upward to a cap, then scrolls internally"* while
+`DESIGN.md`'s Rhythm rule says *"one scroll region on screen: the body"* and calls a nested scroll
+region in a 284px column a trap-the-wheel bug — and, underneath it, **the composer does not fit
+its own 188px cap in any resting state but one**: 233px at rest, 269px with FR-10's URL revealed,
+81px over. Also found: the classification control's verified 244px assumes nothing sits beside it,
+while the Version Seam places `[v2]`'s attachment slot in that same composer; the header meta row
+overflows at 285px of 284 on a `HOLOCENE`-length key once the degraded-connection indicator joins
+it; five `colors.state` marks have no mapping rule onto a Board's own N state names; and the two
+spines disagree on the create button's own words (`CREATE IN 33GOD` vs `Create on HOL`).
+
+All thirteen are logged in `ux-designs/…/.decision-log.md` rather than fixed, which is correct —
+Finalize is not the place to make new design decisions quietly. `[NOTE FOR PM: none of them
+changes an FR or a DS code, so none blocks story generation; they are layout decisions the first
+implementation story will have to make anyway, and they are now made visible before someone makes
+them by accident at a keyboard.]` `[NOTE FOR UX: the strongest candidate for an eighth screen is
+DS-1 / DS-21 — the only two states that render no `{components.stateNotice}`, a genuinely
+different shape from anything drawn, and PRD §12 Q4 makes DS-1 the browser's most common condition
+until something emits a pjid.]`
 
 **S4 — RESOLVED 2026-09-22.** This document's pattern series is now written and cited as
 **`A-P1…A-P9`** throughout — the nine headings, every in-tree annotation (`[A-P2]`, `[A-P6]`, …) and
