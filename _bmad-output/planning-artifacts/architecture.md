@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3, 4, 5, 6]
+stepsCompleted: [1, 2, 3, 4, 5, 6, 7]
 inputDocuments:
   - _bmad-output/planning-artifacts/prds/prd-sidepiece-2026-09-17/prd.md
   - _bmad-output/planning-artifacts/prds/prd-sidepiece-2026-09-17/addendum.md
@@ -41,7 +41,7 @@ The dominant constraint is not performance. It is that **the client is not durab
 
 - **Primary domain:** full-stack — MV3 browser extension, local daemon, event-bus integration
 - **Complexity level:** medium-high. Not enterprise — no tenancy, compliance, availability or scale requirements, and a single operator throughout. But not simple either: three tiers, a network boundary, two streaming protocols, asynchronous correlation, seven integrations, and a browser runtime with hard platform limits.
-- **Estimated architectural components:** ~12 — content script, extension service worker, panel document, Bridge HTTP/SSE server, registry client, Hermes session manager, Plane client, Bloodbank publisher, Candystore reader, Turn store, health aggregator, credential resolver.
+- **Estimated architectural components:** ~12 at step 2 — content script, extension service worker, panel document, Bridge HTTP/SSE server, registry client, Hermes session manager, Plane client, Bloodbank publisher, Candystore reader, Turn store, health aggregator, credential resolver. *(Step 7 note: the estimate held its shape but not its count. Steps 4–7 split the Candystore reader out of the Bloodbank publisher, and added a filesystem prober (`registry/paths.ts`), a Hermes fleet-registry reader (`sessions/fleet.ts`), a generation minter (`registry/generation.ts`), a Turn accept path (`turns/accept.ts`) and a dedicated SSE client in the panel (`lib/stream.ts`). **Fifteen to seventeen** is the honest figure. The estimate is left standing rather than rewritten because the delta is the useful part: every addition came from a requirement this document already carried and had not yet given an owner — which is exactly what steps 4–7 are for.)*
 
 ### Technical Constraints & Dependencies
 
@@ -266,8 +266,11 @@ PRD §5 makes this the whole defence against acting on the wrong Project, and PR
 **Where it travels.**
 
 - `contract/src/project.ts` gains **`generation: number` on `ProjectRecord`**. Every resolution answer carries it; the Cockpit keys its render on `(pjid, generation)` as `EXPERIENCE.md` requires, and stores it beside the cached record (D10).
+- **Every Bridge response for a resolved Project carries `generation` at the top level, not only resolution answers.** *(Added in step 7's validation pass — this was the one seam the remediation left open.)* PRD §5 requires *both* the panel and the Bridge to refuse a stale mutation, and `lib/bridge.ts` cannot refuse locally against a number it only learns when it re-resolves. Echoing it on every answer means a client that has done *anything* since the record changed already holds the current value, so the local pre-check is real rather than decorative. It also keeps the two refusals consistent: the client refuses on the same number the Bridge would have refused on, instead of on a stale copy that produces a *different* wrong answer. `[ASSUMPTION: one integer on every response is free, and it is the smallest carrier that makes the client-side half of the guard implementable. The alternative — a dedicated generation endpoint the client polls — adds a request per mutation to save four bytes per response.]`
 - Every **mutating** row in the Turn store carries a `generation` column alongside `pjid`: `turns`, `dispatches`, `ticket_creates`. This is what makes "which Project was this actually written against" answerable after the fact, which is the only way SM-3 is ever audited.
 - Every **mutating request** carries it — see P5's `(pjid, generation)` MUST. Mutating routes are pjid-scoped by path (`POST /v1/project/:pjid/turn`, `POST /v1/project/:pjid/ticket`) and the request body carries `generation` as a required top-level field. Not a header: FR-15 makes the request body a `curl` surface too, and a guard hidden in a header is a guard nobody types.
+
+`[NOTE FOR PM: D11 deliberately reinterprets PRD FR-2's literal wording. FR-2 says "each resolution is stamped with a monotonically increasing generation number"; under D11 most resolutions do **not** advance it, because it is content-addressed. The sequence is still monotonic and still never reuses a value — what changes is that re-resolving an unchanged Project Record is not an event. The reason is in the next paragraph: a per-resolution counter makes the guard fire on the common case and stay silent on the dangerous one. This is a deliberate divergence from the PRD's letter in service of its stated intent (§5's "cost of being wrong"), and it should be reflected in the PRD rather than left as a discrepancy for someone to "fix" back.]`
 
 **What "stale" means, and why a bare counter would have been wrong.** PRD §5 says two windows are *both* legitimately correct and v1 does not synchronise them. Under a naive per-resolution counter, window B merely re-resolving would advance the number and window A's perfectly valid mutation would be refused — the guard would fire on the common case and never on the dangerous one, and the operator would learn to ignore it. Because the generation is **content-addressed**, two windows holding different generations for one pjid means the Project Record genuinely changed between their resolutions, and the older one genuinely *is* acting against a Project it no longer describes. Stale is therefore defined exactly once: **`received < current` for that pjid.** Equal passes. Greater is impossible and is a Bridge bug, logged as one.
 
@@ -972,3 +975,86 @@ A locked shape that two open questions can still move is worse than an unlocked 
 **O3 — Is DS-3 distinguishable from DS-4 in practice?** *(Not a decision — an experiment nobody has run.)*
 
 P2 now ships DS-5 as v1's answer, because a `fetch` failure from an extension context is opaque and FR-3 only asks for the distinction "where the two are distinguishable." The candidate discriminator is DNS: MagicDNS failing to resolve at all versus resolving and failing to connect. **Ten minutes in a console decides it**, and if it works, DS-3 and DS-4 light up for free — their wording, their triggers and their recovery already exist in `EXPERIENCE.md`. Worth doing beside PRD §12 Q7's one-off confirmation on `carries-macbook-air`, since both are "run it once and stop guessing."
+
+---
+
+## Architecture Validation Results
+
+*Step 7. Four independent lenses reviewed this document — internal coherence, requirements coverage, cross-document contract against both UX spines, and platform reality — producing 59 raw findings. An adversarial verifier, instructed to default to refuting, **confirmed 33, refuted 9 outright and downgraded 11**. The confirmed findings were then repaired and the repair independently verified. The numbers below are the verified ones, not the reported ones.*
+
+### The verdict worth quoting
+
+> "The architecture is strong on decisions and weak on the seams between them. Its D-decisions, P-patterns and tree are individually defensible; what fails is the joinery — places where a decision in one section silently changes a contract in another, or where an upstream document explicitly handed a question to this step and it went unanswered."
+
+That is an accurate description of what six sections written in sequence will do to each other, and it is the reason this step exists.
+
+### The three blockers, and what closed them
+
+All three shared a failure mode the PRD names as its worst outcome: they produced **a product that is confidently wrong rather than visibly broken**.
+
+**B1 — FR-2's cache was on the wrong side of the network.** This document placed it on the Bridge; PRD §5 and `EXPERIENCE.md` both place it in the Cockpit document, per window, and build behavioural guarantees on that placement — *"two Chrome windows mean two Cockpit documents with independent caches."* The decisive evidence was not the disagreement but the self-contradiction: **the invalidation trigger this document itself specified is one a Bridge structurally cannot observe** (a Bridge-health transition from unreachable to reachable), and the TTL PRD FR-2 calls a hard bound was absent entirely. *Closed:* cache relocated to the Cockpit with a stated 5-minute TTL, corrected triggers, and the change carried through all seven dependent surfaces — D6, D10, the tree, the FR-2 map row, the data-flow diagram, and the D2 snapshot's stated relationship to it.
+
+**B2 — The `(pjid, generation)` guard was never specified.** PRD §5 names it as the entire defence against acting on the wrong Project; PRD §11 names it as SM-3's entire enforcement. It appeared four times in 660 lines, every time as a noun — no type, no column, no route, no check — and the one behaviour stated was circular: a cached resolution invalidated by the stamp it had itself produced. *Closed as D11*, specifying mint, scope, persistence, the `ProjectRecord` type change, the `generation` columns, the P5 MUST, and a `409` refusal shape. The substantive design problem it surfaced — that a naive per-resolution counter would refuse window A's valid mutation the instant window B merely re-resolved, **firing on the common case and staying silent on the dangerous one** — is solved by making the generation content-addressed rather than a counter.
+
+**B3 — `DsCode` was a closed union that four of this document's own decisions violated.** P2 pinned it at DS-1…DS-22 and forbade any failure outside it, while D2, D3, D7 and a step-2 constraint each required a new named state — and `EXPERIENCE.md` had explicitly handed over a fifth (*"Bridge contract drift … Not invented here; flagged for architecture"*) that went unanswered. *Closed:* six codes allocated — **DS-23** snapshot-served resolution, **DS-24** gateway 4090, **DS-25** unrecognised store version, **DS-26** gateway surface drift, **DS-27** Bridge/Cockpit contract drift, **DS-28** pool exhausted — each with trigger, pane-gating, recovery, wording and producing side, **and each written into `EXPERIENCE.md`'s degraded-state table in the same change**, which is P2's own rule applied to itself.
+
+### Coherence Validation
+
+**Decision compatibility** — verified across D1…D19 after repair. The repair itself introduced eleven new inconsistencies, of which the verification pass caught and fixed seven (a stale cross-reference into P5's renumbered MUSTs, a self-contradicting case-sensitivity bullet in D14, a real contradiction between the FR-6 map row and D15 over where authoritative classification runs, two type-name mismatches between P2 and the tree, a markdown list that silently swallowed sequence step 0b, and — in `EXPERIENCE.md` — Rule 2's prose still asserting the pre-repair Registry behaviour two hundred lines above the rows that had been corrected). **That a fix pass generates its own defects at roughly a third the rate of the original is the argument for verifying repairs rather than trusting them.**
+
+**Pattern consistency** — P1…P9 re-checked against D1…D19. P2's error model, P5's wire shape and P6's storage naming now agree on where degradation, refusals and the generation live.
+
+**Structure alignment** — the tree carries every new module with a named owner: `registry/generation.ts`, `registry/paths.ts`, `sessions/fleet.ts`, `turns/accept.ts`, `lib/stream.ts`, `lib/cache.ts`, `candystore/reader.ts`, and `entrypoints/background/` expanded from one annotation into five files.
+
+**Numbers and versions** — a full sweep. **D1's three load-bearing `node:sqlite` facts were wrong**, in the section that called the version detail *"the whole reason this is a clean decision"* and in a document that twice claimed these were verified rather than recalled. Corrected against the live Node 24 documentation: `node:sqlite` is **Stability 1.2, Release Candidate** — *not* Stability 2 — available since **22.13.0**, current at **24.15.0**. The decision survives, because the property it rests on (embedded in the binary, no native compilation, no toolchain on `big-chungus`) is real. Its justification did not survive, and the correction promotes the Node-24 pin from an `[ASSUMPTION]` to a **MUST** with a startup assertion, since an RC module's API is a version-coupled dependency rather than a stable one. Every `DsCode` cited in prose was also swept against `EXPERIENCE.md`'s table; **P5's worked example cited DS-19 (Candystore) for a Board outage, which is Plane, DS-17** — and the wrong code destroyed the example's point, since DS-19 gates nothing.
+
+### Requirements Coverage Validation
+
+**Functional requirements** — all sixteen now have an architectural owner, and the sweep found five that had only a headline. **FR-1** mapped tab-switching entirely to the content script, a context that structurally cannot observe it. **FR-6**'s classification *form* — which both the PRD and `EXPERIENCE.md` explicitly delegate to this document — was never chosen, and the one placement given put a tailnet round trip under the caret on a control `EXPERIENCE.md` forbids to flicker. **FR-7**'s ≤500ms accept budget was unaddressed, and the obvious implementation misses it by an order of magnitude. **FR-9**'s outcome path was prescribed with the one filter this document itself proves does not work for dispatch outcomes. **FR-14**'s silent-credential-degradation detection was asserted four times and given a filename with no mechanism — which mattered more than the others, because that failure is the product's motivating incident. All five are closed as D13, D15, D18, D19 and an expanded service-worker structure.
+
+**Non-functional requirements** — the split latency budget now has an architectural answer rather than a restatement (D15 decouples Turn acceptance from session acquisition). The failure posture is enforced by the DS taxonomy and P7. The panel-lifetime constraint drove the SSE placement fix. The trust boundary was already correct.
+
+**Success metrics** — SM-3 was the gap, and it was the important one: the metric had no mechanism until D11.
+
+### Implementation Readiness
+
+| Requirements Analysis | | Architectural Decisions | |
+|---|---|---|---|
+| Project context analysed | `[x]` | Critical decisions documented with versions | `[x]` |
+| Scale and complexity assessed | `[x]` | Technology stack fully specified | `[x]` |
+| Technical constraints identified | `[x]` | Integration patterns defined | `[x]` |
+| Cross-cutting concerns mapped | `[x]` | Performance considerations addressed | `[x]` |
+
+| Implementation Patterns | | Project Structure | |
+|---|---|---|---|
+| Naming conventions established | `[x]` | Complete directory structure defined | `[x]` |
+| Structure patterns defined | `[x]` | Component boundaries established | `[x]` |
+| Communication patterns specified | `[x]` | Integration points mapped | `[x]` |
+| Process patterns documented | `[x]` | Requirements → structure mapping complete | `[x]` |
+
+### Gap Analysis
+
+**Critical gaps:** none open.
+
+**Open items requiring Jarad** — neither blocks implementation:
+
+- **O1 — what emits the `pjid` into served pages (PRD §12 Q4).** Carried with three costed options. It gates **acceptance** of FR-1…FR-4 in production, not their implementation: sequence step 0b builds a three-page dev fixture (one `pjid`, none, two conflicting) which is FR-1's and D14's acceptance set, so the work is testable before the emitter exists. **This remains the project's real sequencing risk — v1 is inert in production until something emits the tag.**
+- **O2 — the `[v2]` annotation payload shape.** Two of `EXPERIENCE.md`'s open Gaps items decide it, both explicitly Jarad's. Nothing in v1 depends on it.
+
+**Deliberate divergence to reflect upstream:** D11 reinterprets FR-2's literal *"monotonically increasing"* as content-addressed. The sequence remains monotonic and never reuses a value; what changes is that re-resolving an unchanged Project Record is not an event. This serves §5's stated intent and should be carried back into the PRD rather than left for someone to "correct" in the wrong direction.
+
+### Readiness Assessment
+
+**Overall Status: READY WITH MINOR GAPS.**
+
+**Confidence: high** — and the reason is the process rather than the document. This architecture was wrong in three load-bearing ways after six careful steps, and it took four independent lenses to find them; every one was a *seam* between sections that were individually correct. A document that had not been adversarially reviewed would have shipped all three into implementation, where the generation gap in particular would have surfaced as SM-3 failures — the Cockpit confidently showing the wrong Project — with no mechanism to explain why.
+
+**Key strengths.** The failure model is unusually complete for a personal tool: twenty-eight enumerated states, each separately worded and separately recoverable, with a typed contract enforcing them across the network boundary. The PRD's empirical findings from 2026-09-17 are carried as binding constraints rather than notes. And the document's deliberate absences — no CI, no container, no shared UI package, no e2e scaffold — are recorded as decisions with reasons, which is what stops the next agent adding them by reflex.
+
+**Areas for future enhancement.** The multi-window story is correct but minimal (PRD §5 accepts that independent windows do not synchronise). Session eviction is tuned by judgement rather than measurement and should be revisited against SM-C1 once there is real usage.
+
+### Implementation Handoff
+
+**Agents implementing this project MUST:** follow the D-decisions and P-patterns as written; add a `DsCode` *and* its `EXPERIENCE.md` row in the same change when adding a failure mode; never name the pjangler identifier anything but `pjid`; and treat this document as the authority on architecture, `EXPERIENCE.md` on behaviour, and `DESIGN.md` on appearance — with the two spines winning on conflict within their own domains.
+
+**First implementation story:** the monorepo scaffold (sequence step 0), then `contract/`. **The Bloodbank gateway fix (D4) has no dependency on this repository and should start first**, in parallel with everything else.
