@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3, 4, 5, 6, 7]
+stepsCompleted: [1, 2, 3, 4, 5, 6, 7, 8]
 inputDocuments:
   - _bmad-output/planning-artifacts/prds/prd-sidepiece-2026-09-17/prd.md
   - _bmad-output/planning-artifacts/prds/prd-sidepiece-2026-09-17/addendum.md
@@ -10,6 +10,9 @@ inputDocuments:
   - _bmad-output/planning-artifacts/ux-designs/ux-sidepiece-2026-09-20/.decision-log.md
   - _bmad-output/planning-artifacts/ux-designs/ux-sidepiece-2026-09-20/.working/research-mv3-platform.md
 workflowType: 'architecture'
+lastStep: 8
+status: 'complete'
+completedAt: '2026-09-22'
 project_name: 'sidepiece'
 user_name: 'Jarad'
 date: '2026-09-17'
@@ -1058,3 +1061,53 @@ All three shared a failure mode the PRD names as its worst outcome: they produce
 **Agents implementing this project MUST:** follow the D-decisions and P-patterns as written; add a `DsCode` *and* its `EXPERIENCE.md` row in the same change when adding a failure mode; never name the pjangler identifier anything but `pjid`; and treat this document as the authority on architecture, `EXPERIENCE.md` on behaviour, and `DESIGN.md` on appearance — with the two spines winning on conflict within their own domains.
 
 **First implementation story:** the monorepo scaffold (sequence step 0), then `contract/`. **The Bloodbank gateway fix (D4) has no dependency on this repository and should start first**, in parallel with everything else.
+
+---
+
+## Architecture Complete — Handoff
+
+*Step 8. Workflow closed 2026-09-22.*
+
+### What this document became
+
+It opened on 2026-09-18 as a context analysis and paused at step 2 for four days while `bmad-ux` ran. It closes at **1060+ lines, twenty-one numbered decisions (D1…D21), nine implementation patterns (P1…P9), a complete project tree, and a validation section that records three blockers found and closed rather than three blockers avoided.**
+
+The number worth remembering is not the line count. It is that **after six careful steps this architecture was wrong in three load-bearing ways**, every one a *seam* between sections that were individually correct, and it took four independent adversarial lenses to find them. The most dangerous — the `(pjid, generation)` guard that PRD §11 names as SM-3's entire enforcement — appeared four times in the document as a noun and nowhere as a mechanism. Unreviewed, it would have shipped into implementation and surfaced as the Cockpit confidently showing the wrong Project, with nothing in the codebase to explain why.
+
+### Document authority, and what wins on conflict
+
+| Document | Owns | Status |
+|---|---|---|
+| `prds/prd-sidepiece-2026-09-17/prd.md` | **What and why.** FR-1…FR-16, the NFRs, scope, metrics. §3 Glossary is binding vocabulary everywhere. | `final` |
+| `ux-designs/…/EXPERIENCE.md` | **How it behaves.** IA, DS-1…DS-28, interactions, accessibility, journeys. | `draft` — see below |
+| `ux-designs/…/DESIGN.md` | **How it looks.** 54 tokens, Night Paper dark mode, component visuals. | `draft` — see below |
+| `architecture.md` *(this)* | **How it is built.** Decisions, patterns, structure, boundaries. | complete |
+
+Each is authoritative in its own domain and defers in the others. Where this document touches behaviour it is restating `EXPERIENCE.md`, which wins; where `EXPERIENCE.md` touches structure it is restating this document, which wins.
+
+**`[NOTE FOR PM: both UX spines still carry `status: draft`.]`** They are *content*-complete — each survived two adversarial audits, and `EXPERIENCE.md` was amended again during this document's step-7 remediation — but `bmad-ux`'s Finalize step never ran, so there are no promoted mockups, no input reconciliation, and no doc-standards prose pass. **This architecture treats them as binding anyway, which is the honest position given what they contain, but the lifecycle gap is real and should be closed rather than ignored.** It is cheap: the run folder is intact and the workflow supports resuming.
+
+### The handoff payload for `bmad-create-epics-and-stories`
+
+**Start outside this repository.** `[NOTE FOR PM: D4 is the only work with no dependency on Sidepiece, and it should start first, in parallel with everything else.]` `33GOD/bloodbank/services/hermes-gateway/bloodbank_hermes_gateway/adapter.py:691` — `send()` `del`s the agent's response text and returns success, so FR-9's result content is unbuildable until it is fixed. **It is not a Sidepiece patch:** every Bloodbank consumer that dispatches to an agent has been silently losing response text, so scope it as a Bloodbank fix that happens to unblock Sidepiece.
+
+**A second cross-repo item, smaller and sharper.** `agents/hermes/pm/role.yaml` — the manifest of the very PM that FR-7 and FR-8 target — subscribes to `bloodbank.evt.repo.sidepiece.>` and `bloodbank.cmd.agent.sidepiece-pm.>`. Both embed an identity slug as a subject token, which the five-token grammar forbids, and **a PM subscribed to an illegal subject receives nothing.** `[NOTE FOR PM: addendum §B.1 may make this moot by routing dispatch through the fleet gateway rather than a per-agent subject — verify before writing a story for it, and if §B.1 holds, delete the subscriptions rather than correcting them.]`
+
+**Sequencing.** Step 0 is the monorepo scaffold; step 0b is a three-page dev fixture (one `pjid`, none, two conflicting) that is FR-1's and D14's acceptance set; `contract/` is step 2 because everything imports it; WXT init is step 6, not step 1. This inverts EPIC A's June ordering, which put scaffolding and a UI kit first — PRD §10 already directed sequencing behind a working Bridge, and the dependency graph agrees.
+
+**Three open items, none blocking implementation** — O1 (what emits the `pjid`), O2 (the `[v2]` annotation payload), O3 (whether DS-3 is distinguishable from DS-4 in practice). **O1 is the one that matters for planning:** it gates *acceptance* rather than implementation, and the dev fixture makes FR-1…FR-4 testable without it — but **v1 is inert in production until something emits the tag**, and that work has no owner in any document.
+
+**One deliberate divergence to carry upstream.** D11 reinterprets FR-2's literal "monotonically increasing" as content-addressed. The sequence stays monotonic and never reuses a value; what changes is that re-resolving an unchanged Project Record is not an event. This serves §5's stated intent — a per-resolution counter would fire the guard on the common case and stay silent on the dangerous one — and the PRD should be amended to match rather than the divergence being "corrected" back.
+
+### For agents implementing this
+
+- **Follow the decisions and patterns as written.** Where you disagree, change this document in one commit rather than working around it per file.
+- **Adding a failure mode means adding a `DsCode` *and* its `EXPERIENCE.md` row in the same change.** P2's rule; it was applied to itself when DS-23…DS-28 were allocated.
+- **Never name the pjangler identifier anything but `pjid`** — not in a field, a column, a JSON key, or a local variable. This project has already made that mistake once, in its own specification.
+- **A lint rule banning `project_id` outside the Plane adapter is five lines and forecloses it permanently.** Write it early.
+
+### A note on how this was produced
+
+Three of this document's own factual claims were wrong and were corrected rather than quietly dropped: `node:sqlite`'s stability (it is a Release Candidate, not stable), a `DsCode` cited in the one worked example of the most important wire rule, and a dark-mode token count that was stale in five places across three documents. Two of the three sat behind sentences asserting they had been verified.
+
+The step-7 repair then introduced eleven new inconsistencies of its own, seven caught by the pass that verified it, four more by a final coherence sweep. **A fix generates defects at roughly a third the rate of the original work.** That is the argument for verifying repairs rather than trusting the report that a repair happened, and it is the single most transferable thing this workflow produced.
