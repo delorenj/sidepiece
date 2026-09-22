@@ -1999,9 +1999,10 @@ the Cockpit to follow an OS theme change while open, and the media query does th
 
 **For EXPERIENCE.md's parallel revision**
 
-*Six items were handed over. Three are struck below, absorbed into `EXPERIENCE.md` on
-2026-09-22 — this list is the handoff, not a second home for behaviour, so an item that has
-landed in the peer spine is struck here rather than kept in both.*
+*Six items were handed over. **Four are struck below** — three absorbed into `EXPERIENCE.md`
+on 2026-09-22, and one (the column width) resolved against this document — leaving two live:
+`{rounded.pill}` and the dark-mode sentence. This list is the handoff, not a second home for
+behaviour, so an item that has landed in the peer spine is struck here rather than kept in both.*
 
 - **`{colors.overlay.signature}` is now defined**, at `#FF2E63`, as the one signature ink shared
   by the Cockpit and the in-page layer, invariant across surfaces and across both grounds. All

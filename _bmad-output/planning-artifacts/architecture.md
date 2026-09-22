@@ -454,7 +454,7 @@ The document versioned the SQLite schema (D7) and nothing across the network bou
 | Declaration | Value | Why |
 |---|---|---|
 | `host_permissions` | `<all_urls>` | PRD §5 decided it: "Sidepiece takes the broad match and accepts the permission prompt." A narrow allowlist reintroduces the origin coupling declaration-based resolution exists to remove. **This is also what step 2's LNA closure rests on** — extensions holding the correct host permissions are stated to be exempt, so the broad match is not only a detection decision, it is the transport's exemption. |
-| `permissions` | `sidePanel`, `storage`, `tabs` | `sidePanel` for the Cockpit; `storage` for D6's continuity tier; `tabs` for `onActivated`/`onUpdated`, which is how FR-1's tab-switch requirement is satisfied at all. |
+| `permissions` | `sidePanel`, `storage`, `tabs` | `sidePanel` for the Cockpit; `storage` for D6's tier — the continuity keys and, since the 2026-09-22 S1 ruling, FR-2's `fr2:<pjid>` cache (D10); `tabs` for `onActivated`/`onUpdated`, which is how FR-1's tab-switch requirement is satisfied at all. |
 | `permissions` — **not** declared | `activeTab`, `debugger`, `webNavigation` | `activeTab` was deleted outright by the UX decision log on 2026-09-20 when the annotation image stopped being load-bearing; `chrome.debugger` was rejected in the same pass "with no fallback built"; `webNavigation` is unnecessary because the content script observes its own history transitions (see below). Declaring a permission nothing uses widens the install prompt for free. |
 | `action` | declared, **no `default_popup`** | IA note (c): a `default_popup` displaces `setPanelBehavior({openPanelOnActionClick: true})`, and that toggle is the product's **only** close gesture — "nothing inside the Cockpit claims to close it, because nothing inside the Cockpit can." `setPanelBehavior` is called once at service-worker startup. |
 | `commands` | **two**: `_execute_action` at `Alt+Shift+S`, `focus-ticket-title` at `Alt+Shift+N` | The budget is exactly four *suggested* shortcuts, each needing Ctrl or Alt, Ctrl+Alt banned. `EXPERIENCE.md` spends all four on Alt+Shift chords and marks two of them `[v2]` — `arm-picker` and `discharge-batch`. **v1 declares only the two v1 bindings.** A declared-but-dead shortcut occupies a slot Chrome will not give back and shows the operator a keystroke that does nothing, and there is zero headroom to recover it from. `_execute_action` is a reserved name and needs no handler — `setPanelBehavior` gives it its toggle behaviour — so `commands.ts` holds exactly one listener in v1. |
@@ -1110,7 +1110,7 @@ All three shared a failure mode the PRD names as its worst outcome: they produce
 
 ### What this document became
 
-It opened on 2026-09-18 as a context analysis and paused at step 2 for four days while `bmad-ux` ran. It closes at **1,240 lines, twenty-one numbered decisions (D1…D21), nine implementation patterns (A-P1…A-P9), a complete project tree, and a validation section that records three blockers found and closed rather than three blockers avoided** — plus a post-completion sweep that found four more and a 2026-09-22 ruling that closed two of them.
+It opened on 2026-09-18 as a context analysis and paused at step 2 for four days while `bmad-ux` ran. It closes at **1,253 lines, twenty-one numbered decisions (D1…D21), nine implementation patterns (A-P1…A-P9), a complete project tree, and a validation section that records three blockers found and closed rather than three blockers avoided** — plus a post-completion sweep that found four more and a 2026-09-22 ruling that closed two of them.
 
 The number worth remembering is not the line count. It is that **after six careful steps this architecture was wrong in three load-bearing ways**, every one a *seam* between sections that were individually correct, and it took four independent adversarial lenses to find them. The most dangerous — the `(pjid, generation)` guard that PRD §11 names as SM-3's entire enforcement — appeared four times in the document as a noun and nowhere as a mechanism. Unreviewed, it would have shipped into implementation and surfaced as the Cockpit confidently showing the wrong Project, with nothing in the codebase to explain why.
 
@@ -1154,7 +1154,7 @@ Ten mechanical defects were fixed in place (commit `3a6254a`); four substantive 
 because each needs a judgement rather than a correction. They are recorded here rather than
 softened, because the next workflow reads these documents as a specification.*
 
-**Update, later the same day.** Jarad ruled on the two items that were blocking: **`chrome.storage.local` for the cache, and 320px.** S1 and S4 are now closed and S2 costs this document nothing. Each entry below carries its **resolution first and its original problem statement verbatim underneath** — the statement is the record of why, and deleting it would delete the only evidence that a repair can generate its own defect. **S3 is the one still open.** The heading stays as written: it was true when it was written, and the point of this section is that a document can be marked complete and still not be one.
+**Update, later the same day.** Jarad ruled on the two items that were blocking: **`chrome.storage.local` for the cache, and 320px.** S1 and S4 are now closed here, and S2 — which cost this document nothing — is closed in `DESIGN.md`. Each entry below carries its **resolution first and its original problem statement verbatim underneath** — the statement is the record of why, and deleting it would delete the only evidence that a repair can generate its own defect. **S3 is the one still open.** The heading stays as written: it was true when it was written, and the point of this section is that a document can be marked complete and still not be one.
 
 **S1 — RESOLVED 2026-09-22.** *Jarad: "`chrome.storage.local` for the cache".* The FR-2 resolution
 cache lives in **`chrome.storage.local`, keyed by pjid** (`fr2:<pjid>`), with **D11's generation as
@@ -1170,7 +1170,8 @@ cross-cutting-concerns list, the D10→D11→SM-3 impact note, the B1 record, an
 counted the deliberate divergences. **Two carry-backs are filed rather than done, because they are
 other documents' surfaces:** a `[NOTE FOR PM]` in D10 asking PRD §5 to amend *"independent caches"*,
 and a `[NOTE FOR UX]` asking `EXPERIENCE.md` to move the resolution cache from *Not preserved* to
-*Preserved* in its Chrome-restart row. **The problem statement below is left intact; it is the
+*Preserved* in its Chrome-restart row — **the UX one has since been applied; the PRD one has
+not.** **The problem statement below is left intact; it is the
 record of why.**
 
 **S1 — The step-7 fix for blocker B1 created a new B1-style seam, and it is the most expensive
@@ -1193,8 +1194,14 @@ diagram move together — the same five surfaces B1 moved.]`
 step 2's constraint list and every measured claim here already treat 320px as the design target.
 What moves is `DESIGN.md`: its 340px computation and its entire "verified fits" table must be
 re-verified at a **284px usable column**, including the load-bearing `DISPATCHED COMMAND` claim that
-refused the PRD-literal abbreviation. That is the UX spine's edit and not this file's; it is not
-recorded as done here. **The problem statement below is left intact.**
+refused the PRD-literal abbreviation. That is the UX spine's edit and not this file's.
+**It has since landed** *(verified 2026-09-22, after the spine's own commit)*: `DESIGN.md`'s
+Layout & Spacing chain is recomputed 320 → 284, all fifteen rows of the fits table are
+re-derived with a `Was (304px)` column kept beside them, and `DISPATCHED COMMAND` sets complete
+in a 244px row with **111.5px spare** — independently recomputed here as 18 ch × 7.36px =
+132.5px, and the chain run backwards puts the term's floor at a **208.5px panel**, below any
+width Chrome will draw. No string was abbreviated and no type size lowered.
+**The problem statement below is left intact.**
 
 **S2 — The four documents disagree about the panel's design width, and every measured fit hangs off
 it.** `DESIGN.md` computes at **340px** ("Sidepiece's design width", 304px usable column);
@@ -1226,12 +1233,17 @@ ARCHITECTURE: cheapest fix is to qualify this document's series as `A-P1…A-P9`
 **Status, honestly stated.** *(Updated 2026-09-22, after the S1 and S2 rulings.)* The architecture
 *workflow* is complete: all eight steps ran and this document is internally coherent. **S1 and S4
 are closed** — S1 by Jarad's ruling, carried through every surface in this file, and S4
-mechanically. **S2 is ruled (320px) and costs this document nothing**, because it was already on
-that number; the re-verification of `DESIGN.md`'s fits at a 284px usable column is the one piece of
-S2 that is real work, and it belongs to the UX spine. **S3 remains open** and is now the last item:
+mechanically. **S2 is closed** — ruled at 320px, which cost this document nothing because it was already on
+that number, and the one piece of it that was real work, the re-verification of `DESIGN.md`'s fits
+at a 284px usable column, has since been done in the spine and checked here. **S3 remains open** and is now the last item:
 both spines still carry `status: draft`, and `bmad-ux`'s Finalize step is what absorbs
 `DESIGN.md`'s handoff list. The *document set* becomes one specification when that finalize runs and
-the two carry-backs filed in D10 land in the PRD and `EXPERIENCE.md`. **Nothing still open in this
+the last of D10's two carry-backs lands. **The `[NOTE FOR UX]` one is done** — `EXPERIENCE.md`'s
+Chrome-restart row now lists the resolution cache under *Preserved*, and its Rule 4 enumeration
+of the `chrome.storage.local` tier now names it. **The `[NOTE FOR PM]` one is not**: PRD §5 and
+`EXPERIENCE.md`'s multi-window row both still say *"independent caches"*, which the build no
+longer has. That pair moves together or not at all, and it is Jarad's call, because D10 offers
+him the alternative of keeping per-window independence as a real property. **Nothing still open in this
 file produces a wrong story**, which was the bar S1 and S2 were being held to.
 
 ### A note on how this was produced
