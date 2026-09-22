@@ -1032,7 +1032,7 @@ That is an accurate description of what six sections written in sequence will do
 
 All three shared a failure mode the PRD names as its worst outcome: they produced **a product that is confidently wrong rather than visibly broken**.
 
-**B1 — FR-2's cache was on the wrong side of the network.** This document placed it on the Bridge; PRD §5 and `EXPERIENCE.md` both place it in the Cockpit document, per window, and build behavioural guarantees on that placement — *"two Chrome windows mean two Cockpit documents with independent caches."* The decisive evidence was not the disagreement but the self-contradiction: **the invalidation trigger this document itself specified is one a Bridge structurally cannot observe** (a Bridge-health transition from unreachable to reachable), and the TTL PRD FR-2 calls a hard bound was absent entirely. *Closed:* cache relocated off the Bridge with a stated 5-minute TTL, corrected triggers, and the change carried through all seven dependent surfaces — D6, D10, the tree, the FR-2 map row, the data-flow diagram, and the D2 snapshot's stated relationship to it. **Superseded in part on 2026-09-22:** the *relocation off the Bridge* was and remains right; the *destination* — the Cockpit document's memory — broke three `EXPERIENCE.md` behaviours and was itself recorded as S1 below. The cache now lives in `chrome.storage.local` keyed by pjid (D10). This entry is left standing because the fix that created a new defect is the most instructive thing in this section.
+**B1 — FR-2's cache was on the wrong side of the network.** This document placed it on the Bridge; PRD §5 and `EXPERIENCE.md` both place it in the Cockpit document, per window, and build behavioural guarantees on that placement — *"two Chrome windows mean two Cockpit documents with independent caches."* The decisive evidence was not the disagreement but the self-contradiction: **the invalidation trigger this document itself specified is one a Bridge structurally cannot observe** (a Bridge-health transition from unreachable to reachable), and the TTL PRD FR-2 calls a hard bound was absent entirely. *Closed:* cache relocated off the Bridge with a stated 5-minute TTL, corrected triggers, and the change carried through the dependent surfaces — D6, D10, the tree, the FR-2 map row, the data-flow diagram, and the D2 snapshot's stated relationship to it. *(Corrected 2026-09-22: this said "all seven" and then named six. It was also wrong in a more interesting way — five further surfaces asserted the old placement and were missed, which is how the destination came to be wrong without the relocation being noticed as incomplete. See the S1 entry.)* **Superseded in part on 2026-09-22:** the *relocation off the Bridge* was and remains right; the *destination* — the Cockpit document's memory — broke three `EXPERIENCE.md` behaviours and was itself recorded as S1 below. The cache now lives in `chrome.storage.local` keyed by pjid (D10). This entry is left standing because the fix that created a new defect is the most instructive thing in this section.
 
 **B2 — The `(pjid, generation)` guard was never specified.** PRD §5 names it as the entire defence against acting on the wrong Project; PRD §11 names it as SM-3's entire enforcement. It appeared four times in 660 lines, every time as a noun — no type, no column, no route, no check — and the one behaviour stated was circular: a cached resolution invalidated by the stamp it had itself produced. *Closed as D11*, specifying mint, scope, persistence, the `ProjectRecord` type change, the `generation` columns, the A-P5 MUST, and a `409` refusal shape. The substantive design problem it surfaced — that a naive per-resolution counter would refuse window A's valid mutation the instant window B merely re-resolved, **firing on the common case and staying silent on the dangerous one** — is solved by making the generation content-addressed rather than a counter.
 
@@ -1170,8 +1170,9 @@ cross-cutting-concerns list, the D10→D11→SM-3 impact note, the B1 record, an
 counted the deliberate divergences. **Two carry-backs are filed rather than done, because they are
 other documents' surfaces:** a `[NOTE FOR PM]` in D10 asking PRD §5 to amend *"independent caches"*,
 and a `[NOTE FOR UX]` asking `EXPERIENCE.md` to move the resolution cache from *Not preserved* to
-*Preserved* in its Chrome-restart row — **the UX one has since been applied; the PRD one has
-not.** **The problem statement below is left intact; it is the
+*Preserved* in its Chrome-restart row — **both have since been applied, and PRD §5 and
+`EXPERIENCE.md`'s multi-window row now read "independent resolution state over a shared per-pjid
+resolution cache".** **The problem statement below is left intact; it is the
 record of why.**
 
 **S1 — The step-7 fix for blocker B1 created a new B1-style seam, and it is the most expensive
@@ -1240,10 +1241,11 @@ both spines still carry `status: draft`, and `bmad-ux`'s Finalize step is what a
 `DESIGN.md`'s handoff list. The *document set* becomes one specification when that finalize runs and
 the last of D10's two carry-backs lands. **The `[NOTE FOR UX]` one is done** — `EXPERIENCE.md`'s
 Chrome-restart row now lists the resolution cache under *Preserved*, and its Rule 4 enumeration
-of the `chrome.storage.local` tier now names it. **The `[NOTE FOR PM]` one is not**: PRD §5 and
-`EXPERIENCE.md`'s multi-window row both still say *"independent caches"*, which the build no
-longer has. That pair moves together or not at all, and it is Jarad's call, because D10 offers
-him the alternative of keeping per-window independence as a real property. **Nothing still open in this
+of the `chrome.storage.local` tier now names it. **The `[NOTE FOR PM]` one is now applied too** *(2026-09-22)*: PRD §5 and
+`EXPERIENCE.md`'s multi-window row both read **"independent resolution state over a shared
+per-pjid resolution cache"**, with the reasoning inline — each panel keeps its own render, its own
+`(pjid, generation)` frame and its own SSE subscription, so the independence that mattered
+survives; only the duplicated store did not. **S1 is closed.** **Nothing still open in this
 file produces a wrong story**, which was the bar S1 and S2 were being held to.
 
 ### A note on how this was produced
