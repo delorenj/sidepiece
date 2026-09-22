@@ -98,13 +98,20 @@ annotations — a reminder to leave, never a count of inbound work.
   override, and **the extension can neither set, suggest, nor read the width**
   (`research-mv3-platform.md` §8). The width is not a breakpoint the design chooses; it is a
   floor the design is handed.
+- **The design width is 320px, and it is the same number as the floor.** `[RULED 2026-09-22 —
+  Jarad. `DESIGN.md` had been computing at 340px while this spine, `addendum.md` §C.1 and
+  `architecture.md` all wrote 320px; the architecture's closing sweep recorded the
+  disagreement and Jarad closed it at 320px. `DESIGN.md` has been recomputed from that number
+  — see **Layout & Spacing → What the 320px ruling cost**.]` The consequence for this spine is
+  that **the design target and the worst case are now one width**: there is no narrower Chrome
+  to be surprised by, and no layout claim here has an untested case underneath it.
 - **The usable column is narrower than the floor, and the usable column is what layout claims
   are written against.** The chosen visual direction pays a fixed horizontal cost on every
-  surface for its signature; its own author measured the result at **roughly 300 CSS pixels
-  of usable column inside a 340px panel** and recorded that cost as the strongest argument
-  against the direction. The floor is Chrome's and cannot be negotiated; the usable column is
-  `DESIGN.md`'s consequence of the pick and could be. Until `DESIGN.md` says otherwise,
-  **every layout claim in this document is written to hold in the usable column, not in the
+  surface for its signature — the sheet border, the ticked spine and both gutters, **36px in
+  total, which is 11.3% of the panel at the ruled width**. `DESIGN.md` measures the result at
+  **284 CSS pixels of usable column inside the 320px panel**. The floor is Chrome's and cannot
+  be negotiated; the usable column is `DESIGN.md`'s consequence of the pick and could be.
+  **Every layout claim in this document is written to hold in the usable column, not in the
   floor** — it is the stricter of the two and the one that actually decides whether a line
   wraps.
 - **The Cockpit cannot open itself. It has no in-document control that can close it — but
@@ -181,6 +188,23 @@ from it and nothing else, because all three change behavior rather than appearan
    which marks on someone else's page belong to his tool, on a surface **Sidepiece does not
    own the pixels of**. It is named `{colors.overlay.signature}` so `DESIGN.md` owes it as
    one token shared across surfaces rather than as three per-surface treatments.
+
+   **The register is ink *plus geometry*, and on one class of page the geometry carries it
+   alone.** `DESIGN.md` resolved the token and, in resolving it, established that the hue by
+   itself is not sufficient contrast against most of the colour space — so the signature is
+   specified as the ink **together with** the detached registration ticks and the ticked
+   spine. Any sentence in this spine that reads the signature as *only* a colour is too
+   narrow. The behavioral consequence, which is this spine's to state because it changes what
+   the operator sees: **a `[v2]` mark drawn on a page whose own background is close to the
+   signature hue drops the signature stroke and renders in ink and paper only, keeping the
+   ticks and the spine.** The content script samples the computed background of the outlined
+   element and of its nearest opaque ancestor, and the threshold is a ΔE76 under 25 to
+   `{colors.overlay.signature}` — a Tailwind `rose-500` page trips it. **This is not a
+   weakening of the guarantee, it is what makes the guarantee survivable**: the worst case
+   goes from *a mark that is ambiguous* to *a mark that is achromatic and still unmistakably
+   ours*, because the thing that identifies it was never only the hue. It is also the one
+   place the register is allowed to change between surfaces, it is measurable, and it is
+   therefore checkable.
 3. **One PRD literal did not fit, and this spine does not let it shrink.** The mock's own
    self-critique records that `Dispatched Command` would not set in the composer's flip
    control at the usable width, and set it as `DISPATCHED CMD` — "the one string in the mock
@@ -191,6 +215,12 @@ from it and nothing else, because all three change behavior rather than appearan
    complete term fit is `DESIGN.md`'s problem and it has options this spine does not take
    away — wrap it, stack the two values rather than setting them side by side, or spend
    leading rather than characters. See `{components.classificationControl}`.
+   **Closed 2026-09-22, and closed by measurement rather than by concession.** `DESIGN.md`
+   stacks the two values as full-width rows and, re-measured at the ruled 320px design width,
+   `DISPATCHED COMMAND` sets complete in the control with 46% of the row still empty. None of
+   the three escape hatches was needed and none was taken — no abbreviation, no smaller type,
+   no dropped letterspacing. **The refusal cost nothing**, which is worth recording: the
+   cheapest place to hold a vocabulary line is before anyone has built the control.
 
 ---
 
@@ -336,7 +366,7 @@ not build the occupant.
 
 | `[v2]` element | Reserved seat in v1 | What v1 builds | What v1 does not build |
 |---|---|---|---|
-| Annotations pane (the running list) | **Third slot in the pane switch.** The switch is built as an n-item control with two items rendered | The switch, sized and laid out so a third item fits in the usable column without wrapping | The pane, the list, the slot's label |
+| Annotations pane (the running list) | **Third slot in the pane switch.** The switch is built as an n-item control with two items rendered | The switch, sized and laid out so a third item fits in the usable column without wrapping. At the ruled 320px design width that is **an eight-character budget** per cell (`DESIGN.md`, fits table), so v1 builds the geometry and v2 inherits the constraint | The pane, the list, the slot's label — but **the label must be ≤ 8 characters**, which rules out `ANNOTATIONS` and is stated here so v2 does not discover it at layout time |
 | Attachment on a Turn | **Leading slot in the Turn composer's action row**, left of the classification control | The action row as a row, with the leading slot empty | Any attachment affordance or payload |
 | Attachment on a Ticket | **Leading slot in the Ticket create box's submit row** | The submit row as a row, with the leading slot empty — stated in `{components.ticketCreateBox}`, not only here | Any attachment affordance or payload |
 | Batch create — one Ticket per annotation | **Secondary slot beside the create box's primary submit**, in the same submit row | That row holding a primary control and one empty secondary slot — stated in `{components.ticketCreateBox}` | The secondary control |
@@ -539,7 +569,7 @@ of `{components.identityHeader}` and carries behavior of its own without being a
 | `{components.stateNotice}` | The one block every degraded state renders into: a headline sentence, an optional detail line, an optional command string, and a recovery control | — | It **is** the failure path. It never renders as an empty region and never as a spinner (P1, P2). It always contains at least one control. **DS-1 is the single state that does not use it**, and DS-21 follows DS-1 — both are facts about the tab rather than faults in the product, and dressing the browser's most common condition as a failure is how a tool starts feeling like it is scolding you |
 | `{components.reResolveControl}` | Re-runs detection and resolution for the active tab, bypassing the FR-2 cache | — | Present in **every** state notice (FR-2, FR-3), including ones it cannot fix — a Plane outage does not resolve by re-resolving, but the operator does not have to know that to reach for it. While running it disables and says so; when it returns the same state it says the state again rather than flashing. Two states render it demoted or absent and say why: DS-1 and DS-21 |
 | `{components.turnComposer}` | Collects a Turn. Holds the classification control, the context chip, and the reserved attachment slot `[v2]` | Draft text debounced to `chrome.storage.local` keyed by pjid (Rule 4); restored on open | Disabled with a distinct reason in both degraded Agent states (FR-5); the draft is kept while disabled. When only the *dispatch* half is down (DS-18) it stays live and says which half. On send failure the text stays in the box. If storage throws or returns empty, the box renders empty and works |
-| `{components.classificationControl}` | Shows the Turn's classification **before commit** and flips it in one control (FR-6) | Override lives for this Turn only and is discarded on send (FR-6, P14) | Renders the glossary term **verbatim and complete** — **Streamed Exchange** / **Dispatched Command** — plus one plain line of consequence. **Neither term is ever abbreviated, at any width.** The chosen direction's mock could not fit `Dispatched Command` in the usable column and set `DISPATCHED CMD`; its author flagged that as a real finding and it is upheld here — an abbreviation is a synonym and PRD §3 forbids one. The control wraps, stacks its two values, or spends leading; it does not shorten the word. It is never absent either: an unclassifiable Turn classifies as Dispatched Command, per FR-6's stated bias, and says so rather than showing nothing. Its corpus and its recompute rule are below this table |
+| `{components.classificationControl}` | Shows the Turn's classification **before commit** and flips it in one control (FR-6) | Override lives for this Turn only and is discarded on send (FR-6, P14) | Renders the glossary term **verbatim and complete** — **Streamed Exchange** / **Dispatched Command** — plus one plain line of consequence. **Neither term is ever abbreviated, at any width.** The chosen direction's mock could not fit `Dispatched Command` in the usable column and set `DISPATCHED CMD`; its author flagged that as a real finding and it is upheld here — an abbreviation is a synonym and PRD §3 forbids one. The control wraps, stacks its two values, or spends leading; it does not shorten the word. **`DESIGN.md` stacks them, and at the 320px design width the complete term fits with room to spare — the abbreviation was never needed** It is never absent either: an unclassifiable Turn classifies as Dispatched Command, per FR-6's stated bias, and says so rather than showing nothing. Its corpus and its recompute rule are below this table |
 | `{components.contextChip}` | Shows what FR-10 will attach: the active tab's title, with the URL on focus or hover | — | If the tab's title or URL cannot be read, the chip says which one is missing and the Turn still sends — a Turn with partial context beats a blocked Turn |
 | `{components.turnCard}` | Renders one Turn. Two visibly distinct variants: Streamed Exchange and Dispatched Command (FR-8) | Turn state lives in the **Bridge**, keyed by pjid and Turn id (FR-15, P26). The card holds nothing | Streamed: a dead stream renders as failed with the partial text kept (FR-7). Dispatched: rejection is surfaced with its reason (FR-8); no outcome inside the window renders as unknown (FR-9); an unreachable Candystore renders as *unobservable*, worded differently (DS-19); a completed outcome renders its result content, or says the gateway returned none (see IA note (a)). Never a bare checkmark |
 | `{components.jumpToLatest}` | Appears in the Chat pane when the operator has scrolled up away from a streaming Turn; returns to the bottom and re-arms bottom-anchoring | — | Appears only while the anchor is broken and something is arriving. It never appears on a quiet thread, because a control that offers to move you somewhere is a control that pulls |
@@ -1519,6 +1549,33 @@ a nearby node, and not degraded to raw page coordinates. Figma's documented beha
 silently falling back to canvas coordinates with a manual drag as the workaround — is the
 specific failure this table exists to avoid. Silent failure is the enemy, not breakage.
 
+### When the anchor resolves but cannot be seen
+
+Occlusion is not drift and it is not a lost anchor — the selector still returns exactly one
+node, and the annotation is perfectly healthy. What has happened is that the node has scrolled
+under the page's own sticky header, or behind its cookie bar, or out of the viewport entirely.
+The layer renders at the top of the page's stacking order, so **the naive behavior is a pin
+painted on top of somebody else's navigation, pointing at nothing.** That is the
+confidently-wrong-anchor failure wearing a third costume: the pointer is correct and the
+*picture* lies.
+
+So: **a mark whose anchor rect is not visible in the viewport does not render in place. It
+collapses to an edge-docked stub** — a small half-marker flush to the nearest viewport edge,
+carrying the annotation's number and wearing the same signature as every other mark, so it
+reads as Sidepiece's and not as the page's. It never floats over page chrome, and it never
+paints where its element is not.
+
+- **The row is unaffected.** In the Annotations pane the annotation is still **Anchored**;
+  occlusion is a viewport condition, not an anchoring outcome, and it must never be reported
+  as one. Nothing in the four outcomes above changes.
+- **It is reversible by scrolling.** The stub is a live pointer, not a fallback state: scroll
+  the element back into view and the mark returns to it. Nothing is lost and nothing is
+  re-captured.
+- **It is honest about direction.** The stub docks to the edge the element is past, so the
+  operator learns *where* rather than only *that*.
+- **Its visual specification — size, geometry, the number's type — is `DESIGN.md`'s**, under
+  the `[v2]` in-page layer's common requirements.
+
 ### Drift the anchor cannot cover
 
 - **URL identity.** Vercel documents that comments on URLs with query params do not appear
@@ -1644,16 +1701,19 @@ Each item names its source. These are what to steal and what to refuse, not a su
 - **The extension can neither set, suggest, nor read the width.** There is no API, and the
   open feature requests (issues 378404989, 40926440, samples#1011) have no movement. **There
   are no breakpoints in this product**, because there is no way to observe one. Every layout
-  claim in this spine is written to hold in the **usable column** — the floor less whatever
-  the chosen direction's signature costs, measured at roughly 300 CSS pixels in the mock (see
-  **Foundation § Form factor consequences**) — and to degrade gracefully upward. Extra width
+  claim in this spine is written to hold in the **usable column** — the floor less the 36px the
+  chosen direction's signature costs, which `DESIGN.md` measures at **284px** (see **Foundation
+  § Form factor consequences**) — and to degrade gracefully upward. Extra width
   buys longer unwrapped clone paths and more visible Turn text, never a second column and
   never a revealed pane.
 - **The user's resize may not stick.** One source reports that closing and reopening resets
-  the panel document to its default width; unverified on current Chrome. `[ASSUMPTION: treat 320px as
-  the design target on every open, not as a worst case. If geometry resets on close the way
+  the panel document to its default width; unverified on current Chrome. `[RULED 2026-09-22 —
+  Jarad: **320px is the design width**, not merely the worst case, and `DESIGN.md` is computed
+  there. This was previously carried as an assumption; it is now a decision, and it settles a
+  four-document disagreement rather than guessing at one. If geometry resets on close the way
   state does, designing for a comfortable 480px would be designing for a width he rarely
-  sees.]`
+  sees — and since the design width now equals Chrome's floor, the question of which to build
+  to no longer arises.]`
 
 ### First run
 
@@ -1713,6 +1773,25 @@ plus the note in **State Patterns**, because Chrome's own documentation states n
 behavior and no recovery path. `[NOTE FOR ARCHITECTURE: correct addendum §C before
 `bmad-create-architecture` and `bmad-create-epics-and-stories` consume it — §12 Q7 drops from
 discovery to confirmation.]`
+
+### Printing a page the marks are on `[v2]`
+
+**Sidepiece marks are for the screen. They do not print.** The in-page layer is
+position-fixed, and a position-fixed layer that survives into a print stylesheet paints every
+annotation over the first printed page of the operator's own document — not beside it, on top
+of it. The layer is therefore suppressed entirely in the print medium.
+
+This is a decision rather than an omission, and it is recorded here so nobody implements it as
+a bug. **The operator's document prints exactly as it would with Sidepiece uninstalled**,
+which is the behavior he would assume anyway and the only one that cannot surprise him at a
+printer. The cost is that there is no way to print a page *with* its annotations on it; the
+discharge path — the annotation becomes a Ticket or a Turn — is how a mark leaves the screen,
+not the print dialog.
+
+`[ASSUMPTION: no print-with-marks mode, in v1 or v2. Making the marks printable requires the
+layer to be positioned in document coordinates rather than fixed to the viewport, which is a
+different component with a different drift story — see **Annotation Anchoring and Drift**. If
+Jarad ever wants annotated printouts, that is the change, and it is not a stylesheet tweak.]`
 
 ### Dark mode, and the seam the extension cannot see
 

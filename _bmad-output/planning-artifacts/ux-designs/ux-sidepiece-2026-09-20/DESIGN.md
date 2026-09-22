@@ -12,7 +12,7 @@
 name: Sidepiece
 description: A printed instrument laid on top of somebody else's screen. Warm paper, serif ink, a fluorescent signature and detached registration ticks that make a Sidepiece mark unmistakable on a white docs site and a black dashboard alike.
 status: draft
-updated: 2026-09-20
+updated: 2026-09-22
 project: sidepiece
 sources:
   - .working/direction-foreign.html
@@ -382,7 +382,7 @@ changes is the other half of that pairing — the house says "sans for people," 
 is **serif for people**, because web UI chrome is sans and a serif panel is instantly
 not-the-page and not-the-browser. Charter and Georgia are among the very few serifs drawn
 for small sizes on screen, which is the specific reason 13.5px body type is viable in a
-304px column at all.
+284px column at all.
 
 **Key characteristics**
 
@@ -711,7 +711,7 @@ data.
 
 Charter is the load-bearing choice, not a flourish. It and Georgia are among the very few
 serifs engineered for small sizes and low-resolution screens, and that is the only reason
-13.5px body type survives a 304px column. Substituting a display serif here collapses the
+13.5px body type survives a 284px column. Substituting a display serif here collapses the
 whole layout.
 
 ### MV3 forbids fetching a font, so both faces ship in the bundle
@@ -844,28 +844,47 @@ tooltip in place of itself. It wraps. An ellipsised path looks copyable and copi
 
 ## Layout & Spacing
 
-### The column is 304px, and that is the only number that matters
+### The column is 284px, and that is the only number that matters
+
+> **Amended 2026-09-22 — Jarad ruled 320px, and every fit below was recomputed.** Through every
+> draft this section alone computed at 340px; `EXPERIENCE.md`, `addendum.md` §C.1 and
+> `architecture.md` all wrote 320px. The architecture's closing sweep recorded the
+> four-document disagreement as **S2** and it is now closed at **320px**. Nothing was carried over
+> from the 304px table — each measurement was re-derived from the chain below. What the
+> twenty pixels cost is itemised in **What the 320px ruling cost**.
 
 ```
-340px  Chrome side panel at Sidepiece's design width (floor is 320, unreadable)
+320px  Chrome side panel at Sidepiece's design width — and Chrome's hard floor
  −2px  sheet border, 1px each side
  −6px  the ticked signature spine
 −28px  gutter, {spacing.gutter} × 2
 ─────
-304px  usable column
+284px  usable column
 ```
 
-**The signature costs 8px of 340, or 2.4%** — down from 12px, because the spine went 10px → 6px
-when its tear-off perforation became registration ticks. The two inboard ticks cost **zero
+**The design width and the floor are now the same number, and that is the ruling's one free
+gift.** At 340px the document was specifying a panel twenty pixels wider than the narrowest one
+Chrome will draw, so every fit had an untested worse case underneath it. At 320px there is no
+narrower Chrome. The table below is therefore not the expected case — it is the worst case, and
+the expected case is whatever extra width Jarad has dragged out.
+
+**The signature costs 8px of 320, or 2.5%** — the 6px spine plus the 2px sheet edge, down from
+12px because the spine went 10px → 6px when its tear-off perforation became registration ticks.
+The *share* rose from 2.4% for the reason every fixed-pixel cost rises here: **the spine did not
+get thinner, the panel got narrower.** The same arithmetic applies to the whole horizontal
+overhead — border, spine and both gutters are a fixed **36px**, which was **10.6% of 340** and is
+now **11.3% of 320**. Both figures are terminal: 320px is the floor, so 11.3% is the largest
+share this chrome will ever take. The two inboard ticks still cost **zero
 column**: they are drawn *inside* the sheet at a 3px inset, in the top-inboard and
 bottom-inboard corners, where the clip band and the action bar sit and no text runs. Nothing
 else in the signature consumes horizontal space, because nothing else in the signature renders
 on the Cockpit — see **Shapes → The signatures, by surface**.
 
 **The extension can neither read, set nor suggest the width**, so there are no breakpoints in
-this product and none can be observed. Every measurement below is written to hold at 304px
+this product and none can be observed. Every measurement below is written to hold at 284px
 and to degrade upward — extra width buys longer unwrapped paths and more visible Turn text,
-never a second column.
+never a second column. **Upward is the only direction that exists now**, which is why no
+measurement below is allowed a "but it is usually wider" defence.
 
 ### Scale
 
@@ -883,16 +902,23 @@ never a second column.
 ### The nesting, shown once
 
 Every measurement below hangs off this chain. The first draft quoted three different inner
-widths for boxes at the same depth — 284px, 298px and 282px — and none of them subtracted the
-composer's own 1px border and 18px of `{spacing.inset}`.
+widths for boxes at the same depth — 284px, 298px and 282px, none of which is the number the
+chain now returns — and none of them subtracted the composer's own 1px border and 18px of
+`{spacing.inset}`. (That draft's 284px is a coincidence, not an ancestor of the 284px usable
+column below; it was a composer inner width arrived at by a different mistake.)
 
 ```
-304px  usable column
- ├ 284px  inside {components.turnComposer}                   (−2 border, −18 inset × 2)
- │   ├ 264px  inside {components.classificationControl}      (−2 border, −18 padding)
- │   └ 268px  inside {components.contextChip}                (−16 padding)
- └ 288px  inside the identity header's clone-path well       (−2 left edge, −14 padding)
+284px  usable column
+ ├ 264px  inside {components.turnComposer}                   (−2 border, −18 inset × 2)
+ │   ├ 244px  inside {components.classificationControl}      (−2 border, −18 padding)
+ │   └ 248px  inside {components.contextChip}                (−16 padding)
+ └ 268px  inside the identity header's clone-path well       (−2 left edge, −14 padding)
 ```
+
+**Every inset in that chain is a fixed pixel count, so the whole −20px lands on the innermost
+box.** The classification control — the deepest box in the product and the one holding the
+longest required string — gives up 264px → 244px, a 7.6% cut, against a panel that only shrank
+5.9%. That is the general shape of this ruling: **the deeper the box, the harder it is hit.**
 
 ### Verified fits at the shipped type ramp
 
@@ -907,27 +933,44 @@ Advances, all derived from the tokens rather than asserted:
 | `{typography.body}` | Charter lowercase average ≈ 0.47em = **6.35px** |
 | `{typography.body}` line box | 13.5 × 1.55 = **20.93px** |
 
-| Element | Measurement | Verdict |
-|---|---|---|
-| Clone path, `/home/delorenj/code/sidepiece` | 29 ch × 7.015 = 203.4px in a 288px well | **Fits, one line** |
-| Clone path, longest before wrap | 288 ÷ 7.015 = **41 characters** | Longer paths wrap; they never truncate |
-| Classification row, `DISPATCHED COMMAND` | 18 ch × 7.36 = 132.5px in a 264px row | **Fits, 131px spare — the PRD literal survives** |
-| Ticket key column, `SIDE-12` | 7 ch × 7.015 = 49.1px → **50px** at `max-content` | |
-| Ticket key column, `HOLOCENE-12` | 11 ch × 7.015 = 77.2px → **78px** at `max-content` | The first draft's fixed 76px overflows this by 1.2px |
-| Ticket title column, on SIDE | 304 − 11 − 8 − 50 − 8 = **227px** | ≈**35** serif characters per line |
-| Ticket title column, on HOLOCENE | 304 − 11 − 8 − 78 − 8 = **199px** | ≈**31** serif characters per line |
-| Identity header repo name | 304 ÷ (22 × 0.5) = **27 characters** | Then it wraps |
-| Clip band | `SIDEPIECE` 9 × 7.35 = 66.2px + `BRIDGE UP · LAN` 15 × 7.35 = 110.3px + 17px padding = **193.4px of 338px** | **Fits, 145px spare.** The first draft quoted 79px and 117px — two figures at two different implied rates, neither of them `micro`'s |
-| Ticket row, two-line title | 2 × 20.93 = 41.9px of text + 16px padding = **58px** | Clears the 32px `{spacing.row}` floor. A scroll budget built on the first draft's 52px under-counts by 11% per row |
-| FR-10 context URL, 47 ch | 47 × 7.015 = 329.7px against **268px** | **Wraps to two lines** |
-| Create-box submit cell | 284 − 32 − 32 − 16 = 204px, less 22px padding = 182 ÷ 7.36 = **24 characters** | `CREATE IN 33GOD` (15 ch) fits with nine to spare |
-| `[v2]` pin, two digits | 2 × 6.00 = 12.0px inside an 18px roundel less a 1.5px ring = 15px chord | **Fits, 1–99** |
+**Recomputed at 284px on 2026-09-22.** The advances above are properties of the type ramp and
+did not move; every measurement below did. The **Was (304px)** column is kept deliberately so
+the cost of the ruling is auditable rather than asserted.
+
+| Element | Measurement at 284px | Was (304px) | Verdict |
+|---|---|---|---|
+| Clone path, `/home/delorenj/code/sidepiece` | 29 ch × 7.015 = 203.4px in a **268px** well | 203.4px in 288px | **Fits, one line — 64.6px spare** |
+| Clone path, longest before wrap | 268 ÷ 7.015 = **38 characters** | 41 characters | Loses 3 characters. Longer paths wrap; they never truncate |
+| Classification row, `DISPATCHED COMMAND` | 18 ch × 7.36 = 132.5px in a **244px** row | 132.5px in 264px | **Fits, 111.5px spare — the PRD literal survives the ruling.** See **The one fit that decided a product question** below |
+| Classification row, `STREAMED EXCHANGE` | 17 ch × 7.36 = 125.1px in a **244px** row | 125.1px in 264px | **Fits, 118.9px spare** |
+| Ticket key column, `SIDE-12` | 7 ch × 7.015 = 49.1px → **50px** at `max-content` | 50px | Unchanged — `max-content` does not read the column |
+| Ticket key column, `HOLOCENE-12` | 11 ch × 7.015 = 77.2px → **78px** at `max-content` | 78px | Unchanged. The first draft's fixed 76px overflows this by 1.2px |
+| Ticket title column, on SIDE | 284 − 11 − 8 − 50 − 8 = **207px** | 227px | ≈**32** serif characters per line, down from 35 |
+| Ticket title column, on HOLOCENE | 284 − 11 − 8 − 78 − 8 = **179px** | 199px | ≈**28** serif characters per line, down from 31 |
+| Identity header repo name | 284 ÷ (22 × 0.5) = **25 characters** | 27 characters | Then it wraps. `sidepiece` is 9; the longest repo on the Registry today is well inside it |
+| Pane switch cell, `[v2]` three-up | (284 − 2 rules) ÷ 3 = **94px** per cell, − 20px padding − 11px mark − 4px hair = 59px ÷ 7.36 = **8 characters** | 8 characters (65.7px budget) | **Verdict holds, slack does not.** The `[v2]` label must be ≤ 8 characters — see the note under the table |
+| Clip band | `SIDEPIECE` 9 × 7.35 = 66.2px + `BRIDGE UP · LAN` 15 × 7.35 = 110.3px + 17px padding = **193.4px of 318px** | 193.4px of 338px | **Fits, 124.6px spare.** The first draft quoted 79px and 117px — two figures at two different implied rates, neither of them `micro`'s |
+| Ticket row, two-line title | 2 × 20.93 = 41.9px of text + 16px padding = **58px** | 58px | Unchanged — vertical. Clears the 32px `{spacing.row}` floor. A scroll budget built on the first draft's 52px under-counts by 11% per row |
+| FR-10 context URL, 47 ch | 47 × 7.015 = 329.7px against **248px**; 248 ÷ 7.015 = 35 ch per line | 329.7px against 268px (38 ch per line) | **Still wraps to two lines.** The three-line threshold moves from 76 characters to **71** |
+| Create-box submit cell | **264** − 32 − 32 − 16 = **184px**, less 22px padding = 162 ÷ 7.36 = **22 characters** | 24 characters | `CREATE IN 33GOD` (15 ch) fits with **seven** to spare, down from nine |
+| `[v2]` pin, two digits | 2 × 6.00 = 12.0px inside an 18px roundel less a 1.5px ring = 15px chord | Same | Unchanged — the roundel is not column-derived. **Fits, 1–99** |
+
+**The pane switch is the one place the ruling removed a margin rather than a verdict.** The
+`[v2]` third slot's label was never specified — `EXPERIENCE.md` reserves the seat and says the
+label is v2's to name — but the seam table there claims a third item fits *without wrapping*,
+and that claim is now measured: **eight characters.** `NOTES` (5) and `MARKS` (5) clear it;
+**`ANNOTATIONS` (11) does not, and did not at 304px either.** This is not a regression the
+ruling caused, it is a constraint the 340px draft never wrote down. v1's two-up switch is
+unaffected — (284 − 1) ÷ 2 = 141.5px per cell, a 14-character budget, against `TICKETS` (7) and
+`CHAT` (4).
 
 **The key column is grid-sized, not fixed.** `grid-template-columns: {spacing.glyph} max-content 1fr`
 at an 8px gap, with a `ch`-based `min-width`. The panel only ever shows one project's keys, so
 sizing every row for the longest key across all projects spends 28px of title on every row,
-permanently — seven times what the whole spine costs. On SIDE the grid returns that 28px to the
-title and the measure goes from 31 to 35 characters per line.
+permanently — three and a half times what the whole signature costs. On SIDE the grid returns
+that 28px to the title and the measure goes from 28 to 32 characters per line. **At 284px that
+recovery matters more, not less**: 28px is now **13.5%** of the title column rather than 12.3%,
+so the same grid decision buys back a larger share of a smaller measure.
 
 ### What the raised type floor cost
 
@@ -940,15 +983,78 @@ honestly:
    it **buys back the PRD's literal string**: the mock had to abbreviate `Dispatched Command`
    to `DISPATCHED CMD`, and at the shipped ramp it does not.
 2. **The FR-10 context URL no longer fits on one line.** 47 characters is 329.7px against
-   268px of chip. It wraps to two lines. EXPERIENCE.md renders the URL on focus or hover, so
+   248px of chip. It wraps to two lines. EXPERIENCE.md renders the URL on focus or hover, so
    two lines in a revealed state is acceptable — but it is a real loss against the mock's
    single-line claim and it is recorded as one.
 3. **The clip band is 21px → 24px tall** to carry 10.5px type with its leading.
 
+### What the 320px ruling cost
+
+*Added 2026-09-22, when S2 closed at 320px. The section above prices the type floor; this one
+prices the twenty pixels, and the two are independent — neither decision was made to pay for
+the other.*
+
+Nine measurements moved. **Two are real losses, one is structural, five are shrinkage a reader
+would never notice, and one is the product question this document had been holding open.**
+
+| What moved | 304px → 284px | How much it matters |
+|---|---|---|
+| Clone-path well, characters before wrap | 41 → **38** | Real. `/home/delorenj/code/sidepiece` is 29 and still sets on one line, but the headroom for a deeper path halved |
+| Ticket title measure, on SIDE | 35 → **32** ch/line | Cosmetic. Still above the 30-character floor below which a serif measure starts to read as a column of fragments |
+| Ticket title measure, on HOLOCENE | 31 → **28** ch/line | **Real, and the worst of the six.** A long key plus a long title is now under 30 characters a line. Mitigated, not solved, by the `max-content` key column |
+| Identity header repo name | 27 → **25** ch | Cosmetic at the Registry's current names |
+| Create-box submit label budget | 24 → **22** ch | Cosmetic. `CREATE IN 33GOD` is 15 |
+| Context-chip URL measure | 38 → **35** ch/line | Cosmetic. Two lines before and two lines after; only the three-line threshold moved, 76 → 71 |
+| Pane switch `[v2]` label budget | 8 → **8** ch | No verdict change; 6.7px of slack gone |
+| Fixed chrome as a share of the panel | 10.6% → **11.3%** | Structural. It is the one number that got *worse* without anything getting smaller |
+| `DISPATCHED COMMAND` | 131px spare → **111.5px spare** | **Survives.** Next subsection |
+
+**Nothing was abbreviated, nothing was elided and no type size was lowered to absorb this.**
+The Complete String Rule and the 10.5 Floor Rule both held under the ruling, which is the only
+test that mattered.
+
+### The one fit that decided a product question
+
+This document raised chrome type from the mock's 8.5px to 10.5/11.5px and accepted a replaced
+control and a wrapped URL for it, on the strength of one purchase: **`DISPATCHED COMMAND`
+spelled out.** The mock set `DISPATCHED CMD` and its own author flagged it as *"the one string
+in the mock that is not the PRD's literal, and it is a real finding, not a preference."* FR-6
+requires the classification be visible before commit with one control that flips it; PRD §3
+makes **Streamed Exchange** and **Dispatched Command** Glossary terms, and an abbreviation is a
+synonym. So when the column lost twenty pixels, the honest question was whether the purchase
+survived.
+
+```
+244px   inside {components.classificationControl} at a 320px panel
+−132.5  DISPATCHED COMMAND — 18 ch × 7.36px ({typography.label}, 11.5px + 0.04em)
+──────
+111.5px spare — 46% of the row is empty
+```
+
+**It fits, and it is not close.** `STREAMED EXCHANGE` (17 ch, 125.1px) fits with 118.9px spare.
+Working the chain backwards — 132.5px of type plus the composer's border and inset, the
+control's own border and padding, the sheet border, the spine and both gutters — the longer
+term still sets complete down to a **208.5px panel**, which is **111.5px below Chrome's own
+floor**. There is no width Chrome will draw at which this breaks.
+
+**So none of the escape hatches is needed, and none is taken.** For the record, and so nobody
+re-opens this on a hunch, the four that were on the table:
+
+| Option | Verdict |
+|---|---|
+| Abbreviate to `DISPATCHED CMD` | **Refused.** It is a Glossary synonym (PRD §3) and `EXPERIENCE.md` refuses it independently: *"Neither term is ever abbreviated, at any width."* Unnecessary as well as forbidden |
+| Stack the control vertically | **Already done, for a different reason.** The two values are already two full-width 30px rows — that was the type floor's doing, not the width's. There is nothing left to stack |
+| Drop the 0.04em letterspacing | **Not needed.** It would buy 8.3px on an 18-character string against 111.5px of slack, and it would cost the label voice `{typography.label}` sets everywhere else |
+| Shrink the label below 11.5px | **Forbidden and unnecessary.** 11.5px is this document's floor for variable content, and the classification is variable content |
+
+**The rule this leaves behind:** the classification control is the product's tightest required
+string in its deepest box, and it clears the floor width with 46% to spare. **If a future change
+cannot fit a required literal here, the change is wrong — not the literal.**
+
 ### Rhythm
 
 - **One scroll region on screen**: the body. Header and action bar are pinned. Nested scroll
-  regions in a 304px column are a trap-the-wheel bug.
+  regions in a 284px column are a trap-the-wheel bug.
 - **Group headers are `position: sticky`** inside the Tickets pane, on
   `{colors.surface.panel}` with a `{colors.border.strong}` bottom rule.
 - **There are two rhythms and they are not one grid.** The first draft claimed "vertical
@@ -1138,8 +1244,9 @@ identical on both, which is what the direction actually needs — the claim was 
 shadow travels, it was that **the mark** travels.
 
 *A `colors.surface.desk` token was considered and rejected — a neutral ground inset behind the
-sheet so the offset and four crop marks would have somewhere to land. It spends 12px of a 340px
-panel to render a shadow onto a fake table inside the viewport, which is precisely the
+sheet so the offset and four crop marks would have somewhere to land. It spends 12px of a 320px
+panel — **3.8%, up from 3.5% at the old 340px draft width** — to render a shadow onto a fake
+table inside the viewport, which is precisely the
 craft-fair move this direction cannot afford, and the spine already does the edge job for 6px
 that is spent anyway. Recorded in **Gaps**.*
 
@@ -1229,7 +1336,7 @@ a sixth.)*
 
 **`{components.identityHeader}`** — Pinned top on `{colors.surface.raised}`, closed by a 1px
 `{colors.border.strong}` seam. Repo name in `{typography.heading}` at `{colors.text.primary}`,
-fitting 27 characters before it wraps. Clone path directly beneath in a
+fitting 25 characters before it wraps. Clone path directly beneath in a
 `{colors.surface.sunken}` well with a 2px `{colors.border.hairline}` left edge, set in
 `{typography.mono}` at `{colors.text.machine}`, wrapping and `user-select: all`. Board
 identifier as a `{colors.surface.stamp}` chip — a **band**, so no inset keyline — with paper
@@ -1286,9 +1393,11 @@ resting-state signal, and with the operator's own turn now in Roman it is one of
 italics in the Cockpit.
 
 **`{components.classificationControl}`** — **Two full-width stacked 30px rows**, boxed in 1px
-`{colors.border.strong}`, divided by a 1px internal rule, 264px inside. Each row carries its
+`{colors.border.strong}`, divided by a 1px internal rule, **244px inside**. Each row carries its
 glossary term verbatim in `{typography.label}`, uppercase — `DISPATCHED COMMAND` at 132.5px in
-a 264px row. **The selected row carries a 2px `{colors.action.mark}` underline inside the cell
+a 244px row, **111.5px spare**, and `STREAMED EXCHANGE` at 125.1px. Neither term is abbreviated
+at any width, and at the 320px design width neither has to be — see **Layout & Spacing → The one
+fit that decided a product question**. **The selected row carries a 2px `{colors.action.mark}` underline inside the cell
 and sets its label in `{colors.text.primary}`**; the unselected row is transparent with a
 `{colors.text.muted}` label. This matches `{components.paneSwitch}` exactly, which is the
 point: the two selection controls in the product now look like each other. *(The first draft
@@ -1297,7 +1406,7 @@ larger than the clip band, and absent from both of the document's own enumeratio
 spot appears. It was the single largest resting spot area in the product and it is gone.)*
 
 **`{components.contextChip}`** — A `{colors.surface.sunken}` block with a dashed 1px
-`{colors.border.hairline}` bottom rule, sitting at the top of the composer, 268px inside. Its
+`{colors.border.hairline}` bottom rule, sitting at the top of the composer, **248px inside**. Its
 kicker is `{typography.micro}` at `{colors.text.muted}`; the page title is `{typography.body}`
 at its own 13.5px in `{colors.text.primary}`, wrapping to at most two lines — **no size
 override; a token's value is the token's value**; the URL, when revealed, is
@@ -1341,7 +1450,8 @@ padding), with `{spacing.row}` 32px as the one-line floor, separated by 1px
 whichever of the five `colors.state` values the row resolves to; the key in `{typography.mono}`
 at `{colors.text.machine}`, sized to the longest key **in the current fetch** rather than to
 the longest key across all projects; the title filling the remainder in `{typography.body}` at
-`{colors.text.primary}`, wrapping to two lines — 227px, ≈35 characters per line, on SIDE. Hover
+`{colors.text.primary}`, wrapping to two lines — 207px, ≈32 characters per line, on SIDE
+(179px and ≈28 on a `HOLOCENE`-length key). Hover
 raises the row ground to `{colors.surface.raised}` — affordance 1, a tonal step, never a
 shadow. A missing field renders as an ink em-dash at `{colors.text.muted}`, never as blank
 space.
@@ -1350,11 +1460,11 @@ space.
 `{colors.text.muted}` above a 1px `{colors.border.strong}` top rule. The title field is a
 **ruled blank**: no box, no ground, just a 1px `{colors.border.strong}` baseline with serif
 italic placeholder at `{colors.text.muted}` — a form to be filled in by hand. The submit row is
-**three cells at 32px across a 284px inner width: a 32px fixed leading slot, the submit filling
-the remainder at 204px, a 32px fixed trailing slot, 8px gaps.** The submit is
+**three cells at 32px across a 264px inner width: a 32px fixed leading slot, the submit filling
+the remainder at 184px, a 32px fixed trailing slot, 8px gaps.** The submit is
 `{colors.action.primary}` with the struck-plate keyline and its target Board named in
-`{typography.label}` — a **24-character budget** at 7.36px per character after its `0 11px`
-padding, which `CREATE IN 33GOD` clears with nine to spare. **The two empty slots render as
+`{typography.label}` — a **22-character budget** at 7.36px per character after its `0 11px`
+padding, which `CREATE IN 33GOD` clears with seven to spare. **The two empty slots render as
 ruled space, not as gaps**, so the `[v2]` seats are visibly reserved.
 
 **`{components.refetchControl}`** — 28px, transparent, 1px `{colors.border.strong}`,
@@ -1802,7 +1912,10 @@ the Cockpit to follow an OS theme change while open, and the media query does th
    modes; this document chose invariance and that choice now has daily consequences rather
    than theoretical ones. Overrule it if the night spine reads weak in use.
 4. **Chrome labels moved from 8.5px to 10.5/11.5px.** This bought back the verbatim
-   `DISPATCHED COMMAND` and cost the single-line context URL. Confirm the trade.
+   `DISPATCHED COMMAND` and cost the single-line context URL. Confirm the trade. **The 320px
+   ruling re-tested it and it held**: at the narrower column the term still sets complete with
+   111.5px spare, and the URL was already wrapping, so the ruling changed neither side of the
+   trade. The question is still yours, but it is now asked at the real width.
 5. **The mock's `ink-3 #837A69` is 3.63:1 and fails body text**, so `{colors.text.muted}` ships
    at `#645D4E` (5.59:1) and `#837A69` is **dropped from the system entirely** — no token
    carries it. The panel reads slightly heavier than the mock did. Confirm that is wanted.
@@ -1825,7 +1938,7 @@ the Cockpit to follow an OS theme change while open, and the media query does th
 
 - **REJECTED — `colors.surface.desk` plus a 6px sheet inset, so the offset and four crop marks
   have somewhere to land.** Both auditors proposed it and it is the wrong trade. It spends 12px
-  of a 340px panel to render a shadow onto a fake table *inside* the viewport, which is exactly
+  of a 320px panel to render a shadow onto a fake table *inside* the viewport, which is exactly
   the craft-fair move this direction cannot afford; the spine already does the edge job at
   3.61:1 against white for pixels that are spent anyway. The *finding* — that the signatures
   cannot render on the Cockpit — is correct and is fixed by splitting the law by surface.
@@ -1886,22 +1999,34 @@ the Cockpit to follow an OS theme change while open, and the media query does th
 
 **For EXPERIENCE.md's parallel revision**
 
+*Six items were handed over. Three are struck below, absorbed into `EXPERIENCE.md` on
+2026-09-22 — this list is the handoff, not a second home for behaviour, so an item that has
+landed in the peer spine is struck here rather than kept in both.*
+
 - **`{colors.overlay.signature}` is now defined**, at `#FF2E63`, as the one signature ink shared
   by the Cockpit and the in-page layer, invariant across surfaces and across both grounds. All
-  five of EXPERIENCE.md's references resolve. **One amendment it should absorb:** the signature
+  five of EXPERIENCE.md's references resolve. ~~**One amendment it should absorb:** the signature
   *treatment* is ink **plus geometry** — the detached registration ticks and the ticked spine —
-  because the hue alone is under 3:1 against 91% of sRGB and ΔE 8.0 from Tailwind `rose-500`.
-  The behavioral guarantee EXPERIENCE.md states ("must be the same mark in both") is satisfied
-  and strengthened by that, but any sentence that treats the signature as *only* a colour is
-  now too narrow.
+  because the hue alone is under 3:1 against 91% of sRGB and ΔE 8.0 from Tailwind `rose-500`.~~
+  **ABSORBED 2026-09-22** — carried into **Foundation → The visual fork is closed**, consequence
+  2, because the achromatic fallback below could not be stated without it. The behavioral
+  guarantee EXPERIENCE.md states ("must be the same mark in both") is satisfied
+  and strengthened by that; any sentence there treating the signature as *only* a colour has
+  been widened.
 - ~~**`{typography}`'s note reads "Sans for people, mono for machines."** The chosen direction is
   **serif** for people; the mono half is unchanged. One word.~~ **APPLIED 2026-09-22** —
   `EXPERIENCE.md` now reads "Serif for people, mono for machines" and "the serif/mono split",
   matching **Typography → The Two Voices Rule**.
-- **EXPERIENCE.md writes the column as 320px throughout.** The direction is drawn at 340px with
+- ~~**EXPERIENCE.md writes the column as 320px throughout.** The direction is drawn at 340px with
   a **304px** usable column after the spine, border and gutter. 320px is Chrome's floor, not the
   design target; at 320px the usable column is 284px and the ticket title column drops to 207px
-  on SIDE. One number, many occurrences.
+  on SIDE. One number, many occurrences.~~ **RESOLVED 2026-09-22 — and resolved against this
+  document.** The architecture's closing sweep raised it as **S2**; Jarad ruled **320px**.
+  `EXPERIENCE.md` was right and this document was the outlier. **Layout & Spacing** has been
+  recomputed end to end at a **284px** usable column — see **What the 320px ruling cost** for
+  the nine measurements that moved and **The one fit that decided a product question** for the
+  one that mattered. `EXPERIENCE.md` now cites 284px rather than "roughly 300". No handoff
+  remains: the two documents state the same number and derive it the same way.
 - **`{rounded.pill}` "is reserved for state markers so a state is never shaped like a control."**
   Here state markers are drawn marks and `pill` has exactly two `[v2]` consumers. The intent is
   over-satisfied but the sentence is now wrong.
@@ -1912,7 +2037,20 @@ the Cockpit to follow an OS theme change while open, and the media query does th
   section above, subject to Jarad's ruling — and note that the answer to its Gaps item 3 ("what
   is dark mode?") is now **Night Paper**, a fourth option its three-way framing (no dark mode /
   an inverted paper / a genuine second token set) did not contain.
-- **EXPERIENCE.md should carry the three `[v2]` platform rules this document added**, because
+- ~~**EXPERIENCE.md should carry the three `[v2]` platform rules this document added**, because
   all three change behavior rather than appearance: the in-page layer does not print; a mark
   whose anchor is occluded collapses to an edge-docked stub; and the outline samples the page's
-  computed background and drops its signature stroke below ΔE 25.
+  computed background and drops its signature stroke below ΔE 25.~~ **ABSORBED 2026-09-22.**
+  All three now live in `EXPERIENCE.md`, in its own structure rather than as a quotation of
+  this one:
+  - **Nothing prints** → **Responsive & Platform → Printing a page the marks are on `[v2]`**,
+    with the position-fixed-vs-document-coordinates trade recorded as a standing assumption.
+  - **Occluded anchor → edge-docked stub** → **Annotation Anchoring and Drift → When the anchor
+    resolves but cannot be seen**, stated as a viewport condition and explicitly *not* as a
+    fifth anchoring outcome, so the Annotations pane still reports the row as **Anchored**.
+  - **The ΔE 25 achromatic fallback** → **Foundation → The visual fork is closed**,
+    consequence 2, as the one permitted variation in the register-travels guarantee.
+
+  **This document keeps the pixel specification of all three** — the stub's geometry, the
+  print rule's selector, the sampling rule's threshold. What moved is the behaviour, which was
+  never this document's to hold.
