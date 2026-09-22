@@ -1,5 +1,5 @@
 ---
-status: draft
+status: final
 updated: 2026-09-22
 project: sidepiece
 sources:
@@ -10,7 +10,7 @@ sources:
   - .working/research-mv3-platform.md
   - .working/research-annotation-prior-art.md
   - .working/research-house-design-language.md
-  - .working/direction-foreign.html
+  - mockups/direction-foreign.html
 ---
 
 # Sidepiece — Experience Spine
@@ -37,17 +37,23 @@ nobody builds it in v1. No `[v2]` element ships in v1. Every reserved seat is na
 **Version Seam and Reserved Seats**.
 
 **The visual direction is chosen.** On 2026-09-20 Jarad picked direction 04, **"Deliberately
-Foreign"** — [`.working/direction-foreign.html`](.working/direction-foreign.html) — from four
+Foreign"** — [`mockups/direction-foreign.html`](mockups/direction-foreign.html) — from four
 rendered at true panel width and shown side by side
 ([`.working/directions-compare.html`](.working/directions-compare.html)). The other three
 (`direction-chrome-native.html`, `direction-inherited.html`,
-`direction-severity-ladder.html`) are retained as the rejected alternatives. Its palette,
-type and shape belong to `DESIGN.md` and are not restated here. Three of its consequences are
-*behavioral* and are therefore this spine's, and they are taken in **Foundation**: the usable
-column, the travelling register, and the one PRD literal the mock could not fit. No
-`mockups/`, `wireframes/` or `imports/` artifacts exist yet; the picked direction is the
-promotion candidate at Finalize, and when key-screen mocks are rendered they are linked
-inline from the sections they illustrate.
+`direction-severity-ladder.html`) are retained in `.working/` as the rejected alternatives.
+Its palette, type and shape belong to `DESIGN.md` and are not restated here. Three of its
+consequences are *behavioral* and are therefore this spine's, and they are taken in
+**Foundation**: the usable column, the travelling register, and the one PRD literal the mock
+could not fit.
+
+**Two mocks are promoted, and only one of them is current.**
+[`mockups/key-screens.html`](mockups/key-screens.html) renders seven screens at the ruled
+320px and is the visual reference for the shipped design; it is linked inline from the three
+sections it illustrates. `mockups/direction-foreign.html` is the **historical** origin mock —
+drawn at 340px against a pre-final token set, superseded by `DESIGN.md` on every number, and
+kept only because the register was born there. Both are evidence. Neither is authority: the
+spines win on conflict, as stated above.
 
 ---
 
@@ -225,6 +231,11 @@ from it and nothing else, because all three change behavior rather than appearan
 ---
 
 ## Information Architecture
+
+*Drawn: [`mockups/key-screens.html`](mockups/key-screens.html) **S1** (Chat pane) and **S3**
+(Tickets pane) render this column at 320px — the pinned identity header, the pane switch on
+its bottom edge, one pane in the body, and the pinned input. **S2** crops the action bar at
+1:1 with a measuring rule under it.*
 
 ### The column, top to bottom
 
@@ -508,9 +519,8 @@ times and the *sentence* five times; the five are literal and are never paraphra
    `architecture.md`'s wire rules carve remedy command text out as the one deliberate
    exception: DS-11's provisioning command and DS-14's board-binding command "**is** sent by
    the Bridge, verbatim as it composed it", for this spine's stated reason. Assumption kept as
-   the record of why: the Bridge
-   owns command text because it knows the installed pjangler and Hermes surface; a command
-   the Cockpit invents goes stale the first time a flag changes. FR-5 and FR-12 require the
+   the record of why: the Bridge owns command text because it knows the installed pjangler
+   and Hermes surface; a command the Cockpit invents goes stale the first time a flag changes. FR-5 and FR-12 require the
    command be named, not that the Cockpit author it.]` Where an FR *requires* a command and
    the Bridge returns none, that is a Bridge bug and is said out loud — see
    `{components.commandString}`.
@@ -649,6 +659,14 @@ commit; it does not require it live.]`
 
 The heart of this document. Four rules govern everything below.
 
+*Drawn: [`mockups/key-screens.html`](mockups/key-screens.html) **S4** is DS-3, the total
+outage — one shared notice, no identity header, an inert pane switch. **S5** is DS-17, the
+partial outage — header intact, one per-pane notice, the create box disabled. Rule 2's
+total/partial line is the difference between those two screens, and they are drawn side by
+side so it can be checked rather than read. The other twenty-six DS rows render into shapes
+already drawn there; `.decision-log.md`'s coverage walk records which, and which two — DS-1
+and DS-21 — are the genuinely different shape nothing on the sheet covers.*
+
 **Rule 1 — no pane may render a failure as an empty state or a permanent spinner. Ever.**
 (FR-3, §5, FR-7: P1, P2, P3.) Three corollaries:
 
@@ -757,10 +775,9 @@ here in the same change, which is the rule this table already imposed on itself:
 mode gets a code and a row together or it gets neither. Five of the six were demanded by
 architectural decisions that named a state and never made one; the sixth, DS-27, is this
 document's own **Bridge contract drift**, handed to architecture below the table and now
-answered. `architecture.md` D2, D3, D7, D12 and D15 carry the reasoning.)* Two further classes
-of degradation are
-real and deliberately live elsewhere, named here so the enumeration does not pretend to
-cover them: **mutation-scoped** refusals — the stale-generation refusal — are in the
+answered. `architecture.md` D2, D3, D7, D12 and D15 carry the reasoning.)* Two further classes of
+degradation are real and deliberately live elsewhere, named here so the enumeration does not
+pretend to cover them: **mutation-scoped** refusals — the stale-generation refusal — are in the
 normal-path table below, because the mutation is the thing that failed and nothing is
 degraded once it is refused; and **in-flight subscription** failure — SSE not established —
 is in **Reopen cold start** rule 6, because it is a property of the open, not of the
@@ -838,9 +855,8 @@ kept below, struck, because the handover is the useful part of the record.)*
   `<all_urls>` host permission the transport's exemption as well as the detection decision, so
   PRD §12 Q7 is a single confirmation on `carries-macbook-air` with **no prompt** as the
   expected result. What stays live is only the contingency, and it is unchanged: a denial
-  presents to the Cockpit as an
-  ordinary fetch failure and therefore renders as DS-5, which is honest but unhelpful. If
-  the failure is distinguishable in practice, it earns its own row with its own wording
+  presents to the Cockpit as an ordinary fetch failure and therefore renders as DS-5, which is
+  honest but unhelpful. If the failure is distinguishable in practice, it earns its own row with its own wording
   naming the permission. No row is minted for a state nobody expects to see.]`
 - ~~**Bridge contract drift** — a Bridge older or newer than the Cockpit expects. Nothing in
   the source set specifies a version handshake. Not invented here; flagged for
@@ -966,9 +982,9 @@ and pane selection Rule 4 puts in `chrome.storage.local`. `[ASSUMPTION — STILL
 Finalize 2026-09-22, and independently corroborated rather than answered: `architecture.md`'s
 constraint list reaches the same wall in the same words — "nothing documents whether `onClosed`
 fires early enough to be trusted as one." Two sweeps found no answer, so the belt-and-braces
-design is the answer. onClosed is
-treated as a notification, not a guaranteed drain. Drafts are therefore debounced continuously
-during typing and onClosed is a belt, not the braces.]`
+design is the answer. onClosed is treated as a
+notification, not a guaranteed drain. Drafts are therefore debounced continuously during
+typing and onClosed is a belt, not the braces.]`
 
 ---
 
@@ -1262,6 +1278,14 @@ recoverable rather than a rewrite.
 
 Journey names are the PRD's own, verbatim (§2.3). UJ-4 is Jarad's narrated session from
 `.decision-log.md` and is **`[v2]`** in full.
+
+*Drawn: [`mockups/key-screens.html`](mockups/key-screens.html) renders four beats of these
+journeys at 320px. **S3** is UJ-1 steps 3–7, including the create box's submit naming its
+Board. **S2** is UJ-2 steps 2 and 6 — the context chip, the classification control and its
+consequence line, at 1:1. **S1** is UJ-2 step 8, the thread he came back to. **S7** is UJ-4's
+in-page beats. UJ-3 is spine-only by choice: its climax is two copy controls and a
+provisioning command the Cockpit may never invent, so drawing it would have meant
+fabricating a Bridge response.*
 
 ### UJ-1. Jarad files a bug against the thing he's staring at
 
@@ -1973,7 +1997,7 @@ last row is a `[NOTE FOR ARCHITECTURE]` rather than an assumption.)*
 | No per-window pane-selection key | Lifecycle § Window switch | This spine | Priced and accepted for a two-item toggle |
 | No in-product nudge to pin the icon | First run | This spine | Priced and accepted |
 | `Alt+M` flips, `Alt+1`/`Alt+2` select a pane | Interaction Primitives § Keyboard | This spine | In-document handlers; they cost nothing from the `commands` budget and nothing downstream reads them |
-| A Chrome restart leaves the Cockpit closed | Lifecycle § Chrome restart | Nobody — unanswerable today | The cache half was **ruled** on 2026-09-22 and the row corrected; whether Chrome reopens the panel document, and whether it restores a resized width, is confirmed by no source. Designing for a restored document would be designing for behaviour nothing observed |
+| A Chrome restart leaves the Cockpit closed | Lifecycle § Chrome restart | Nobody — unanswerable today | The cache half was **ruled** on 2026-09-22 and the row corrected; whether Chrome reopens the panel document, and whether it restores a resized width, is confirmed by no source. Designing for a restored document would be designing for behavior nothing in the sweep observed |
 | An LNA denial reads as an ordinary fetch failure | DS table footnote | Implementation | **Narrowed, not settled.** The prompt itself is closed three ways over — `addendum.md` §C, architecture's constraint list, and D16's `<all_urls>` exemption — so **no prompt** is the expected result and PRD §12 Q7 is one confirmation on `carries-macbook-air`. What stays live is the contingency: if a denial ever does fire and proves distinguishable, it earns its own DS row. No row is minted for a state nobody expects |
 
 *(Eleven rows, twelve assumptions — the keyboard row covers `Alt+M` and the two pane keys as

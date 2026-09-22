@@ -11,11 +11,11 @@
 # document.
 name: Sidepiece
 description: A printed instrument laid on top of somebody else's screen. Warm paper, serif ink, a fluorescent signature and detached registration ticks that make a Sidepiece mark unmistakable on a white docs site and a black dashboard alike.
-status: draft
+status: final
 updated: 2026-09-22
 project: sidepiece
 sources:
-  - .working/direction-foreign.html
+  - mockups/direction-foreign.html
   - .working/research-house-design-language.md
   - .decision-log.md
   - EXPERIENCE.md
@@ -337,9 +337,24 @@ components:
 names a state, a control or a component, it specifies only its appearance; what it does,
 when it appears and what it says are the spine's, and are not restated here.
 
+**Both spines win on conflict with any mock, wireframe or import**, and two mocks are linked
+from the sections they illustrate. [`mockups/key-screens.html`](mockups/key-screens.html)
+draws seven surfaces at the ruled 320px against the tokens below; it is the visual reference
+for the shipped design. [`mockups/direction-foreign.html`](mockups/direction-foreign.html) is
+the **historical** origin mock — 340px, a pre-final token set, superseded here on every
+number — kept because the register was born in it. A mock is evidence that a specification
+holds, never the specification. Where a mock and this document disagree, this document is
+right and the mock is old.
+
 ---
 
 ## Brand & Style
+
+*Drawn: [`mockups/key-screens.html`](mockups/key-screens.html) is the register at the ruled
+width — **S1** for the resting sheet, **S7** for the same register carried onto somebody
+else's dashboard, which is the claim this section is making.
+[`mockups/direction-foreign.html`](mockups/direction-foreign.html) is where the register was
+picked, and is historical at every number.*
 
 **Creative North Star: "The Printed Instrument."**
 
@@ -572,7 +587,7 @@ without its `marks` sibling is producing a hue-only state, and that is a build d
 
 ### The state set
 
-Five inks, five marks, five weights. Every state ships all three.
+Five states, five marks, five weights. Every state ships all three.
 
 | Token | Value | Mark | Form | Weight | On paper | On raised | On sunk | Reading |
 |---|---|---|---|---|---|---|---|---|
@@ -1188,10 +1203,13 @@ crispness is the single fastest read that this is not a web card.
 `{rounded.pill}` is `9999px` and has **exactly two consumers in the whole system**: the `[v2]`
 `{components.annotationPin}`, a numbered roundel drawn on somebody else's page, and
 `{components.iconBadge}`, which Chrome draws on its own toolbar. **Nothing inside the Cockpit
-is ever a pill.** This is a deliberate departure from EXPERIENCE.md's note that "pill is
+is ever a pill.** This was a deliberate departure from EXPERIENCE.md's note that "pill is
 reserved for state markers so a state is never shaped like a control" — here state markers are
 **drawn marks**, which satisfies that intent more strongly than a pill would, because they are
-not shaped like anything else in the system. Flagged in **Gaps** for the spine's revision.
+not shaped like anything else in the system. **The two documents now agree:** EXPERIENCE.md's
+Foundation primitives table was amended on 2026-09-22 to read "A state is never shaped like a
+control" and to name `pill`'s two consumers, so this is no longer a departure and no longer a
+handoff.
 
 ### The signatures, by surface
 
@@ -1304,6 +1322,17 @@ rather than repeated 25 times.
 
 The seven `[v2]` components render into arbitrary third-party pages through a closed shadow
 root, so the section below them states how they hold up over an unknown background.
+
+*Drawn: [`mockups/key-screens.html`](mockups/key-screens.html) renders fourteen of the
+seventeen v1 components and three of the eight `[v2]` ones. **S1** carries the identity
+header, pane switch, health marker, both `turnCard` variants and the composer at rest;
+**S2** is the composer at 1:1 with its classification control and context chip; **S3** the
+ticket group header, row, create box and refetch control; **S4** and **S5** the state notice
+and the re-resolve control in its primary and disabled forms; **S6** every one of them again
+on Night Paper; **S7** the hover outline, its tooltip and the comment bubble. What is not
+drawn, and the reason in each case, is in `.decision-log.md`'s coverage walk —
+`{components.commandString}` is the one v1 component whose fit at 284px this pass left
+untested, because rendering one would have meant inventing a Bridge response.*
 
 ### The Mark Law
 
@@ -1702,6 +1731,11 @@ real Sidepiece roundel achievable — is recorded in **Gaps** rather than assume
 
 ## Dark mode
 
+*Drawn: [`mockups/key-screens.html`](mockups/key-screens.html) **S6** is **S1** repeated on
+Night Paper, placed so the two can be read against each other. It is the check this section
+asks for — that the stamp band, the strong rules, the ink, the machine blue, the clip and
+the spine come out byte-identical, and that the register survives the dimmed ground.*
+
 **DECIDED 2026-09-20 — Sidepiece ships two grounds in one register.
 `prefers-color-scheme: dark` renders Night Paper: the paper is dimmed, never inverted.
 Fifteen values change; seventeen do not; the stamp device and the signature survive intact.**
@@ -1941,7 +1975,7 @@ the foot is now **fully discharged**.*
    not print** (a fixed-position layer would otherwise paint over the first printed page), and
    an occluded pin **collapses to an edge-docked stub** rather than floating over a page's own
    sticky nav. Both are recorded above as spec; both are reversible if you want different
-   behaviour, and reversing the print one changes the layer's positioning model.
+   behavior, and reversing the print one changes the layer's positioning model.
 
 **Findings from the two audits that were rejected, and why**
 
@@ -2008,12 +2042,12 @@ the foot is now **fully discharged**.*
 
 **For EXPERIENCE.md's parallel revision**
 
-*Six items were handed over. **All six are now discharged** *(closed 2026-09-22 at `bmad-ux`
-Finalize, which is the step `architecture.md`'s S3 said would absorb this list)* — four on
+*Six items were handed over. **All six are now discharged** (closed 2026-09-22 at `bmad-ux`
+Finalize, which is the step `architecture.md`'s S3 said would absorb this list) — four on
 2026-09-22's earlier passes, and the last two at Finalize: `{rounded.pill}` was **applied** into
 `EXPERIENCE.md`'s Foundation primitives table, and the dark-mode item was found **already
 overtaken** and is struck as stale. **Nothing in this list is live.** It is the handoff, not a
-second home for behaviour, so an item that has landed in the peer spine is struck here rather
+second home for behavior, so an item that has landed in the peer spine is struck here rather
 than kept in both.*
 
 - **`{colors.overlay.signature}` is now defined**, at `#FF2E63`, as the one signature ink shared
@@ -2076,5 +2110,5 @@ than kept in both.*
     consequence 2, as the one permitted variation in the register-travels guarantee.
 
   **This document keeps the pixel specification of all three** — the stub's geometry, the
-  print rule's selector, the sampling rule's threshold. What moved is the behaviour, which was
+  print rule's selector, the sampling rule's threshold. What moved is the behavior, which was
   never this document's to hold.
