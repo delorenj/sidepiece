@@ -994,7 +994,38 @@ The resolution leg is the one with a fallback — a client-side cache in front a
 
 *Step 7. Validation found thirty-three defects in the six sections above; thirty-one are repaired in place. These are the two that are not architecture's to decide, plus one that needs ten minutes of empiricism rather than a decision. They are here rather than silently answered, because a document that invents an answer to a question its owner reserved is worse than one that leaves the question visible.*
 
-**O1 — What emits the `pjid` declaration into served pages?** *(PRD §12 Q4, open. `EXPERIENCE.md` Gap 8, open.)*
+**O1 — RESOLVED 2026-09-23. Filed as [33GOD-66](https://plane.delo.sh/33god/projects/15258893-0206-4e8f-aea6-340eb217988c/issues/554b5867-5f8e-483c-8b90-c72557d1ebf9), owned by the 33GOD board.** *(PRD §12 Q4 and `EXPERIENCE.md` Gap 8 close with it.)*
+
+Jarad's ruling, and it is a better mechanism than any of the three costed below:
+
+- **Traefik middleware for everything behind the reverse proxy.** Every homelab surface
+  already sits behind Traefik, which makes the emitter **retroactive by construction** — one
+  middleware change covers every `delo.sh` surface that exists *and* every one added later,
+  with no per-project edit and no template drift. The three options below are all *sweeps*:
+  they fix what exists and leave a way to forget. This one deletes the backfill problem
+  rather than solving it.
+- **A pjangler recipe, lazily applied, for external surfaces.** Few enough that a recipe run
+  when one is actually encountered is proportionate. No up-front migration.
+
+The two are complementary rather than competing: the proxy takes the ~19 registered Projects
+forever, the recipe takes the long tail on demand, and neither has to be complete for the
+other to work.
+
+**The implementation call belongs to the 33GOD PM**, not to this document — filed as pjangler
+work because that is where the registry and the identifier live, but the Traefik framing may
+make it infrastructure work instead. `[NOTE FOR PM: the real design question is not the
+injection, it is the request→pjid mapping at the proxy. The Registry holds it; how Traefik
+reaches it — a lookup service, generated config, a label convention — is why this is not a
+one-liner, and it is recorded on 33GOD-66.]`
+
+**What does not change:** D14 still fixes the literal form, the dev fixture is still FR-1's
+acceptance set, and DS-1 is still designed as the browser's default condition rather than an
+edge case. Sidepiece implementation was never blocked on this and still is not. What closes
+is the question of whether v1 works on anything but a fixture — and it now has an owner on
+another board.
+
+*The original entry follows, kept because the options it prices are the argument for why the
+proxy wins.*
 
 The architecture half is closed: D14 fixes the literal form any emitter must satisfy, and sequence step 0b names the dev fixture FR-1's acceptance tests run against. What is not closed is the mechanism, and PRD §12 Q4 explicitly scopes it out of the product document while calling it "**sequencing risk on the critical path** — it gates every success metric in §11."
 
@@ -1078,7 +1109,12 @@ All three shared a failure mode the PRD names as its worst outcome: they produce
 
 **Open items requiring Jarad** — neither blocks implementation:
 
-- **O1 — what emits the `pjid` into served pages (PRD §12 Q4).** Carried with three costed options. It gates **acceptance** of FR-1…FR-4 in production, not their implementation: sequence step 0b builds a three-page dev fixture (one `pjid`, none, two conflicting) which is FR-1's and D14's acceptance set, so the work is testable before the emitter exists. **This remains the project's real sequencing risk — v1 is inert in production until something emits the tag.**
+- **O1 — CLOSED 2026-09-23**, as [33GOD-66](https://plane.delo.sh/33god/projects/15258893-0206-4e8f-aea6-340eb217988c/issues/554b5867-5f8e-483c-8b90-c72557d1ebf9) on the
+  33GOD board: **Traefik middleware** for everything behind the proxy — retroactive by
+  construction, no per-project edit, no template drift — plus a **lazily-applied pjangler
+  recipe** for the few external surfaces. The mechanism call (pjangler vs infrastructure)
+  is the 33GOD PM's. This was the project's standing production risk and it now has an
+  owner outside this repository.
 - **O2 — the `[v2]` annotation payload shape.** Two of `EXPERIENCE.md`'s open Gaps items decide it, both explicitly Jarad's. Nothing in v1 depends on it.
 
 **Deliberate divergences to reflect upstream — there are two, both against PRD §5, both filed as `[NOTE FOR PM]`s:**
