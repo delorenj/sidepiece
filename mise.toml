@@ -66,12 +66,7 @@ run = "pnpm -r run typecheck"
 
 [tasks.lint]
 description = "Biome lint + format check (packages/** and root config) + SQL no-project-id grep"
-run = """
-rc=0
-pnpm exec biome check . || rc=1
-sh lint/no-project-id-sql.sh || rc=1
-exit $rc
-"""
+run = "sh lint/lint.sh"
 
 [tasks."lint:selftest"]
 description = "Self-test the no-project-id lint (A-P1) against temp fixtures"

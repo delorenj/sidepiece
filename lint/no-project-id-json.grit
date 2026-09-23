@@ -1,4 +1,5 @@
-// no-project-id (JSON) -- architecture A-P1. See lint/no-project-id.grit for
+// no-project-id (JSON) -- architecture A-P1. Same case-insensitive
+// `project[_-]?id` / `project[_-]?slug` match as the JS/TS rule. See lint/no-project-id.grit for
 // the rationale, the two boundary exceptions, and why `project` and a bare
 // `id` are deliberately not covered (too generic; human-checked instead).
 language json
@@ -7,6 +8,6 @@ or {
   JsonMemberName(),
   JsonStringValue()
 } as $name where {
-  $name <: r".*project_id.*|.*projectId.*|.*projectSlug.*",
+  $name <: r"(?i).*project[_-]?id.*|(?i).*project[_-]?slug.*",
   register_diagnostic(span=$name, message="pjangler's identifier is 'pjid'; Plane's board UUID is 'boardId'. Rename at the boundary (architecture A-P1).", severity="error")
 }

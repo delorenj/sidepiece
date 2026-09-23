@@ -5,9 +5,9 @@
   "scripts": {
     "build": "pnpm -r run build",
     "typecheck": "pnpm -r run typecheck",
-    "lint": "biome check . && sh lint/no-project-id-sql.sh",
+    "lint": "sh lint/lint.sh",
     "format": "biome check --write .",
-    "test": "pnpm -r --if-present run test"
+    "test": "sh lint/no-project-id.test.sh && pnpm -r --if-present run test"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",
