@@ -25,3 +25,7 @@ __pycache__
 
 # Hermes agent runtime — pure-local state, never tracked (degit-runtime).
 agents/hermes/*/runtime/
+.bmad-loop/runs/
+.bmad-loop/cache/
+.bmad-loop/policy.toml
+_bmad/render/

@@ -1,56 +1,66 @@
 installation:
-  version: 6.8.0
+  version: 6.12.0
   installDate: 2026-06-04T17:15:36.879Z
-  lastUpdated: 2026-06-10T17:44:34.720Z
+  lastUpdated: 2026-09-23T19:49:18.144Z
+  installShims: false
 modules:
   - name: core
-    version: 6.8.0
+    version: 6.12.0
     installDate: 2026-06-04T17:15:36.831Z
-    lastUpdated: 2026-06-10T17:44:34.717Z
+    lastUpdated: 2026-09-23T19:49:18.139Z
     source: built-in
     npmPackage: null
     repoUrl: null
   - name: bmm
-    version: 6.8.0
+    version: 6.12.0
     installDate: 2026-06-04T17:15:36.844Z
-    lastUpdated: 2026-06-10T17:44:34.718Z
+    lastUpdated: 2026-09-23T19:49:18.139Z
     source: built-in
     npmPackage: null
     repoUrl: null
   - name: bmb
-    version: v1.8.1
+    version: v2.2.2
     installDate: 2026-06-04T17:15:36.854Z
-    lastUpdated: 2026-06-10T17:44:34.719Z
+    lastUpdated: 2026-09-23T19:49:18.140Z
     source: external
     npmPackage: bmad-builder
     repoUrl: https://github.com/bmad-code-org/bmad-builder
     channel: stable
-    sha: 3410d952eafe621f31fcdf4dd5efb2b06690a306
+    sha: 4a1422274a2acb0fb0ec0511753da6263948f072
   - name: cis
-    version: v0.2.1
+    version: v0.3.2
     installDate: 2026-06-04T17:15:36.858Z
-    lastUpdated: 2026-06-10T17:44:34.720Z
+    lastUpdated: 2026-09-23T19:49:18.141Z
     source: external
     npmPackage: bmad-creative-intelligence-suite
     repoUrl: https://github.com/bmad-code-org/bmad-module-creative-intelligence-suite
     channel: stable
-    sha: 07a8dd03d196a762f21c241d985293fe5b0f90e7
+    sha: 97298b22fee1c7e482710d3a8414adb5cfccccd9
   - name: automator
     version: main
     installDate: 2026-06-10T17:44:34.696Z
-    lastUpdated: 2026-06-10T17:44:34.720Z
+    lastUpdated: 2026-09-23T19:49:18.142Z
     source: external
     npmPackage: bmad-story-automator
     repoUrl: https://github.com/bmad-code-org/bmad-automator
     channel: next
-    sha: f332173a692ffbabb24734c31dedadfcf78b9ed1
+    sha: 0b94fd7bec8672f5bc384123f1f76e1daae1dc2b
+  - name: bmad-loop
+    version: v0.12.0
+    installDate: 2026-09-23T19:49:18.106Z
+    lastUpdated: 2026-09-23T19:49:18.144Z
+    source: external
+    npmPackage: null
+    repoUrl: https://github.com/bmad-code-org/bmad-loop
+    channel: stable
+    sha: b755a0fa1d88494e0a0742d3f8cf33899528a3c0
 ides:
   - claude-code
   - codex
+  - github-copilot
   - auggie
   - gemini
-  - opencode
-  - github-copilot
   - antigravity
   - mistral-vibe
   - openclaw
+  - opencode
