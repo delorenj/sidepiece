@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsup && node --test \"test/*.test.ts\""
   },
   "dependencies": {
     "@sidepiece/contract": "workspace:*"
