@@ -1,0 +1,17 @@
+{
+  "name": "sidepiece",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "test": "pnpm -r --if-present run test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.14",
+    "tsup": "8.5.1",
+    "typescript": "6.0.3"
+  }
+}

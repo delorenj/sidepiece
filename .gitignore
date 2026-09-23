@@ -29,3 +29,6 @@ agents/hermes/*/runtime/
 .bmad-loop/cache/
 .bmad-loop/policy.toml
 _bmad/render/
+
+# No CI, ever — mise tasks are the whole pipeline (Story 1.1).
+.github/
