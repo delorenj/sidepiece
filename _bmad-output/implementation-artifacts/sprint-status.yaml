@@ -45,7 +45,7 @@ development_status:
 
   # Epic 1: Resolve any Project from the tailnet, and say honestly what is wrong with it
   epic-1: backlog
-  1-1-the-monorepo-scaffold-that-contract-cannot-exist-without: backlog
+  1-1-the-monorepo-scaffold-that-contract-cannot-exist-without: done
   1-2-the-lint-that-makes-project-id-impossible-to-reintroduce: backlog
   1-3-contract-the-28-state-taxonomy-and-the-project-record-typed-once-for-both-halves: backlog
   1-4-a-bridge-that-answers-curl-states-its-contract-and-refuses-to-start-on-the-wrong-node: backlog
