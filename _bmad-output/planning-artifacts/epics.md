@@ -3912,7 +3912,7 @@ Four writers worked without seeing each other. Where two of them built the same 
 
 ## Final Validation
 
-*Step 4, 2026-09-23. Three validators read the step-3 artifact independently — one scoped to requirements coverage, one to story quality, one to epic structure — and returned 19 findings plus their passed checks. Every finding was then re-verified against the document text before being acted on, because a misquoted finding fixed is worse than a finding missed. **Two were refuted. Seventeen survived and are fixed below.** The story count moved from 62 to 66.*
+*Step 4, 2026-09-23. Three validators read the step-3 artifact independently — one scoped to requirements coverage, one to story quality, one to epic structure — and returned 19 findings plus their passed checks. Every finding was then re-verified against the document text before being acted on, because a misquoted finding fixed is worse than a finding missed. **All 19 survived that re-verification and are fixed below** — an unusual result, and the reason for it is that the three validators quoted the document accurately rather than paraphrasing it. **Two sub-claims inside otherwise-sound findings were refuted**, along with one apparent contradiction this pass tested on its own initiative and rejected; all three are recorded under *Refuted*, because a fix applied to a non-defect is how a document acquires a wrong reason for a right sentence. The story count moved from 62 to 66.*
 
 ### What each of the five checks actually tested
 
@@ -3960,10 +3960,11 @@ Stories after both splits were renumbered (Epic 2: old 2.24–2.26 → 2.26–2.
 
 ### Refuted
 
-**Two findings did not survive.** Neither is recorded as a fix because neither is a defect.
+**Three claims did not survive.** Two are sub-claims inside findings whose substance held; the third this pass raised and rejected itself. None is recorded as a fix, because none is a defect.
 
 - **"Epic 2's narrative is stale on the command slots."** It read *"exactly two commands declared **and both handlers built here**"*, which a validator read as contradicted by Story 2.3 declaring one. The stories were right and the sentence was loose rather than wrong — "here" meant the epic, not the story — but it was rewritten anyway because the precise version is short and the loose one invited exactly this reading twice. Recorded as a wording fix, not as the defect it was reported as.
 - **Story 2.17's cell arithmetic against UX-DR14.** UX-DR14 records the v1 two-up cell as (284−1)÷2 = 141.5px; Story 2.17 records 158.5px. This looks like a contradiction and is not: Story 2.12 settles the full-bleed width at 318px and Story 2.17 recomputes both cell budgets against it deliberately, which is UX-DR84's resolution and is stated in the story. Precision restated after a settled decision is not drift.
+- **"Story 3.10 already covers the bloodbank probe, so finding 7 is a duplicate."** Tested and rejected before acting: the pre-fix Story 3.10 built `bloodbank/adapter.ts` and published through it, but registered no health probe and filled no `dependencies[]` row — publishing through an adapter is not probing it, and Story 3.14's accept path needs a *held* status it can read inside 500ms without an upstream call. The finding was real and the fix is not a duplicate of anything.
 
 ### The two structural rulings
 
