@@ -65,8 +65,17 @@ description = "tsc --noEmit over every workspace package"
 run = "pnpm -r run typecheck"
 
 [tasks.lint]
-description = "Biome lint + format check (packages/** and root config)"
-run = "pnpm exec biome check ."
+description = "Biome lint + format check (packages/** and root config) + SQL no-project-id grep"
+run = """
+rc=0
+pnpm exec biome check . || rc=1
+sh lint/no-project-id-sql.sh || rc=1
+exit $rc
+"""
+
+[tasks."lint:selftest"]
+description = "Self-test the no-project-id lint (A-P1) against temp fixtures"
+run = "sh lint/no-project-id.test.sh"
 
 [tasks.format]
 description = "Apply Biome formatting and safe fixes"
@@ -74,6 +83,7 @@ run = "pnpm exec biome check --write ."
 
 [tasks.test]
 description = "Run package tests where present"
+depends = ["lint:selftest"]
 run = "pnpm -r --if-present run test"
 
 [tasks.build]

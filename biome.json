@@ -1,6 +1,8 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-  "vcs": { "enabled": false },
+  "vcs": {
+    "enabled": false
+  },
   "files": {
     "includes": [
       "packages/**",
@@ -13,8 +15,34 @@
       "!!docs"
     ]
   },
-  "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
-  "javascript": { "formatter": { "quoteStyle": "single" } },
-  "linter": { "enabled": true, "rules": { "preset": "recommended" } },
-  "assist": { "enabled": true }
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single"
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended"
+    }
+  },
+  "assist": {
+    "enabled": true
+  },
+  "overrides": [
+    {
+      "includes": [
+        "packages/**",
+        "!packages/bridge/src/tickets/plane.ts",
+        "!packages/bridge/src/registry/client.ts"
+      ],
+      "plugins": ["./lint/no-project-id.grit", "./lint/no-project-id-json.grit"]
+    }
+  ]
 }

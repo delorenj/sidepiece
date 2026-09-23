@@ -1,0 +1,12 @@
+// no-project-id (JSON) -- architecture A-P1. See lint/no-project-id.grit for
+// the rationale, the two boundary exceptions, and why `project` and a bare
+// `id` are deliberately not covered (too generic; human-checked instead).
+language json
+
+or {
+  JsonMemberName(),
+  JsonStringValue()
+} as $name where {
+  $name <: r".*project_id.*|.*projectId.*|.*projectSlug.*",
+  register_diagnostic(span=$name, message="pjangler's identifier is 'pjid'; Plane's board UUID is 'boardId'. Rename at the boundary (architecture A-P1).", severity="error")
+}

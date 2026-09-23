@@ -1,0 +1,36 @@
+// no-project-id (JS/TS) -- architecture A-P1.
+//
+// A pjangler slug and a Plane board UUID are both plain strings, so the name is
+// the only thing that tells them apart. Inside Sidepiece the pjangler
+// identifier is always `pjid` and a Plane project is always `boardId`. This
+// rule flags `project_id`, `projectId` and `projectSlug` (substring match) on
+// any identifier -- binding, reference, member name, assignment target, type
+// member, export name -- and inside string and template literals (JSON key
+// literals, log keys, SQL-in-strings).
+//
+// Exceptions (biome.json overrides[].includes, exactly two single files):
+//   packages/bridge/src/tickets/plane.ts   -- renames Plane's project_id on read
+//   packages/bridge/src/registry/client.ts -- renames the registry's name on read
+// The exceptions live in the override, not the plugin `includes`: Biome 2.5.14
+// matches plugin-level globs against absolute paths, so a root-relative
+// negation there silently does nothing.
+//
+// NOT covered, deliberately: `project` and a bare `id` used for the pjangler
+// identifier. They are too generic to lint mechanically without drowning real
+// code in false positives, so they are human-checked (DEFINITION-OF-DONE.md
+// item 4). SQL files are covered separately by lint/no-project-id-sql.sh.
+language js
+
+or {
+  JsIdentifierBinding(),
+  JsReferenceIdentifier(),
+  JsIdentifierAssignment(),
+  JsName(),
+  JsLiteralMemberName(),
+  JsLiteralExportName(),
+  JsStringLiteralExpression(),
+  JsTemplateChunkElement()
+} as $name where {
+  $name <: r".*project_id.*|.*projectId.*|.*projectSlug.*",
+  register_diagnostic(span=$name, message="pjangler's identifier is 'pjid'; Plane's board UUID is 'boardId'. Rename at the boundary (architecture A-P1).", severity="error")
+}

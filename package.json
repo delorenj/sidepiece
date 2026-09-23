@@ -5,7 +5,7 @@
   "scripts": {
     "build": "pnpm -r run build",
     "typecheck": "pnpm -r run typecheck",
-    "lint": "biome check .",
+    "lint": "biome check . && sh lint/no-project-id-sql.sh",
     "format": "biome check --write .",
     "test": "pnpm -r --if-present run test"
   },
