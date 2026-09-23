@@ -5,7 +5,7 @@ created: '2026-09-23'
 status: 'done'
 baseline_revision: 'bf1e6c05953892f39d550c1495c9fc7609c9a3bb'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-1-context.md'
 warnings: [oversized]
@@ -103,6 +103,16 @@ deferred:
   - `[low]` `[patch]` DoD item 1 invented a `mutatingRoute()` API no AC names; removed the parenthetical.
   - `[low]` `[patch]` `allowBuilds` needs pnpm 11 but mise floated `pnpm = "latest"`; pinned to `11.5.0`.
 
+### 2026-09-23 — Review pass
+- intent_gap: 0
+- bad_spec: 0
+- patch: 2 (high 0, medium 0, low 2)
+- defer: 0
+- reject: 20
+- addressed_findings:
+  - `[low]` `[patch]` The bundle self-containment scan only matched `from '…'`, so a side-effect `import 'x'`, dynamic `import('x')` or esbuild `__require('x')` shim escaped it, and an unprefixed builtin (`'fs'`) would false-fail. It now matches all four forms and allows `node:*` plus `builtinModules`. Mutation-checked: prepending `import "left-pad";` to the bundle now fails the static test with `actual: [ 'left-pad' ]`.
+  - `[low]` `[patch]` The out-of-workspace run had no timeout, so a bundle that keeps the event loop alive (the Story 1.4 listener) would hang `mise run test` forever. It now has `timeout: 10_000`.
+
 ## Design Notes
 
 `contract` points its `types` export at source rather than `dist/*.d.ts`: `build` depends on `typecheck`, so typecheck cannot require a prior build. The Bridge bundle inlines `contract` because the future rsync deploy (Story 1.10) cannot carry pnpm's workspace symlink.
@@ -123,25 +133,34 @@ TypeScript is pinned to 6.0.3, the last JS-API release; 7.x is the native port a
 
 Status: done
 
-**Summary:** pnpm workspace with exactly two packages (`@sidepiece/contract`, `@sidepiece/bridge`), a strict shared `tsconfig.base.json`, a root-scoped Biome 2.5.14 config, and `mise` tasks `typecheck`/`lint`/`format`/`test`/`build` (build depends on typecheck + lint). The Bridge bundles to one self-contained `dist/bridge.mjs` with `contract` inlined. `DEFINITION-OF-DONE.md` carries the four human-checked items. `.github/` (BMAD Copilot personas, no CI) removed and ignored. No human-only actions in the ACs, so no operator actions are owed.
+**Summary:** A follow-up review of the Story 1.1 scaffold: a pnpm workspace with `@sidepiece/contract` + `@sidepiece/bridge`, a strict `tsconfig.base.json`, a scoped Biome config, the five `mise` pipeline tasks, `DEFINITION-OF-DONE.md`, and `.github/` removed and ignored. The scaffold held up. This pass hardened the Bridge bundle self-containment test only.
 
-**Files changed:**
-- `pnpm-workspace.yaml`: declares `packages/*`; approves esbuild's build script (pnpm 11).
-- `package.json`: private root, scripts only, exact-pinned `typescript` 6.0.3 / `@biomejs/biome` 2.5.14 / `tsup` 8.5.1.
-- `tsconfig.base.json`: the five mandated options plus shared defaults.
-- `biome.json`: recommended preset, scoped to `packages/**` + root json.
-- `mise.toml`: five pipeline tasks; pnpm pinned to 11.5.0.
-- `packages/contract/*`: `CONTRACT_VERSION = 1` placeholder; `types`/`source` → src, `import`/`default` → dist.
-- `packages/bridge/*`: imports contract via `workspace:*`; tsup single-file bundle; `test/bundle.test.ts` self-containment test.
-- `DEFINITION-OF-DONE.md`: four human-checked items.
-- `.gitignore`, `.github/agents/*`: the directory is untracked, deleted and ignored.
-- Outside the repo: removed stale `~/.local/bin/pnpm` corepack symlink that crashed and shadowed mise's pnpm.
+**Files changed (this pass):**
+- `packages/bridge/test/bundle.test.ts`: the specifier scan now covers side-effect, dynamic and `require` imports and allows unprefixed builtins. The out-of-workspace run has a 10 s timeout.
 
-**Review findings:** 6 patches applied, 2 deferred (Node `lts` float, `version:check` finds no version), 11 rejected (e.g. `.github/` ignore breadth, duplicated npm/mise scripts, `build` not depending on `test` (AC fixes the depends list), and a Biome `preset` shape that has been verified to work).
+**Review findings:** 2 patches applied (both low), 0 deferred, 20 rejected. Most rejections repeat calls from the first pass, re-raised by reviewers who couldn't see it:
+- ignoring all of `.github/`
+- root `package.json` scripts duplicating the mise tasks
+- `build` not depending on `test`: the intent fixes `depends = ["typecheck", "lint"]` exactly
+- the Biome `preset` key: the lint AC proves the recommended rules apply
+- Node `lts` float and `version:check`: already deferred as DW-1 and DW-2
+- the `source` condition possibly matching a third-party package: there are no third-party runtime deps yet
+- adding a `packageManager` field: mise is the toolchain source of truth
 
-**Follow-up review recommendation:** true. Patched findings: 0 high, 2 medium, 4 low. Score = 3×2 + 1×4 = 10 (≥ 5).
+One finding was refuted by a probe: "`contract` can silently use Node APIs through hoisted `@types/node`". `tsc` in `packages/contract` rejects both `node:fs` and `process`.
 
-**Verification:** from a clean state (`node_modules`/`dist` deleted), `pnpm install` succeeds. `pnpm --filter @sidepiece/bridge build` works without a contract build. `mise run build` → 0, `mise run typecheck` → 0, `mise run test` → 2/2 pass, `mise run lint` → 1 on `const  x   =1` naming `packages/contract/src/bad.ts:1:8`, then 0 after `mise run format`. `node packages/bridge/dist/bridge.mjs` prints `sidepiece bridge: contract v1`. `find` finds no `.github`, and `packages/` holds only `bridge` and `contract`.
+**Follow-up review recommendation:** false. Patched findings: 0 high, 0 medium, 2 low. Score = 3×0 + 1×2 = 2 (< 5).
 
-**Residual risks:** BMAD reinstalls may recreate `.github/agents/` on disk. It stays untracked because of the ignore, but the on-disk `find` check would then fail. Node floats on `lts` (deferred).
+**Verification:** These checks started from a clean state, with `node_modules` and every `dist` deleted:
+- `pnpm install` → 0
+- `mise run build` → 0
+- `mise run typecheck` → 0
+- `mise run test` → 2 pass, 0 fail
+- `mise run lint` on `const  x   =1` → names `packages/contract/src/bad.ts:1:8`; after `mise run format` → 0
+- `mise tasks` lists all five tasks
+- `node packages/bridge/dist/bridge.mjs` → `sidepiece bridge: contract v1`
+- `find` finds no `.github`, and `packages/` holds only `bridge` and `contract`
 
+Mutation check: a side-effect bare import injected into the bundle fails the static test.
+
+**Residual risks:** Nothing in the build path runs `bundle.test.ts`, because `build` gates only on typecheck and lint, per the intent. A bundle that has lost its self-containment still builds cleanly and is only caught by `mise run test`. A BMAD reinstall can recreate `.github/agents/` on disk. It stays untracked, but the on-disk `find` check would then fail. The Node `lts` float remains deferred as DW-1.
