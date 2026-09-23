@@ -1,0 +1,126 @@
+# generated: 2026-09-23
+# last_updated: 2026-09-23
+# project: sidepiece
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog -> in-progress: Automatically when first story is created (via create-story)
+#   - in-progress -> done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-09-23
+last_updated: 2026-09-23
+project: sidepiece
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+
+  # Epic 1: Resolve any Project from the tailnet, and say honestly what is wrong with it
+  epic-1: backlog
+  1-1-the-monorepo-scaffold-that-contract-cannot-exist-without: backlog
+  1-2-the-lint-that-makes-project-id-impossible-to-reintroduce: backlog
+  1-3-contract-the-28-state-taxonomy-and-the-project-record-typed-once-for-both-halves: backlog
+  1-4-a-bridge-that-answers-curl-states-its-contract-and-refuses-to-start-on-the-wrong-node: backlog
+  1-5-a-turn-store-that-is-versioned-and-says-so-when-it-is-newer-than-the-bridge: backlog
+  1-6-resolve-a-pjid-to-a-project-record-stamped-with-a-content-addressed-generation: backlog
+  1-7-refuse-a-mutation-written-against-a-project-that-has-moved: backlog
+  1-8-say-what-is-missing-on-disk-the-clone-path-and-the-role-directories: backlog
+  1-9-answer-from-the-last-good-copy-when-the-registry-is-down-and-never-silently: backlog
+  1-10-deploy-the-bridge-as-one-file-supervised-with-the-turn-store-out-of-the-blast-radius: backlog
+  1-11-reach-the-bridge-from-the-laptop-over-the-tailnet-on-https-with-the-lna-headers: backlog
+  1-12-every-credential-from-the-vault-and-a-missing-one-degrades-instead-of-killing-the-bridge: backlog
+  1-13-health-that-names-the-dependency-that-failed: backlog
+  1-14-catch-the-silent-credential-degradation-nothing-else-on-this-machine-notices: backlog
+  1-15-the-bb-emit-check-gate-as-a-mise-task-and-never-a-workflow: backlog
+  1-16-run-the-two-checks-that-end-the-guessing-ds-3-vs-ds-4-and-lna-on-the-laptop: backlog
+  epic-1-retrospective: optional
+
+  # Epic 2: Open the Cockpit on any page and file a ticket against the thing you are staring at
+  epic-2: backlog
+  2-1-the-pjid-declaration-contract-and-the-ten-page-dev-fixture: backlog
+  2-2-cold-install-font-measurement-before-any-drawn-number-is-trusted: backlog
+  2-3-the-wxt-extension-shell-that-loads-in-chrome: backlog
+  2-4-detect-a-declared-pjid-on-page-load: backlog
+  2-5-re-detect-on-spa-route-change-and-on-tab-switch: backlog
+  2-6-the-54-token-system-the-five-marks-and-night-paper: backlog
+  2-7-the-copy-module-and-the-five-byte-exact-prd-literals: backlog
+  2-8-lib-bridge-ts-the-one-module-that-talks-to-the-bridge: backlog
+  2-9-lib-cache-ts-fr-2-s-bounded-per-pjid-resolution-cache: backlog
+  2-10-the-extension-icon-s-four-resolvability-states: backlog
+  2-11-open-and-close-the-cockpit-on-the-icon-and-on-alt-shift-s: backlog
+  2-12-the-cockpit-shell-284px-one-scroll-region-pinned-chrome: backlog
+  2-13-the-identity-header-repo-name-selectable-clone-path-board: backlog
+  2-14-deadlines-that-always-terminate-and-the-relayed-connection-indicator: backlog
+  2-15-components-statenotice-the-re-resolve-control-and-the-command-well: backlog
+  2-16-ds-1-and-ds-21-the-two-states-that-render-no-notice: backlog
+  2-17-the-pane-switch: backlog
+  2-18-the-total-vs-partial-router: backlog
+  2-19-the-board-read-endpoint-on-the-bridge: backlog
+  2-20-board-states-mapped-to-the-five-marks-and-the-group-headers: backlog
+  2-21-the-tickets-list-rows-empty-timeout-refetch: backlog
+  2-22-the-ticket-create-endpoint-on-the-bridge: backlog
+  2-23-the-create-box-a-title-alone-and-the-board-it-names: backlog
+  2-24-focus-ticket-title-the-second-command-slot-and-the-gesture-path-that-must-not-lose-it: backlog
+  2-25-the-disabled-create-box-ds-14-and-ds-22-say-why-inside-the-pinned-bar: backlog
+  2-26-the-accessibility-floor: backlog
+  2-27-cold-start-tab-switches-bridge-restart-and-two-windows: backlog
+  2-28-the-28-row-router-matrix-the-epic-s-exit-criterion: backlog
+  epic-2-retrospective: optional
+
+  # Epic 3: Ask the PM what is going on — and hand it work without pretending that is a conversation
+  epic-3: backlog
+  3-1-ask-the-bridge-whether-this-project-s-pm-can-be-talked-to-at-all: backlog
+  3-2-a-turn-is-accepted-by-writing-it-down-inside-500ms: backlog
+  3-3-the-composer-shell-and-the-chat-cell-epic-2-reserved-goes-live: backlog
+  3-4-see-how-a-turn-will-be-treated-before-you-commit-it: backlog
+  3-5-the-page-rides-along-and-the-turn-is-handed-to-the-pm: backlog
+  3-6-chat-says-why-it-is-unavailable-hands-over-the-command-and-leaves-tickets-alone: backlog
+  3-7-this-project-s-turns-come-back-and-no-other-project-s-do: backlog
+  3-8-a-warm-pm-session-that-is-never-taken-from-live-work: backlog
+  3-9-the-answer-streams-over-sse-with-the-placeholder-typed-as-a-placeholder: backlog
+  3-10-the-answer-streams-into-the-panel-while-it-is-still-being-written: backlog
+  3-11-a-stream-that-dies-says-so-and-a-turn-survives-me-leaving-the-page: backlog
+  3-12-work-is-published-on-a-legal-five-token-subject-and-acknowledged-with-an-id-the-bridge-minted: backlog
+  3-13-a-dispatch-renders-as-a-dispatch-not-as-an-answer: backlog
+  3-14-bloodbank-unreachable-leaves-questions-working: backlog
+  epic-3-retrospective: optional
+
+  # Epic 4: Get the answer back from the work you dispatched
+  epic-4: backlog
+  4-1-external-33god-bloodbank-carry-the-agent-s-response-text-onto-the-invocation-outcome: backlog
+  4-2-a-dispatched-turn-reaches-a-terminal-status-the-bridge-can-be-asked-for: backlog
+  4-3-the-completed-dispatch-carries-the-agent-s-answer-or-says-the-gateway-returned-none: backlog
+  4-4-a-dispatch-with-no-outcome-reads-unknown-never-success: backlog
+  4-5-candystore-backfills-what-the-consumer-missed-and-says-so-when-it-cannot-be-asked: backlog
+  4-6-the-dispatched-command-card-shows-what-came-back: backlog
+  4-7-an-outcome-that-lands-while-the-cockpit-is-open-appears-without-a-reopen: backlog
+  4-8-uj-2-end-to-end-dispatch-execute-answer-in-one-thread: backlog
+  epic-4-retrospective: optional
