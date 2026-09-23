@@ -2,10 +2,10 @@
 title: 'Story 1.2: The lint that makes project_id impossible to reintroduce'
 type: 'chore'
 created: '2026-09-23'
-status: 'in-progress'
-baseline_revision: 'e0e7838da0bd47e1de81a40cce52a1f1477bf79f'
+status: 'done'
+baseline_revision: '87ddf74697c380a8616320681a172647cd6fa0ce'
 review_loop_iteration: 0
-followup_review_recommended: false
+followup_review_recommended: true
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-1-context.md'
 warnings: [oversized]
@@ -91,6 +91,25 @@ deferred: []
 
 ## Review Triage Log
 
+### 2026-09-23 — Review pass
+- intent_gap: 0
+- bad_spec: 0
+- patch: 8 (high 0, medium 4, low 4)
+- defer: 0
+- reject: 16
+- addressed_findings:
+  - `[medium]` `[patch]` The regex was case-sensitive, so `ProjectId`, `getProjectId`, `PROJECT_ID` and `project-id` got past it. Both grit files now use `(?i)` with an optional `_`/`-` separator.
+  - `[medium]` `[patch]` The rule missed some identifier forms: private members (`#projectId`), TS type/interface names and JSX. Added `JsPrivateClassMemberName`, `JsPrivateName`, `TsIdentifierBinding`, `JsxName`, `JsxString` and `JsxText`, and checked that each one fires.
+  - `[medium]` `[patch]` Removing four JS node kinds and `JsonStringValue` still passed the self-test. It now has a `file:line:col` assertion for every node kind and case variant, and a clean negative fixture. It was mutation-checked by removing each node kind.
+  - `[medium]` `[patch]` The lint wiring (`mise run lint` / `pnpm lint` calling the SQL grep) was never tested, and `pnpm lint` skipped the SQL grep when Biome failed (`&&`). Added `lint/lint.sh [root]` as the single entry point for both. The self-test drives it on a temp tree:
+    - boundary files only → exit 0
+    - with the third-path violator → non-zero
+    - a `.sql` hit alone → non-zero
+  - `[low]` `[patch]` In the SQL grep, a grep error or a missing `packages/` under an explicit root counted as a pass. Both now exit 2. Also added `-i` and `*.SQL`.
+  - `[low]` `[patch]` If `mktemp` failed, the self-test could write fixtures at `/`. Added the `mktemp` guard and a Biome-binary presence check.
+  - `[low]` `[patch]` The INT/TERM trap did not exit. It now exits 130.
+  - `[low]` `[patch]` `pnpm test` skipped the self-test that `mise run test` runs. The `test` script now runs it first.
+
 ## Design Notes
 
 Why an override and not the plugin `includes`: in 2.5.14, `{"path": ..., "includes": ["packages/**"]}` matched nothing. Only `**`-prefixed or absolute globs worked, which would widen an exception beyond one file. `overrides[].includes` resolves from the config root, so `!packages/bridge/src/tickets/plane.ts` names exactly one file.
@@ -103,3 +122,59 @@ The regex is a substring match, so `subprojectId` or `'SELECT project_id FROM'` 
 - `mise run lint:selftest` -- expected: exit 0, and every assertion is reported as passing.
 - `mise run lint && mise run test && mise run build` -- expected: exit 0.
 - `git status --short` after the self-test -- expected: no stray fixtures.
+
+## Auto Run Result
+
+Status: done
+
+**Summary:** Biome now fails `mise run lint` whenever the pjangler identifier appears as `project_id`, `projectId` or `projectSlug` anywhere under `packages/`. It prints the exact A-P1 message.
+- **Case:** matching is case-insensitive and separator-tolerant.
+- **What it checks:** identifiers, member names, type names, private members, JSX, string and template literals, and JSON keys and values.
+- **Exceptions:** exactly two, `packages/bridge/src/tickets/plane.ts` and `packages/bridge/src/registry/client.ts`. They are negated in a `biome.json` override rather than the plugin `includes`, because Biome 2.5.14 matches plugin-level globs against absolute paths.
+- **SQL:** `packages/**/*.sql` is grepped by `lint/no-project-id-sql.sh`. `_bmad-output/` is never scanned.
+- **Not linted:** `project` and a bare `id` are recorded as human-checked in `DEFINITION-OF-DONE.md` item 4 and in the rule's header comment.
+
+**Files changed:**
+- `lint/no-project-id.grit`: JS/TS Grit rule. The header records the rationale, the exceptions and the uncovered names.
+- `lint/no-project-id-json.grit`: JSON Grit rule for member names and string values.
+- `lint/no-project-id-sql.sh`: scoped, case-insensitive SQL grep with the same message. A grep error exits 2.
+- `lint/lint.sh`: the single lint entry point, which runs Biome check and the SQL grep and aggregates their results.
+- `lint/no-project-id.test.sh`: temp-tree self-test with 35 assertions. It never touches the real boundary paths.
+- `biome.json`: the `overrides` entry that carries the plugins and the two negations. The formatter also expanded the existing inline objects.
+- `mise.toml`: `lint` calls `lint/lint.sh`. A new `lint:selftest` task was added, and `test` depends on it.
+- `package.json`: `lint` and `test` scripts kept in parity with mise.
+- `DEFINITION-OF-DONE.md`: item 4 names `project` and bare `id` as human-checked.
+
+**Review findings:** 8 patches applied (4 medium, 4 low), 0 deferred, 16 rejected. The rejected ones:
+- whole-file exceptions, which the story defines;
+- future Plane fixture files that would be flagged;
+- no pre-commit hook or CI, which is by design;
+- GNU-only `sed -i`, since this is a Linux-only host;
+- `biome.json` formatter churn;
+- the message duplicated across four files;
+- colons in paths;
+- JSON URL strings being flagged, which is intended;
+- redundant `.*` anchors;
+- the DoD header wording;
+- tying the workaround to the Biome version, since it is pinned exactly and documented in the comment;
+- a mid-review note about the uncommitted spec.
+
+**Follow-up review recommendation:** true. The patched counts are 0 high, 4 medium and 4 low, which scores 3×4 + 1×4 = 16 (≥ 5).
+
+**Verification:**
+- `mise run lint:selftest`: 35/35 assertions pass. They cover:
+  - banned names at `registry/index.ts` and a third path, each with file:line:col and the exact message;
+  - the two boundary files, with no diagnostics and `lint.sh` exiting 0;
+  - a JSON key and a JSON value;
+  - SQL hits, and that `_bmad-output/` is never scanned;
+  - a clean negative fixture.
+- `mise run lint && mise run test && mise run build` all exit 0 on the real repo.
+- `pnpm run lint` and `pnpm test` both exit 0.
+- Mutation check: removing any node kind from the grit files fails the self-test.
+
+**Residual risks:**
+- The match is a substring match that ignores case, so an unrelated name such as `projectIdentity` is flagged. That is intentional.
+- The exceptions depend on Biome's `overrides[].plugins` semantics. The self-test's `lint.sh`-on-boundary-files assertion would catch a regression after a Biome bump.
+- Nothing runs the lint automatically (no hook, no CI). Enforcement is `mise run build`, which depends on `lint`.
+- The baseline was re-pointed from `e0e7838` to `87ddf74`, because the implementer rebased onto upstream Story 1.1 follow-ups and `e0e7838` is no longer an ancestor.
+
