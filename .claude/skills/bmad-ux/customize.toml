@@ -14,7 +14,9 @@ activation_steps_append = []
 
 # Persistent facts loaded at activation and kept in mind for the run.
 # Entries: literal sentence, `skill:NAME`, or `file:PATH` (glob ok).
-persistent_facts = []
+persistent_facts = [
+  "file:{project-root}/**/project-context.md",
+]
 
 # Runs at workflow completion. String or array of instructions.
 on_complete = ""

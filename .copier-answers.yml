@@ -1,6 +1,5 @@
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
-_src_path: /home/delorenj/code/pjangler/templates/commonproject
-project_description: Project-aware Chrome sidebar that resolves the active Traefik-served
-    tab to its local repo, Hermes PM agent, Plane board, and Bloodbank stream.
+_src_path: /home/delorenj/code/33GOD/pjangler/templates/commonproject
+project_description: Project-aware Chrome side panel that resolves the active tab's page-declared pjid to its registered project — local repo, Hermes PM agent, Plane board, and Bloodbank stream.
 project_name: Sidepiece
 ticket_provider: plane
