@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3]
+stepsCompleted: [1, 2, 3, 4]
 inputDocuments:
   - _bmad-output/planning-artifacts/prds/prd-sidepiece-2026-09-17/prd.md
   - _bmad-output/planning-artifacts/prds/prd-sidepiece-2026-09-17/addendum.md
@@ -8,9 +8,10 @@ inputDocuments:
   - _bmad-output/planning-artifacts/ux-designs/ux-sidepiece-2026-09-20/DESIGN.md
   - _bmad-output/planning-artifacts/ux-designs/ux-sidepiece-2026-09-20/.decision-log.md
 workflowType: 'epics-and-stories'
-lastStep: 3
-status: 'in-progress'
-updated: 2026-09-22
+lastStep: 4
+status: 'complete'
+updated: 2026-09-23
+completedAt: '2026-09-23'
 ---
 
 # Sidepiece - Epic Breakdown
@@ -703,9 +704,9 @@ UJ-1, end to end, on a real page against a real Board. Jarad pins the icon, hits
 
 **FRs covered:** FR-1, FR-3, FR-4, FR-12, FR-13
 
-**Standalone.** It calls only endpoints Epic 1 shipped, plus the Plane adapter it builds itself, and needs nothing from Epic 3 or Epic 4. The obvious objection — *a pane switch with one destination switches nothing* — is answered by the design rather than by a split: `{components.paneSwitch}` is specified as an **n-item control** laid out so another cell fits without wrapping (UX-DR14), and v1's switch renders one live cell beside the reserved `[v2]` **ruled** cell, never a gap. Read and create are one capability with one failure domain and one set of files — `tickets/index.ts`, `tickets/plane.ts`, the contract's ticket types and the three components that render them — so splitting *list* from *create* is precisely the churn rule 4 names. Create does not wait on the read: D20 has the Bridge resolve the omitted entry state server-side, which licenses the create box to be live before the list lands, and holding the submit until the Board arrives costs UJ-1 its entire margin. There is no Chat pane here and, crucially, no **empty** one — UX-DR48 Rule 1 says an empty state is a result and only a successful read may render one. Note 7 is honoured *inside* the epic rather than by splitting it: FR-4 is sequenced ahead of the panes it validates, because SM-3 has no mechanism without FR-4 and FR-4 must not be polish behind them.
+**Standalone.** It calls only endpoints Epic 1 shipped, plus the Plane adapter it builds itself, and needs nothing from Epic 3 or Epic 4. The obvious objection — *a pane switch with one destination switches nothing* — is answered by the design rather than by a split: `{components.paneSwitch}` is specified as an **n-item control** laid out so another cell fits without wrapping (UX-DR14), and at this epic's exit the switch renders **one live cell (`TICKETS`), one reserved `CHAT` cell that Story 3.3 makes live, and the reserved `[v2]` third cell** — all three drawn and ruled, never a gap. The `CHAT` cell is inert here rather than selectable-onto-nothing, because this epic builds no Chat read and UX-DR48 Rule 1 says an empty state is a result that only a successful read may render; the two-up geometry is measured once, in Story 2.17, and Epic 3 flips a cell's interactivity rather than re-laying out the strip. Read and create are one capability with one failure domain and one set of files — `tickets/index.ts`, `tickets/plane.ts`, the contract's ticket types and the three components that render them — so splitting *list* from *create* is precisely the churn rule 4 names. Create does not wait on the read: D20 has the Bridge resolve the omitted entry state server-side, which licenses the create box to be live before the list lands, and holding the submit until the Board arrives costs UJ-1 its entire margin. There is no Chat pane here and, crucially, no **empty** one — UX-DR48 Rule 1 says an empty state is a result and only a successful read may render one. Note 7 is honoured *inside* the epic rather than by splitting it: FR-4 is sequenced ahead of the panes it validates, because SM-3 has no mechanism without FR-4 and FR-4 must not be polish behind them.
 
-**Sequence.** Step 0b, then step 6, then the Tickets half of step 7. **Story 1 is the `pjid` emitter contract (D14/AR70) plus the three-page dev fixture.** It costs an afternoon; Epic 1 resolves `pjid`s that already exist in the Registry and never needs it, but nothing in *this* epic is runnable without it. **Story 2 is the cold-install font re-verification (UX-DR91).** Neither bundled face is installed on the build machine, so every fit drawn in the seven key screens is looser than the shipped one, and no drawn number — the meta row's 212px of 284, the pane-switch cell budget, 28 characters per ticket title line — is trusted until it is re-measured against Charis SIL and IBM Plex Mono. **`pnpm dlx wxt@latest init` comes third, at step 6, not first**: scaffolding it four steps earlier buys a loadable stub and a month of drift, which is the ordering the June board used and PRD §10 directed against. `srcDir: 'src'` is one line and without it nothing under `src/entrypoints/` is discovered at all (AR7). The full D16 manifest surface lands here — broad host match, no `default_popup` (a popup displaces `setPanelBehavior({openPanelOnActionClick:true})` and costs the one-click open), exactly two commands declared **and both handlers built here**, because a slot Chrome gives away is a slot it does not give back and a declared-dead command is the thing note 15's rule forbids. The gesture path is callbacks only, zero awaits, exactly one hop — an await anywhere is a silent no-op presenting as an intermittent heisenbug (AR73) — and the story carries a verification step for Chromium bug 415694848 against Chrome 151–155. SPA re-detection is a `MutationObserver` on `<head>`, not `webNavigation` and not `popstate`. `lib/bridge.ts` is the only module that makes a request; `lib/cache.ts` implements FR-2(c) as an inherited AC; `tokens.css` is the single definition of all 54 tokens with `@theme` aliasing and never restates a value; the de-duplication guard on the One Black Rule is written against **nine** tokens, not seven, because the frontmatter is the token data and wins (UX-DR2, note 19). NFR-2, NFR-3, NFR-4, NFR-5 and NFR-6 land here, with UX-DR61–69's accessibility floor and UX-DR70–78's lifecycle rules. When this epic sets the pinned action-bar geometry, write it knowing Epic 3 puts a taller composer in the same slot.
+**Sequence.** Step 0b, then step 6, then the Tickets half of step 7. **Story 1 is the `pjid` emitter contract (D14/AR70) plus the ten-page dev fixture** — nine static branch pages plus `spa.html`, which is the only fixture for FR-1(b) and which Stories 2.4 and 2.5 consume as their whole acceptance set. It costs an afternoon; Epic 1 resolves `pjid`s that already exist in the Registry and never needs it, but nothing in *this* epic is runnable without it. **Story 2 is the cold-install font re-verification (UX-DR91).** Neither bundled face is installed on the build machine, so every fit drawn in the seven key screens is looser than the shipped one, and no drawn number — the meta row's 212px of 284, the pane-switch cell budget, 28 characters per ticket title line — is trusted until it is re-measured against Charis SIL and IBM Plex Mono. **`pnpm dlx wxt@latest init` comes third, at step 6, not first**: scaffolding it four steps earlier buys a loadable stub and a month of drift, which is the ordering the June board used and PRD §10 directed against. `srcDir: 'src'` is one line and without it nothing under `src/entrypoints/` is discovered at all (AR7). The full D16 manifest surface lands here — broad host match, no `default_popup` (a popup displaces `setPanelBehavior({openPanelOnActionClick:true})` and costs the one-click open), and the `chrome.commands` budget spent deliberately: **Story 2.3 declares `_execute_action` only, and Story 2.24 declares `focus-ticket-title` together with its handler** — never one without the other, because a slot Chrome gives away is a slot it does not give back and a declared-dead command is the thing note 15's rule forbids. That is two declarations in two stories, not two in one; the assembled draft said "both handlers built here" and the stories have always been right against it. The gesture path is callbacks only, zero awaits, exactly one hop — an await anywhere is a silent no-op presenting as an intermittent heisenbug (AR73) — and the story carries a verification step for Chromium bug 415694848 against Chrome 151–155. SPA re-detection is a `MutationObserver` on `<head>`, not `webNavigation` and not `popstate`. `lib/bridge.ts` is the only module that makes a request; `lib/cache.ts` implements FR-2(c) as an inherited AC; `tokens.css` is the single definition of all 54 tokens with `@theme` aliasing and never restates a value; the de-duplication guard on the One Black Rule is written against **nine** tokens, not seven, because the frontmatter is the token data and wins (UX-DR2, note 19). NFR-2, NFR-3, NFR-4, NFR-5 and NFR-6 land here, with UX-DR61–69's accessibility floor and UX-DR70–78's lifecycle rules. When this epic sets the pinned action-bar geometry, write it knowing Epic 3 puts a taller composer in the same slot.
 
 **Decisions it owns.** Key-screen finding **3** (the header meta row has no measurement and already runs 212px of 284 on `HOLOCENE` before the relay indicator is added — and whether the clip band keeps a second Bridge readout 40px from the health marker at all); finding **4**, which is story one of the Tickets pane (**five marks, N Board states, and no mapping rule anywhere** — an ordinary five-state Plane board already collapses two pairs, `EXPERIENCE.md` anticipates eight-state Boards, and the mapping drawn in key screen S3 is the mock's, which is evidence and never specification; it blocks `ticketRow` and `ticketGroupHeader` equally); finding **6** (`paneSwitch` specified two ways); finding **10** (where the disabled create box's *reason* lives once the notice has scrolled out of the pinned action bar); finding **11** (`CREATE IN 33GOD` and `Create on HOL` name different things — a workspace and a Board identifier — and FR-13's whole point is that the submit proves which Board it writes to); finding **12** (measure the actual longest key across the nineteen registered Projects before treating 28 characters per title line as the floor); finding **13** (the font drift above); and note 14(a), the **relayed deadline's multiple**, which is set nowhere and must be generous relative to the direct budget or the timeout fires on every relayed read and teaches him to ignore it. Note 13 also lands here in part: `{components.commandString}`'s fit at 284px was never rendered, so whichever story builds DS-14's command well measures a real Bridge-returned string rather than the derived 35 characters.
 
@@ -731,7 +732,7 @@ UJ-2's closing beat, the one the journey text singles out: *"later shows the res
 
 **FRs covered:** FR-9
 
-**Standalone, and separate for exactly one reason.** It is the only epic gated on a repository Sidepiece does not own: `33GOD/bloodbank/…/adapter.py` discards the agent's response text at line 691 and returns `success=True`, so FR-9(b) cannot be built until EXT-1 lands — and the documented fallback (have the Bridge observe the dispatched command's output through its own `tui_gateway` session, never verified either way, worth one hour before accepting a status-only v1) would change the shape of the work. **Rule 5 prefers fewer and larger *when the outcome is certain*; this is the one place in the project where it is not.** Keeping it separate means an external repo's schedule cannot hold UJ-1 or UJ-2's conversational half hostage, and Epic 3 shipping without it is honest rather than broken — a card that says *dispatched* and stops is telling the truth. It is one FR by count and a full epic by substance: a durable NATS consumer, a Candystore backfill, `turns/reconcile.ts`, and the terminal rendering of the Dispatched Command card. The file overlap with Epic 3 (`turns/*`, the turn card) is one module and one component variant — incidental sharing, not the same four files three times — and merging would make Epic 3 unshippable until a fix in someone else's repository lands, which is the precise coupling the dependency sequence puts at step 8 to avoid.
+**Standalone, and separate for exactly one reason.** It is the only epic gated on a repository Sidepiece does not own: `33GOD/bloodbank/…/adapter.py` discards the agent's response text at line 691 and returns `success=True`, so FR-9(b) cannot be built until EXT-1 lands — and the documented fallback (have the Bridge observe the dispatched command's output through its own `tui_gateway` session, never verified either way, worth one hour before accepting a status-only v1) would change the shape of the work. **Rule 5 prefers fewer and larger *when the outcome is certain*; this is the one place in the project where it is not.** Keeping it separate means an external repo's schedule cannot hold UJ-1 or UJ-2's conversational half hostage, and Epic 3 shipping without it is honest rather than broken — a card that says *dispatched* and stops is telling the truth. It is one FR by count and a full epic by substance: a durable NATS consumer, a Candystore backfill, `turns/reconcile.ts`, and the terminal rendering of the Dispatched Command card. The file overlap with Epic 3 is **five files, every one append-only and none re-opened for a redesign**: `turns/store.ts` (one further forward migration on the 001→006 chain), `lib/stream.ts` (one added subscription, separable — Story 4.7 asserts that deleting its outcome path would make the product one reopen slower and thereafter identical), `{components.turnCard}` variant (c) (pre-declared at the point of the earlier build, Story 3.11: *"Story 4.6 adds the terminal words to this same band and removes nothing"*), and `copy/states.ts` plus `copy/progress.ts` (Story 4.6's rendering, plus Story 4.3's new `Result truncated by the gateway.` line, which lands with its `EXPERIENCE.md` row in the same change per AR15). That is the "two epics add a route" case rather than the "two layout passes" case — and merging would make Epic 3 unshippable until a fix in someone else's repository lands, which is the precise coupling the dependency sequence puts at step 8 to avoid.
 
 **Sequence.** Step 8, last, because its upstream is still being fixed while the rest is built. **Durability is a requirement, not an optimisation** — the consumer on `bloodbank.evt.agent.invocation.*` must survive a Bridge restart, because FR-9(e) requires reconciling outcomes that arrived while the panel was closed, and a closed panel is the normal case. Dispatch outcome events carry **no `data.repo` at all**, so §6's Project-scoped payload filter does not apply to this leg: matching is by `correlationId` against the outstanding set the Bridge persisted at dispatch, and nothing else. **Candystore is the backfill, not the primary** — queried on startup and on any consumer gap, which is what makes a missed message recoverable rather than permanently unknown, and it is why Candystore is a separate adapter from Bloodbank: DS-18 gates half of Chat and DS-19 gates nothing, and one adapter reporting for both cannot produce two blast radii. Casing splits at the boundary and that is intentional: `correlationId` inward, Bloodbank's `correlationid` (no separator) only inside `bloodbank/adapter.ts` — **a camelCase-ifying middleware applied to everything is the explicitly forbidden anti-pattern**, because it silently rewrites the one mechanism §12 Q2 confirmed works today. Until EXT-1 lands, UX-DR52's copy **is** the specified behaviour: a completed dispatch renders *"Completed. The gateway returned no result content."* and never *"Completed"* alone and never a bare checkmark — FR-6's bias toward Dispatched Command is only justified by FR-9, and an unjustified bias must say so.
 
@@ -981,6 +982,7 @@ So that a redeploy of an older binary degrades one pane honestly instead of half
 **When** the Bridge starts against an empty state directory
 **Then** `sqlite3 ~/.local/state/sidepiece/turns.db '.tables'` lists exactly `resolutions` — one table, plural snake_case, and **no** `registry_snapshots` table, because D2's snapshot is a JSON file
 **And** `turns`, `dispatches` and `ticket_creates` do **not** exist, because this story writes to none of them; each is created by the story that first writes to it, as its own forward migration — `ticket_creates` in Story 2.22, `turns` in Story 3.2, `dispatches` in Story 3.10
+**And** `resolutions` is the **one recorded exception** to that rule, and it is recorded here rather than left to be noticed: this story creates the table and writes no row to it — Story 1.6's generation mint writes the first. The exception is taken because the migration contract, the `user_version` advance and DS-25's rollback path are what this story exists to prove, and all three are unprovable against a schema with no table in it. One table, one story ahead of its first writer, is the whole of the deviation; no later story creates a table it does not write to
 **And** `PRAGMA user_version` returns `1`
 **And** `resolutions` has columns `pjid TEXT PRIMARY KEY`, `generation INTEGER NOT NULL`, `record_hash TEXT NOT NULL`, `resolved_at TEXT NOT NULL`, `clone_path TEXT`, `board_id TEXT`
 **And** the migration contract every later table is held to is stated once, in `db/README.md`: plural snake_case table names, snake_case columns, `pjid TEXT NOT NULL` and `generation INTEGER NOT NULL` on every capability table, ISO-8601 UTC TEXT timestamps, `clone_path` and `board_id` carried as recovery metadata and never as keys, migrations forward-only and numbered, each advancing `user_version` by exactly one
@@ -1198,7 +1200,7 @@ So that the Bridge survives a reboot with no manual intervention, and so that a 
 **When** `journalctl --user -u sidepiece-bridge -n 50 -o cat` is run on `big-chungus`
 **Then** it shows the structured JSON lines the Bridge emits, with no log aggregator configured or required
 
-*Satisfies: FR-15(a), FR-15(c), FR-15(f), AR24, AR61, AR62, AR63*
+*Satisfies: FR-15(a), FR-15(f), AR24, AR61, AR62, AR63. FR-15(c) — "restarting the Bridge does not require reloading the extension" — is **not** claimed here: this story has no Chrome surface to assert it against. It is Story 2.27's, which renders the restart.*
 
 ---
 
@@ -1439,11 +1441,11 @@ UJ-1, end to end, on a real page against a real Board. Jarad pins the icon, hits
 
 **FRs covered:** FR-1, FR-3, FR-4, FR-12, FR-13. **Inherited acceptance criteria:** FR-2(c) (the bounded cache), FR-14(a)(b) (the Cockpit's health marker), NFR-9's client-side pre-check.
 
-**Exit criterion:** the 28-row router matrix, Story 2.26.
+**Exit criterion:** the 28-row router matrix, Story 2.28.
 
 ---
 
-### Story 2.1: The pjid declaration contract and the three-page dev fixture
+### Story 2.1: The pjid declaration contract and the ten-page dev fixture
 
 As Jarad,
 I want a written, byte-exact `pjid` declaration contract and a set of local fixture pages that exercise every branch of it,
@@ -1543,7 +1545,7 @@ So that there is a real surface to render into, and so that the manifest's one-w
 **And** `activeTab`, `debugger` and `webNavigation` do **not** appear anywhere in it
 **And** `action` is declared with **no** `default_popup` key
 **And** `content_scripts` is one entry, `matches: ["<all_urls>"]`, `run_at: "document_idle"`, declared in the manifest rather than injected via `scripting.executeScript`
-**And** `commands` contains exactly one entry, `_execute_action` at `Alt+Shift+S`, `global: false` — `focus-ticket-title` is **not** declared here because its handler does not exist until Story 2.23 and a declared-dead shortcut occupies a slot Chrome will not give back
+**And** `commands` contains exactly one entry, `_execute_action` at `Alt+Shift+S`, `global: false` — `focus-ticket-title` is **not** declared here because its handler does not exist until Story 2.24 and a declared-dead shortcut occupies a slot Chrome will not give back
 **And** `arm-picker` and `discharge-batch` appear nowhere
 
 **Given** `WXT_BRIDGE_ORIGIN`
@@ -1630,7 +1632,7 @@ So that the panel is never showing a Project the active tab stopped being about 
 **Given** `spa.html` from the fixture
 **When** the button calling `history.pushState` and rewriting `<head>` to `content="holocene"` is clicked
 **Then** the service worker receives a fresh detection message carrying `pjid: "holocene"` within 500ms
-**And** the message is dispatched to the panel document **if one is open** — there is no panel document until Story 2.12, so this story asserts the message and its payload, and Story 2.25 asserts the in-place re-render onto the new `(pjid, generation)`
+**And** the message is dispatched to the panel document **if one is open** — there is no panel document until Story 2.12, so this story asserts the message and its payload, and Story 2.27 asserts the in-place re-render onto the new `(pjid, generation)`
 **And** the replaced value never reaches a consumer as `sidepiece`: a test asserts the last detection the service worker holds for that tab is `holocene`
 
 **Given** the same page
@@ -1639,7 +1641,7 @@ So that the panel is never showing a Project the active tab stopped being about 
 
 **Given** the service worker
 **When** `chrome.tabs.onActivated` or `chrome.tabs.onUpdated` fires
-**Then** it re-evaluates against the newly active tab and messages the single long-lived panel document — when one is open — to re-render in place; the message is asserted here, the render in Story 2.25
+**Then** it re-evaluates against the newly active tab and messages the single long-lived panel document — when one is open — to re-render in place; the message is asserted here, the render in Story 2.27
 **And** it does **not** call `chrome.sidePanel.setOptions({ tabId })` anywhere, so exactly one panel document exists per window and no per-tab override can drift
 
 **Given** a tab whose URL scheme is `chrome://`, `chrome-extension://`, `edge://`, `devtools://`, `about:`, `data:` or `chrome.google.com/webstore` / `chromewebstore.google.com`
@@ -1701,7 +1703,14 @@ So that no component invents a value, the One Black Rule survives a de-duplicati
 **Then** every corner radius inside the Cockpit is `0px` and no `{rounded.pill}` appears anywhere in it
 **And** the only horizontal inset in the column is `{spacing.gutter}` 14px
 
-*Satisfies: UX-DR1, UX-DR2, UX-DR5, UX-DR6, UX-DR7, UX-DR8, UX-DR9, UX-DR65, AR9, AR10*
+**Given** AR11's from-the-first-commit requirement — the `[v2]` in-page overlay is authored in px and scoped to the never-themed token subset, because converting it to rem later would silently break it on every site with a non-16px root
+**When** `packages/extension/src/styles/overlay-tokens.css` is written
+**Then** it emits the five `overlay.*` tokens — and only those five — into a **separately scoped** stylesheet that does **not** inherit the themed `:root`, and does not appear in `@media (prefers-color-scheme: dark)`'s override block, because all five are byte-identical across modes
+**And** a build check fails on a `rem` unit anywhere inside that scope, and fails on a reference to any token outside the five
+**And** the file carries a comment recording the reason: WXT's `createShadowRootUi` resets inherited styles with `all: initial`, which does **not** reset the host `<html>` font size, so `rem` is not isolated inside the shadow root even though every other inherited property is
+**And** nothing of the `[v2]` layer is built here — this is a stylesheet and a guard, not a component
+
+*Satisfies: UX-DR1, UX-DR2, UX-DR5, UX-DR6, UX-DR7, UX-DR8, UX-DR9, UX-DR65, AR9, AR10, AR11*
 
 ---
 
@@ -1963,7 +1972,7 @@ So that every component measured after this one is measured against a frame that
 **And** a text field inside the action bar grows to at most **6 rendered lines** (6 × the measured body line box) and then scrolls natively as a focused `<textarea>`; this is the single sanctioned exception to the one-scroll-region rule and it applies only to a focused text control, never to a `<div>` and never to a pane
 **And** no type size is reduced anywhere to absorb the growth
 
-**Given** a fixture element standing in the action bar at the composer's worst **specified** height — 269px, computed from `DESIGN.md`'s composer stack with FR-10's URL revealed, which Epic 3 builds into this same slot
+**Given** a fixture element standing in the action bar at the composer's worst height — **the six-rendered-line ceiling this story licenses, computed as 269px (`DESIGN.md`'s composer stack with FR-10's URL revealed) plus one further line of `{typography.body}` draft at the line box Story 2.2 measured, which is 288px at that measurement** — so the invariant is exercised against the height that actually ships rather than 19px below it, and the number moves with the font measurement instead of being restated as a literal in two stories; Epic 3 builds this slot and Story 3.3 derives the same ceiling rather than a higher one
 **When** the body is measured
 **Then** the body's computed height equals panel height − header height − action bar height and is never negative
 **And** the body is permitted to reach zero height while the action bar is that tall, which is acceptable because the operator is typing and not reading at that moment, and the bar returns to rest on send
@@ -1972,7 +1981,7 @@ So that every component measured after this one is measured against a frame that
 **When** the hairline audit test runs — remove every `{colors.border.hairline}` rule from a screen and look for a region that becomes ambiguous
 **Then** the action bar is **not** one of them: its boundary is a 1px `{colors.border.strong}` seam, promoted from the 1.49:1 hairline, because a 1.49:1 hairline is the composer's only boundary if the grounds are taken literally and that fails `DESIGN.md`'s own audit
 
-*Satisfies: NFR-2, NFR-3, UX-DR58, UX-DR70, UX-DR79, UX-DR80, UX-DR87, AR11*
+*Satisfies: NFR-2, NFR-3, UX-DR58, UX-DR70, UX-DR79, UX-DR80, UX-DR87*
 
 ---
 
@@ -2134,11 +2143,12 @@ So that a failure is always a thing I can read and act on, and never an empty re
 **And** its selection renders in `{colors.selection.ground}` with `{colors.selection.ink}`, never in the signature hue
 **And** it carries a `{components.copyControl}` and one **empty ruled** `[v2]` action slot at its trailing edge — ruled space, not a gap
 
-**Given** a command string captured with `curl` from Epic 1's `GET /v1/project/:pjid` for a Project in a DS-6 or DS-8 condition — the only Bridge-composed remedy commands that exist at this story
+**Given** a command string captured with `curl` from Epic 1's `GET /v1/project/:pjid` for a Project in a **DS-6** condition — the only Bridge-composed remedy command reachable at this story, and a conditional one: Story 1.9 emits DS-6's `remedy` only "if the Bridge can compose one — an omitted key, never an empty one". **DS-8 is not a source**: Story 1.14 forbids a `remedy` key on it outright, UX-DR46 and UX-DR27 both say the block is omitted entirely there, and DS-8 rides `/v1/health`, not `/v1/project/:pjid`
 **When** it is rendered in the notice well at 284px, where the well is 248px inside
 **Then** its actual wrapped line count and characters-per-line figure are measured at the mono advance from Story 2.2 and recorded in `docs/measurements/command-string.md`, replacing the derived 35-characters-per-line figure that was never rendered
 **And** the recorded figure is what any later fit claim against `{components.commandString}` cites
-**And** the record states that DS-14's mandatory board-binding command is not yet composable and is measured in Story 2.19
+**And** if the Bridge composed no DS-6 command on this machine, the measurement is **deferred whole** to Story 2.19 — which composes DS-14's mandatory board-binding command, the only Bridge-composed command the product guarantees exists — and this story's record says so and cites the derived 35-character figure as **provisional, explicitly unmeasured**, so no later story quotes it as a measurement
+**And** the record states in either case that DS-14's command is not composable until Story 2.19 and is measured there
 
 *Satisfies: FR-3(b), FR-3(d), UX-DR16, UX-DR17, UX-DR27, UX-DR59*
 
@@ -2203,6 +2213,13 @@ So that "every pane fails independently and says why" survives a body that shows
 **And** the reserved `[v2]` third cell is recorded as (318 − 2) ÷ 3 = **105.33px**, leaving 89.3px of label — a budget the story records against `ANNOTATIONS` (11 characters) so the later epic knows whether the word survives
 **And** the third cell renders as an **empty ruled cell**, never as a gap, and the fourth slot is not reserved
 
+**Given** this epic builds **no Chat pane** — Story 3.3 does — and UX-DR48 Rule 1 forbids an empty state that is not the result of a successful read, so there is nothing legal for a selected `CHAT` cell to show
+**When** the switch renders at this epic's exit
+**Then** the `CHAT` cell is **drawn, ruled and labelled at its measured 158.5px** but is **reserved, not live**: it does not take focus, a click on it changes nothing, `Alt+2` is a no-op, and the selection never lands on it — the same inert treatment the `[v2]` third cell gets, for the same reason, one epic earlier
+**And** a test asserts that at this epic's exit **no code path renders a Chat pane body**, empty or otherwise, and that the selection cannot be persisted as `CHAT`
+**And** the two-up geometry is measured **once, here**, and does not move when Epic 3 makes the cell live — the cell is the same 158.5px reserved or selected, so this is an interactivity change and never a second layout pass
+**And** Story 3.3 is named as the story that makes it live, and this story's own criteria are what that story flips rather than re-derives
+
 **Given** the selected cell
 **When** it renders
 **Then** it carries a 2px `{colors.action.mark}` underline **inside** the cell and steps its label to `{colors.text.primary}`
@@ -2213,7 +2230,10 @@ So that "every pane fails independently and says why" survives a body that shows
 **Given** a pane is degraded while hidden
 **When** the switch renders
 **Then** that cell carries its own status marker at its leading edge — an 11px `{spacing.glyph}` mark plus, where it fits, nothing else
-**And** a test gates the Tickets pane with an injected DS-17 while Chat is selected and asserts the Tickets cell is marked
+**And** the mark is **two-level, and the mapping is stated once, here, rather than asserted as a difference elsewhere**: a cell whose pane appears in the router's `gated` set takes `marks.failed`; a cell whose pane is **live** but whose `degraded[]` carries a code that refuses a capability *inside* it takes `marks.degraded`; a cell with neither carries no mark at all
+**And** the only v1 instance of the second level is **DS-18**, which gates no pane and refuses dispatch inside a live Chat pane — so `marks.failed` on the Chat cell means Chat is unusable and `marks.degraded` means part of it is, and that is the whole of the distinction Story 3.12 consumes
+**And** the distinction is **not** carried by colour alone, per UX-DR65: the two marks differ in geometry (a 7×7px filled square against a filled triangle 8px base × 7px rise), which is what survives the grayscale render
+**And** the marker is tested by **setting the component's props directly** — the same way the `inert` prop is tested below — because no pane is hideable at this epic's exit: a test passes `gated: ['tickets']` and asserts `marks.failed` on the Tickets cell, passes a capability-degraded Chat and asserts `marks.degraded`, and passes neither and asserts no mark
 
 **Given** the selected pane
 **When** it changes
@@ -2225,6 +2245,7 @@ So that "every pane fails independently and says why" survives a body that shows
 **When** pressed anywhere in the Cockpit
 **Then** they select a pane by position, mirroring the switch's visible order
 **And** they are in-document key handlers and cost nothing from the `chrome.commands` budget of four
+**And** at this epic's exit `Alt+2` is a **no-op**, because the cell it addresses is reserved — the handler is built and wired here so Epic 3 flips a cell's state rather than adding a keybinding, and a test asserts `Alt+2` changes nothing while the cell is reserved
 
 **Given** the switch's `inert` prop is set — which the total-outage shape will drive in Story 2.18
 **When** it renders
@@ -2273,6 +2294,14 @@ So that the panel never says the tailnet is down six different ways, and never l
 **When** the predicate runs
 **Then** the shape is `partial`: the panes that do not depend on it stay **fully live** and only the one that does renders its own notice
 **And** the header stays intact and the switch marks the gated pane
+
+**Given** **DS-18** — Bloodbank unreachable at the transport, which UX-DR43 calls "the HALF-PANE state" while UX-DR47 says the router renders exactly one of **two** shapes
+**When** the predicate runs
+**Then** it returns `{ shape: 'partial', gated: [] }` — the union stays two shapes wide and `half-pane` is **not** one of them, because under DS-18 the Chat pane is genuinely live: the composer is enabled, a Streamed Exchange sends and completes, and UX-DR47's own rule gates only a pane that cannot function
+**And** the word `half-pane` names a **capability refusal inside a live pane**, never a router shape, and a grep asserting it appears in no type, no union member and no `gated` value is part of this story
+**And** the dispatch refusal it describes is owned **entirely by Story 3.14's accept path** — the Bridge refusing a Dispatched Command before publish — and not by this predicate, which decides panes and nothing finer
+**And** the Chat cell's `marks.degraded` under DS-18 comes from Story 2.17's two-level marker mapping, driven by the code's presence in `degraded[]` rather than by membership in `gated`, which is why `gated: []` loses no signal
+**And** a test injects DS-18 and asserts `gated` is empty, the header renders, the switch is **not** inert, and no pane-level notice replaces the Chat body
 
 **Given** the health transition unreachable→reachable
 **When** it is observed
@@ -2513,7 +2542,7 @@ So that filing a ticket from the panel is actually faster than the terminal — 
 **Then** it is three cells across the 264px inner width: a 32px fixed leading slot, the submit filling 184px, a 32px fixed trailing slot, 8px gaps
 **And** both empty slots render as **ruled space**, not as gaps
 
-**Given** the submit label
+**Given** the submit label and key-screen finding 11 (UX-DR89), which this story settles
 **When** it renders
 **Then** it reads `CREATE ON <identifier>`, where `<identifier>` is `record.ticketProvider.identifier` uppercased — the **same byte string** the header's stamp chip renders, asserted equal in a test
 **And** it names a **Board**, never a Plane workspace and never a Project name, because FR-13's whole point is that the submit proves which Board it will write to
@@ -2550,19 +2579,6 @@ So that filing a ticket from the panel is actually faster than the terminal — 
 **And** on this state **only**, the refetch control re-issues the **create** under the held `createKey` rather than re-reading the Board, which returns the exact Ticket and cannot double-file
 **And** resubmitting by retyping is not offered, because a retype mints a new key and therefore genuinely does double-file
 
-**Given** DS-14 (`<repo> has no Board.` / `Nothing to list, and nothing to create against.` + mandatory command) or DS-22 (`This Board has no states. Nothing to create into.` + command when the Bridge returns one)
-**When** either gates the Tickets pane
-**Then** the create box is **disabled with the reason**, never failing on submit
-**And** because the pane notice carrying the reason scrolls out of the pinned action bar's sight, the disabled box carries the reason **itself**: the state's headline sentence renders in `{typography.label}` at `{colors.text.muted}` on a wrapping line directly above the submit row, inside the pinned action bar, and the submit label becomes `CAN'T CREATE`
-**And** a test scrolls the Tickets pane to the bottom under DS-14 and asserts the reason is still visible
-**And** Chat stays fully usable in both states
-
-**Given** `chrome.commands`
-**When** this story lands
-**Then** `focus-ticket-title` is declared at `Alt+Shift+N`, `global: false`, **and its handler lands in the same change**
-**And** the handler opens the Cockpit if closed, switches to Tickets, and puts the caret in the title field, and **never closes** the Cockpit — it is its own command calling `open()`, not the action
-**And** the manifest now declares exactly two commands and no more; `arm-picker` and `discharge-batch` remain undeclared
-
 **Given** the draft
 **When** the operator types
 **Then** it is debounced continuously to `chrome.storage.local` keyed by pjid and restored on open
@@ -2574,11 +2590,76 @@ So that filing a ticket from the panel is actually faster than the terminal — 
 **Then** it creates
 **And** `Escape` **blurs** the field and the text **stays** — it never clears it and never closes the Cockpit
 
-*Satisfies: FR-13(a), FR-13(b), FR-13(c), FR-13(d), FR-13(e), NFR-9, UX-DR25, UX-DR42, UX-DR53, UX-DR54, UX-DR55, UX-DR88, UX-DR89, AR58, AR59*
+*Satisfies: FR-13(a), FR-13(b), FR-13(c), FR-13(d), FR-13(e), NFR-9, UX-DR25, UX-DR54, UX-DR55, UX-DR89, AR58, AR59*
 
 ---
 
-### Story 2.24: The accessibility floor
+### Story 2.24: `focus-ticket-title` — the second command slot and the gesture path that must not lose it
+
+As Jarad,
+I want `Alt+Shift+N` to put me in the title field from anywhere, opening the Cockpit if it is closed,
+So that filing a ticket costs one chord — and so that the second and last `chrome.commands` slot is spent deliberately, with its handler, under the same zero-await rule the first one cost a whole story to establish.
+
+**Note.** This is the product's **second** `chrome.sidePanel.open()` gesture path. Story 2.11 built the first and every protection around it; this story is the surface those protections must cover, and none of them holds by being written down over there. Story 2.3 deliberately left this slot undeclared — "a declared-dead shortcut occupies a slot Chrome will not give back" — so the declaration and the handler land here, together, or neither does.
+
+**Acceptance Criteria:**
+
+**Given** `chrome.commands` and Story 2.3's manifest, which declares one entry
+**When** this story lands
+**Then** `focus-ticket-title` is declared at `Alt+Shift+N`, `global: false`, **and its handler lands in the same change** — a declared-dead command is what note 15's rule forbids
+**And** the manifest now declares exactly two commands and no more; `arm-picker` and `discharge-batch` remain undeclared
+**And** the declaration is a one-way door on a budget of four, and the story states that the two remaining slots are unspent rather than reserved
+
+**Given** NFR-5 and AR73 — `chrome.sidePanel.open()` must be the first synchronous call in a gesture handler, and an `await` anywhere before it loses the curried gesture to a **silent no-op with no thrown error**
+**When** the `focus-ticket-title` handler is written
+**Then** it lives in **`entrypoints/background/gesture.ts`**, the file Story 2.11's lint is scoped to, so that lint — which fails the build on an `await` or a `.then()` anywhere in that file — covers this path without being rewritten or re-pointed
+**And** `chrome.sidePanel.open()` is the **first synchronous statement** in the handler, with zero awaits and zero `.then()` calls before it
+**And** the pane switch to Tickets and the caret placement happen **after** the `open()` call, never before it — a test asserts the ordering by stubbing `open()` and observing it called before any other side effect in the handler
+**And** the path crosses at most **one** `runtime.sendMessage` hop, for the same reason Story 2.11 states: Chrome curries a gesture across exactly one hop and the curried gesture cannot be re-forwarded
+
+**Given** the handler fires
+**When** the Cockpit is closed
+**Then** it **opens** the Cockpit, switches to Tickets, and puts the caret in the title field
+**And** when the Cockpit is already open it switches to Tickets and puts the caret in the title field without reopening anything
+**And** it **never closes** the Cockpit in either case — it is its own command calling `open()`, not the action, and the toggle behaviour belongs to `_execute_action` alone
+**And** a test drives the chord ten consecutive times from a closed Cockpit and asserts ten opens and zero no-ops, because the heisenbug this guards against is intermittent by nature and a single pass proves nothing
+
+*Satisfies: NFR-5, UX-DR53 (row 2 — Story 2.3 declares row 1), AR73*
+
+---
+
+### Story 2.25: The disabled create box — DS-14 and DS-22 say why, inside the pinned bar
+
+As Jarad,
+I want a Tickets pane with no Board to disable the create box **with the reason showing**, right where the submit is, rather than letting me type into something that will refuse me,
+So that the failure is legible at the moment I would act on it, even after the pane notice has scrolled out of sight — and so that the product's two action bars answer this the same way.
+
+**Note.** This story settles key-screen finding 10 (UX-DR88), and its form is inherited wholesale by Story 3.6 for the composer. It is separated from the create box itself because it is a different failure domain with its own states, and because a citation should point at a story rather than at a paragraph.
+
+**Acceptance Criteria:**
+
+**Given** DS-14 (`<repo> has no Board.` / `Nothing to list, and nothing to create against.` + mandatory command) or DS-22 (`This Board has no states. Nothing to create into.` + command when the Bridge returns one)
+**When** either gates the Tickets pane
+**Then** the create box is **disabled with the reason**, never failing on submit
+**And** because the pane notice carrying the reason scrolls out of the pinned action bar's sight, the disabled box carries the reason **itself**: the state's headline sentence renders in `{typography.label}` at `{colors.text.muted}` on a wrapping line directly above the submit row, inside the pinned action bar, and the submit label becomes `CAN'T CREATE`
+**And** it is **not** set in `{typography.micro}`, because that role is `DESIGN.md`'s 10.5 Floor Rule reserve for static chrome and this line is variable content
+**And** a test scrolls the Tickets pane to the bottom under DS-14 and asserts the reason is still visible
+**And** Chat stays fully usable in both states
+
+**Given** the disabled box and the four boardless Projects by name — `codegraph-voyage`, `legofirst`, `momo`, `vinyl`
+**When** each is resolved
+**Then** the box is disabled with DS-14's reason for all four, reached through `Boolean(record.boardId)` and never through a `!= null` or a key-presence test
+**And** the title field accepts no input in this state, so no typing is taken and then refused
+
+**Given** a `createKey` already minted and acknowledged when the pane then enters DS-14 or DS-22
+**When** the recovery path from Story 2.23's acknowledged-but-unusable state is offered
+**Then** it is offered as **unusable and says so** rather than silently absent, because a held key with nothing to write against is a fact the operator can act on and an absent control is not
+
+*Satisfies: FR-12(c) (the create half), FR-13(e), UX-DR42, UX-DR88*
+
+---
+
+### Story 2.26: The accessibility floor
 
 As Jarad,
 I want every control reachable and operable from the keyboard, focus that is never lost and always visible, and a panel that is legible in a screenshot pasted into a terminal,
@@ -2636,11 +2717,11 @@ So that the surface works for the way I actually use it — keyboard-first, at 3
 **When** the story closes
 **Then** it is stated in the repo that a full WCAG 2.2 AA conformance pass, NVDA/JAWS/VoiceOver QA, localization and RTL, forced-colors theming and touch are **deliberately out** of v1 and out of the floor
 
-*Satisfies: NFR-2, UX-DR57, UX-DR61, UX-DR62, UX-DR63, UX-DR64, UX-DR65, UX-DR66, UX-DR67, UX-DR68, UX-DR69, UX-DR60*
+*Satisfies: NFR-2, UX-DR57, UX-DR61, UX-DR62, UX-DR63, UX-DR64, UX-DR65, UX-DR66, UX-DR67, UX-DR68, UX-DR69. UX-DR60 is **not** claimed here: the "no mouse-only path" assertion above is UX-DR61's acceptance test verbatim. UX-DR60's own v1 obligation — hover may add information but never expose the only path to an action — is asserted in Story 3.3 against the context chip, which is v1's one hover affordance; its drag half is `[v2]`.*
 
 ---
 
-### Story 2.25: Cold start, tab switches, Bridge restart and two windows
+### Story 2.27: Cold start, tab switches, Bridge restart and two windows
 
 As Jarad,
 I want the panel to come back correctly after every way it can go away, and never to confuse a Bridge restart with an extension reload,
@@ -2650,7 +2731,7 @@ So that the most routine event in the system does not teach me to reload a tab I
 
 **Given** a reopen or an expand after a collapse — which is the **same teardown event** as a close
 **When** the panel document cold-starts
-**Then** the render order is fixed: (1) **detection first**, locally, before anything paints, with the pjid **re-read and never remembered**; (2) the identity header paints from `lib/cache.ts` if the entry is valid for that pjid, carrying an as-of marker until the Bridge confirms, and the cache serves the header **and nothing else**; (3) **at most three progress lines** — one for resolution if uncached, one in Tickets, one in Chat — and never a whole-panel spinner; (4) **no pane waits on another** — the create box is live before the Board arrives; (5) every progress line carries its budget as a deadline and converts to a timeout on expiry
+**Then** the render order is fixed: (1) **detection first**, locally, before anything paints, with the pjid **re-read and never remembered**; (2) the identity header paints from `lib/cache.ts` if the entry is valid for that pjid, carrying an as-of marker until the Bridge confirms, and the cache serves the header **and nothing else**; (3) **at most three progress lines** — one for resolution if uncached, one in Tickets, and one in Chat **which is Epic 3's** and does not exist at this epic's exit, where the ceiling is therefore two — and never a whole-panel spinner; (4) **no pane waits on another** — the create box is live before the Board arrives; (5) every progress line carries its budget as a deadline and converts to a timeout on expiry
 **And** the health marker sits at "not yet known", which is a real state and not a placeholder
 **And** a test collapses the panel mid-typing and asserts the draft is restored from `chrome.storage.local` on expand
 
@@ -2698,11 +2779,11 @@ So that the most routine event in the system does not teach me to reload a tab I
 **And** there is **no** onboarding screen, welcome tab, first-run Cockpit state, coach mark or in-product nudge
 **And** the install note says `pin the icon`, which is the product's only setup step
 
-*Satisfies: FR-1(d), FR-2(c), FR-3(a), NFR-3, NFR-4, UX-DR71, UX-DR72, UX-DR73, UX-DR74, UX-DR75, UX-DR76, UX-DR77, AR72, AR77*
+*Satisfies: FR-1(d), FR-2(c), FR-3(a), FR-15(c), NFR-3, NFR-4, UX-DR71, UX-DR72, UX-DR73, UX-DR74, UX-DR75, UX-DR76, UX-DR77, AR72, AR77*
 
 ---
 
-### Story 2.26: The 28-row router matrix — the epic's exit criterion
+### Story 2.28: The 28-row router matrix — the epic's exit criterion
 
 As Jarad,
 I want one test that asserts, for every one of the twenty-eight states, which shape renders and which panes stay operable,
@@ -2713,7 +2794,7 @@ So that the 4.7× miscount this project already made once cannot be carried past
 **Given** `packages/extension/src/lib/router.matrix.test.ts`
 **When** it runs
 **Then** it carries **28 rows**, one per `DsCode` in `contract/src/state.ts`, and a `tsc`-enforced exhaustiveness check fails the build if a code exists with no row
-**And** each row asserts three things: the shape (`total` or `partial`), the exact set of gated panes, and whether an identity header renders
+**And** each row asserts **four** things: the shape (`total` or `partial`), the exact set of gated panes, whether an identity header renders, and the pane-switch cell mark each pane carries under Story 2.17's two-level mapping — the fourth is what keeps DS-18 and DS-19 distinguishable now that both return an empty `gated` set
 
 **Given** a code no story in this epic can yet trigger — DS-11, DS-12, DS-13, DS-18, DS-19, DS-20, DS-24, DS-25, DS-26, DS-28
 **When** its row runs
@@ -2723,19 +2804,19 @@ So that the 4.7× miscount this project already made once cannot be carried past
 **Given** the matrix
 **When** its rows are read
 **Then** they assert at minimum:
-| Codes | Shape | Gated | Header |
-|---|---|---|---|
-| DS-3, DS-4, DS-5, DS-27 | total, one shared notice, switch inert | all | replaced |
-| DS-6, DS-7 **with no snapshot** | total | all | replaced |
-| DS-6, DS-7 **with a snapshot**, alongside DS-23 | partial | none | renders, marked stale with the age |
-| DS-2, DS-16 | all panes gated, full notice in the body | all | **none** |
-| DS-1, DS-21 | no notice at all | all | **none** |
-| DS-11, DS-12, DS-13, DS-20, DS-24, DS-25, DS-26, DS-28 | partial | Chat only | intact |
-| DS-14, DS-17, DS-22 | partial | Tickets only | intact |
-| DS-18 | partial, **half-pane** — composer stays enabled, Streamed Exchange live | dispatch only | intact |
-| DS-19 | partial | **nothing** | intact |
-| DS-8 | partial | whichever dependency it feeds, named | intact |
-| DS-9, DS-10, DS-15, DS-23 | informational marker, no notice | **nothing** | intact, marked |
+| Codes | Shape | Gated | Header | Cell mark |
+|---|---|---|---|---|
+| DS-3, DS-4, DS-5, DS-27 | total, one shared notice, switch inert | all | replaced | switch inert, no marks |
+| DS-6, DS-7 **with no snapshot** | total | all | replaced | switch inert, no marks |
+| DS-6, DS-7 **with a snapshot**, alongside DS-23 | partial | none | renders, marked stale with the age | none |
+| DS-2, DS-16 | all panes gated, full notice in the body | all | **none** | both `marks.failed` |
+| DS-1, DS-21 | no notice at all | all | **none** | none |
+| DS-11, DS-12, DS-13, DS-20, DS-24, DS-25, DS-26, DS-28 | partial | Chat only | intact | Chat `marks.failed` |
+| DS-14, DS-17, DS-22 | partial | Tickets only | intact | Tickets `marks.failed` |
+| DS-18 | partial — composer stays enabled, Streamed Exchange live, **dispatch refused by Story 3.14's accept path and not by this predicate** | **none** | intact | Chat `marks.degraded` |
+| DS-19 | partial | **nothing** | intact | **none** |
+| DS-8 | partial | whichever dependency it feeds, named | intact | that pane `marks.failed` |
+| DS-9, DS-10, DS-15, DS-23 | informational marker, no notice | **nothing** | intact, marked | none |
 
 **Given** DS-1 and DS-21
 **When** their rows run
@@ -2807,7 +2888,7 @@ So that I know before I open Chrome whether chat on this Project is going to wor
 **Given** a Project where several PM-scoped conditions hold at once — for example a PM declared, absent from the fleet registry, **and** bound to a `role_dir` that is not on disk
 **When** I `GET /v1/project/:pjid`
 **Then** `degraded[]` carries **exactly one** Chat-gating PM code, chosen by the fixed precedence `DS-25 → DS-11 → DS-12 → DS-20 → DS-13 → DS-26`, because each is a precondition for testing the next
-**And** the order lives in one exported table in `contract/src/state.ts`, and a later story appends its codes to the **end** of it rather than interleaving them — Story 3.6 appends `DS-24` and `DS-28`, which is why this story asserts six entries and not eight
+**And** the order lives in one exported table in `contract/src/state.ts`, and a later story appends its codes to the **end** of it rather than interleaving them — Story 3.8 appends `DS-24` and `DS-28`, which is why this story asserts six entries and not eight
 **And** DS-20 is read from Epic 1's `registry/paths.ts` output rather than re-probed here
 **And** `DS-10` — a **non-PM** Agent binding with a missing `role_dir`, which is also true of this repository today for `sidepiece-scrum-master` — is present in `degraded[]` alongside it and is never treated as a PM code, because gating Chat on DS-10 would kill Chat on the repo being built.
 
@@ -2872,13 +2953,13 @@ So that "the PM has your turn" can be an honest sentence at 79ms instead of a li
 
 ---
 
-### Story 3.3: Compose a Turn, see how it will be treated, and hand it to the PM
+### Story 3.3: The composer shell, and the Chat cell Epic 2 reserved goes live
 
 As Jarad,
-I want a composer in the Chat pane that tells me — before I commit — whether this Turn will stream back or be dispatched, what page it is carrying, and which PM it is going to,
-So that the split between asking and assigning is a decision I make with my eyes open rather than one the product makes behind my back.
+I want the Chat pane to exist for the first time — its cell selectable, its composer sitting in the action bar at a settled height, and the two spines' contradiction about that height resolved once,
+So that every composer criterion after this one is measured against a frame that does not move, and so that the pane switch Epic 2 built finally switches to something.
 
-**Note.** Key-screen findings 1 and 2 (UX-DR79, UX-DR80) and finding 9 (UX-DR87) are resolved in the first three criteria below, before any other criterion in this story is exercised. Finding 5 (UX-DR83) is resolved in the second.
+**Note.** This story resolves the four key-screen findings Epic 3 owns and must decide before any other composer criterion is exercised: findings 1 and 2 (UX-DR79, UX-DR80) together, finding 5 (UX-DR83), and finding 9 (UX-DR87). Stories 3.4 and 3.5 measure against the numbers this story produces and do not re-derive them.
 
 **Acceptance Criteria:**
 
@@ -2886,22 +2967,54 @@ So that the split between asking and assigning is a decision I make with my eyes
 **When** the composer is built
 **Then** the composer **inherits Story 2.12's shell rule rather than re-deciding it**: the action bar is `height: auto` with no `max-height`, the 188px cap is already gone, and the bar grows upward and pushes the body, which keeps the body the only scroll region on screen
 **And** the growth is bounded at the **text field** and nowhere else — the focused `<textarea>` grows to the six-rendered-line ceiling Story 2.12 licensed, which measures **288px** for the fully-revealed stack (269px specified, plus 19px for one further line of `{typography.body}` draft), and then scrolls natively; this is the single sanctioned exception Story 2.12 named, and `overscroll-behavior` is left at `auto` on that field so a wheel event at its scroll boundary chains to the body rather than being trapped
+**And** that 288px is the **same figure Story 2.12's layout fixture already stands at**, so the shell invariant was exercised against this height before the composer existed and no number is restated in two places
 **And** **no type is shrunk to absorb any of it**, and the body is permitted to reach zero height at that worst case, because the operator is typing and not reading at that moment
 **And** the resolution is recorded in the implementation notes citing Story 2.12, because the two spines contradict each other here and the next reader must not have to rediscover it.
 
 **Given** the `[v2]` attachment seat the Version Seam reserves in the composer's action row
 **When** the composer's action row is laid out
 **Then** the seat sits **in the action row, below the classification control**, so `{components.classificationControl}` keeps the full **244px** inner width and its headline measurement stands unchanged: `DISPATCHED COMMAND` at 18 characters × 7.36px = **132.5px in 244px**, 111.5px spare
+**And** that 244px is the number Story 3.4 consumes for the control and Story 3.5 for the context chip; neither re-derives it
 **And** the seat renders as **nothing** in v1 — not a disabled control, because a greyed-out attachment button is a promise and an empty slot is a layout decision.
 
 **Given** `DESIGN.md`'s own audit test — remove every hairline; if a region becomes ambiguous, that region needs a `strong` rule — and Story 2.12's promotion of the action bar's boundary from the 1.49:1 hairline to a 1px `{colors.border.strong}` seam
 **When** the composer's top boundary is drawn
 **Then** it **is** that promoted seam rather than a second one: the composer sits on the action bar's existing `{colors.border.strong}` edge, draws no boundary of its own, and a test asserts exactly one horizontal rule separates the body from the action bar at every composer height.
 
+**Given** `{components.paneSwitch}`'s `CHAT` cell, which Story 2.17 drew, ruled and measured at 158.5px and deliberately left **reserved** — not focusable, not clickable, `Alt+2` a no-op — because Epic 2 builds no Chat read and UX-DR48 Rule 1 forbids an empty state that is not the result of a successful read
+**When** this story lands
+**Then** the cell becomes **live**: it takes focus, a click selects it, `Alt+2` selects it, and the selection persists per Project under the keyspace Story 2.17 established
+**And** **nothing about the strip's geometry changes** — the cell is the same 158.5px it was reserved at, the seam is still full-bleed at 318px, and a test asserts the rendered strip is pixel-identical to Epic 2's except for the cell's interactive state
+**And** the Chat pane now has a body to render, so the empty state it may show is a **result** rather than a placeholder, which is what licensed the deferral in the first place
+**And** Story 2.27's cold-start render order gains its third progress line here — the one "in Chat" that did not exist at Epic 2's exit.
+
+**Given** draft text in the composer
+**When** I type
+**Then** the draft is debounced continuously to `chrome.storage.local` keyed by pjid through `lib/storage.ts`'s continuity keyspace — never through `lib/cache.ts`'s `fr2:` keyspace — and restored on the next open, because collapse is the same teardown event as close and `onClosed` is a belt rather than the braces
+**And** if the storage read throws or returns empty the composer renders empty and works
+**And** the draft is never the only source of a rendered fact.
+
+**Given** `Shift+Enter` and `Escape`
+**When** each is pressed in the composer
+**Then** `Shift+Enter` inserts a newline and does not send
+**And** `Escape` **blurs the field and keeps the text** — it never clears it, and it never closes the Cockpit, because only the icon can.
+
+*Satisfies: NFR-3, AR78, UX-DR14 (the cell goes live), UX-DR18, UX-DR55, UX-DR57, UX-DR70, UX-DR79, UX-DR80, UX-DR83, UX-DR87*
+
+---
+
+### Story 3.4: See how a Turn will be treated before you commit it
+
+As Jarad,
+I want the composer to tell me, before I press Enter, whether this Turn will stream back or be dispatched — and to let one control flip it,
+So that the split between asking and assigning is a decision I make with my eyes open rather than one the product makes behind my back.
+
+**Acceptance Criteria:**
 
 **Given** the Chat pane is selected and the composer is empty
 **When** it renders
 **Then** `{components.classificationControl}` shows the standing default **DISPATCHED COMMAND**, rendered as two full-width stacked 30px rows boxed in 1px `{colors.border.strong}` with a 1px internal rule, each row carrying its term in `{typography.label}` uppercase, the selected row carrying a 2px `{colors.action.mark}` underline inside the cell — never a spot fill
+**And** it sits at the **244px** inner width Story 3.3 settled, and the headline fit stands: `DISPATCHED COMMAND` at 18 characters × 7.36px = 132.5px in 244px, 111.5px spare
 **And** the term is rendered **verbatim and complete** — `STREAMED EXCHANGE` / `DISPATCHED COMMAND` — and is never abbreviated at any width; `DISPATCHED CMD` anywhere in the rendered output fails this criterion, because an abbreviation is a synonym and the Glossary forbids one
 **And** there is no blank state: an unclassifiable Turn classifies as Dispatched Command and says so.
 
@@ -2917,18 +3030,29 @@ So that the split between asking and assigning is a decision I make with my eyes
 **And** on send the override is discarded, so the next Turn starts from the rule again — an override is never implicitly applied to a later Turn
 **And** `Alt+M` is an accelerator, not the only path: the control is also a button reachable by `Tab` and operable with `Enter`/`Space`.
 
+*Satisfies: FR-6(b), FR-6(e), AR19, AR20, UX-DR19, UX-DR49, UX-DR52, UX-DR54, UX-DR61, UX-DR62, UX-DR63*
+
+---
+
+### Story 3.5: The page rides along, and the Turn is handed to the PM
+
+As Jarad,
+I want the composer to show me what page it is carrying, and pressing Enter to hand the Turn over inside half a second with the page attached,
+So that the PM is never guessing at a page it cannot see, and so that acceptance is a fact I can read rather than a spinner.
+
+**Acceptance Criteria:**
 
 **Given** the active tab is `https://holocene.delo.sh/board` titled `Holocene — Board`
 **When** the composer renders
 **Then** `{components.contextChip}` shows the **page title** on one line at rest in `{typography.body}`, wrapping to at most two lines, in a `{colors.surface.sunken}` block with a dashed 1px `{colors.border.hairline}` bottom rule at the top of the composer, 248px inside
-**And** focusing or hovering the chip reveals the **URL** in `{typography.mono}` at `{colors.text.machine}`, wrapping to two lines, never elided — and the reveal is reachable by keyboard, because hover must never be the only path
+**And** focusing or hovering the chip reveals the **URL** in `{typography.mono}` at `{colors.text.machine}`, wrapping to two lines, never elided — and the reveal is reachable by keyboard, **because hover may add information but must never be the only path to it**, which is UX-DR60's whole v1 obligation and this chip is v1's only hover affordance
 **And** if the title or the URL cannot be read, the chip names **which one** is missing and the Turn still sends, because a Turn with partial context beats a blocked Turn.
-
 
 **Given** a composed Turn and a resolved Project at `(pjid, generation)`
 **When** I press `Enter`, or activate the send control
 **Then** the Cockpit refuses locally first if it holds a stale generation, rendering `The Project changed while that was in flight. Nothing was written.`, keeping the text and offering **no** re-resolve control
 **And** otherwise it `POST`s to `/v1/project/:pjid/turn` with `generation`, `text`, `pageUrl`, `pageTitle` and, when the operator flipped it, `override`
+**And** `pageUrl` and `pageTitle` are sent on **both** classification branches without exception — FR-10(c) — and Stories 3.9 and 3.12 carry them the rest of the way to the PM, which is where FR-10 is actually discharged
 **And** within 500ms a `{components.turnCard}` appears rendering the operator's turn — variant (a): a 2px `{colors.action.mark}` left rule at 9px inset, serif roman at `{colors.text.primary}`, the only spot-marked content in the scroll region — followed by the accepted state reading exactly `the PM has your turn`, byte for byte, asserted by a test against the constant in the copy module
 **And** the accepted state is never rendered as `Sending…`, a spinner, or a bare glyph
 **And** the send control's label names its target — `SEND TO <pm>` in `{typography.label}` uppercase, 20 characters at 7.36px = 147px inside a 264px action row — because every mutating control states its target inside itself.
@@ -2942,22 +3066,11 @@ So that the split between asking and assigning is a decision I make with my eyes
 **Then** focus **stays in the text field** and is never on `<body>`, and the field is cleared for the next Turn
 **And** when the Project changes under an open Cockpit, focus moves to the pane switch — a defined landing — rather than being lost.
 
-**Given** `Shift+Enter` and `Escape`
-**When** each is pressed in the composer
-**Then** `Shift+Enter` inserts a newline and does not send
-**And** `Escape` **blurs the field and keeps the text** — it never clears it, and it never closes the Cockpit, because only the icon can.
-
-**Given** draft text in the composer
-**When** I type
-**Then** the draft is debounced continuously to `chrome.storage.local` keyed by pjid through `lib/storage.ts`'s continuity keyspace — never through `lib/cache.ts`'s `fr2:` keyspace — and restored on the next open, because collapse is the same teardown event as close and `onClosed` is a belt rather than the braces
-**And** if the storage read throws or returns empty the composer renders empty and works
-**And** the draft is never the only source of a rendered fact.
-
-*Satisfies: FR-6(b), FR-6(e), FR-7(a), FR-10(a), FR-10(b), FR-10(c), NFR-3, NFR-9, AR19, AR20, AR41, AR78, UX-DR18, UX-DR19, UX-DR20, UX-DR21(a), UX-DR49, UX-DR50(1), UX-DR52, UX-DR54, UX-DR55, UX-DR57, UX-DR59, UX-DR61, UX-DR62, UX-DR63, UX-DR67, UX-DR70, UX-DR79, UX-DR80, UX-DR83, UX-DR87*
+*Satisfies: FR-7(a), FR-10(a), FR-10(b), FR-10(c) (the client half — the upstream halves are Stories 3.9 and 3.12), NFR-9, AR41, UX-DR20, UX-DR21(a), UX-DR50(1), UX-DR59, UX-DR60, UX-DR67*
 
 ---
 
-### Story 3.4: Chat says why it is unavailable, hands over the command, and leaves Tickets alone
+### Story 3.6: Chat says why it is unavailable, hands over the command, and leaves Tickets alone
 
 As Jarad,
 I want the Chat pane to tell me which of the four PM problems I have and, when no PM is declared, to hand me the exact provisioning command in a form I can paste,
@@ -2989,7 +3102,7 @@ So that landing on a Project with no PM costs me one copy and one paste instead 
 
 **Given** any of DS-11, DS-12, DS-13, DS-20 or DS-25
 **When** the Chat pane renders
-**Then** the composer is **disabled**, its draft is kept, and the reason is pinned to the composer itself in the **same form Story 2.23 gave the disabled create box** — the state's headline sentence on a wrapping line in `{typography.label}` at `{colors.text.muted}` directly above the send row, with the send label becoming `CAN'T SEND` — so the reason is still legible once the pane notice has scrolled out of the pinned action bar's sight, and the product's two action bars do not diverge
+**Then** the composer is **disabled**, its draft is kept, and the reason is pinned to the composer itself in the **same form Story 2.25 gave the disabled create box** — the state's headline sentence on a wrapping line in `{typography.label}` at `{colors.text.muted}` directly above the send row, with the send label becoming `CAN'T SEND` — so the reason is still legible once the pane notice has scrolled out of the pinned action bar's sight, and the product's two action bars do not diverge
 **And** it is **not** set in `{typography.micro}`, because that role is `DESIGN.md`'s 10.5 Floor Rule reserve for static chrome and this line is variable content
 **And** the classification control and the context chip are disabled with it
 **And** `{components.paneSwitch}`'s Chat cell carries its own status marker so the pane says it is failing **while hidden**
@@ -3014,7 +3127,7 @@ So that landing on a Project with no PM costs me one copy and one paste instead 
 
 ---
 
-### Story 3.5: This Project's Turns come back, and no other Project's do
+### Story 3.7: This Project's Turns come back, and no other Project's do
 
 As Jarad,
 I want the Chat pane to reload this Project's prior Turns when I reopen the Cockpit, and to be structurally incapable of showing me another Project's,
@@ -3025,6 +3138,8 @@ So that a thread I left is the thread I come back to, and a Turn appearing under
 **Given** `holocene` has prior Turns in the Bridge's store
 **When** the Cockpit opens on a `holocene` tab and the Chat pane is selected
 **Then** the pane renders `Loading this Project's Turns.` as one line while the read is in flight, with the read's budget as a deadline, and **the composer is live immediately** — history arriving late never gates sending
+**And** that budget is **≤2s, by analogy to the Board read** — NFR-7 enumerates six budgets and this read is not among them, so the figure is set here, labelled by-analogy the way note 14(b) labels the SSE-subscription budget, and declared in `lib/deadline.ts`'s budget table beside the ≤2s Board read figure rather than passed as a literal at the call site, because Story 2.14 lints that every in-flight region goes through the wrapper and two developers handed no number would pick differently
+**And** the analogy is recorded with its grounds: this is a paged read off the Bridge's own store over the same transport as the Board read, and its expiry sentence lands in `copy/progress.ts` in the same change, per Story 2.7's uniqueness lint
 **And** when the read lands, the most recent **30** Turns render in order, each as a `{components.turnCard}` separated by a 1px `{colors.border.faint}` rule at `{spacing.stack}`
 **And** older Turns load on demand rather than the whole history rendering on open.
 
@@ -3053,7 +3168,7 @@ So that a thread I left is the thread I come back to, and a Turn appearing under
 
 ---
 
-### Story 3.6: A warm PM session that is never taken from live work
+### Story 3.8: A warm PM session that is never taken from live work
 
 As Jarad,
 I want the Bridge to keep a few PM sessions warm and to say honestly when it cannot get me one — naming whether the cap is the gateway's or Sidepiece's own,
@@ -3071,13 +3186,18 @@ So that a Project switch does not pay a seventeen-second cold start every time, 
 **When** a new Turn needs one
 **Then** the wait is bounded at **20 seconds** — chosen to exceed the worst measured cold start of 17.1s — and on expiry the Turn is marked `DS-28` and is **not started**
 **And** `curl -s https://<bridge>/v1/health | jq '.sessions'` reports `{"warm":n,"busy":n,"capacity":n}` so the condition is observable without a browser
-**And** DS-28 renders through Story 3.4's Chat notice with the headline `No PM session was free for that turn.` and the detail `Your other Projects are mid-Turn. Nothing was sent, and the text is still here.`, and the composer text is kept.
+**And** DS-28 renders through Story 3.6's Chat notice with the headline `No PM session was free for that turn.` and the detail `Your other Projects are mid-Turn. Nothing was sent, and the text is still here.`, and the composer text is kept.
 
 **Given** the Hermes gateway refuses a new session with error **4090** — its active-session cap across the ~37 shared profiles
 **When** the Bridge observes it
 **Then** it is reported as `DS-24`, **not** retried in a loop, and **not** collapsed into DS-28
 **And** DS-24 renders as `The Hermes gateway is at its session limit.` / `Something else on big-chungus is holding the sessions. Nothing here can free one.` with **no retry offered**, because no amount of Sidepiece restraint reaches a shared cap
 **And** a test asserts the two sentences are distinct and that DS-24 and DS-28 are never emitted for the same cause: DS-24 is the gateway's cap, DS-28 is Sidepiece's own pool of 3–5.
+
+**Given** Story 3.1's Chat-gating precedence table in `contract/src/state.ts`, which that story asserted at **six** entries and named this story as the one that appends to it
+**When** DS-24 and DS-28 are added
+**Then** they are appended to the **end** of that table — never interleaved — the table now asserts **eight** entries, and Story 3.1's six-entry count assertion is updated to eight **in this same change**, because leaving it at six makes 3.1's own test fail the moment this story lands
+**And** the appended order is `… → DS-24 → DS-28`, and a test asserts a Project holding both a gateway cap and a pool exhaustion renders exactly one Chat-gating code.
 
 **Given** either of those states
 **When** the Chat pane renders it
@@ -3094,7 +3214,7 @@ So that a Project switch does not pay a seventeen-second cold start every time, 
 
 ---
 
-### Story 3.7: The answer streams over SSE, with the placeholder typed as a placeholder
+### Story 3.9: The answer streams over SSE, with the placeholder typed as a placeholder
 
 As Jarad,
 I want `curl -N` to show me a Turn's answer arriving frame by frame, with the gateway's spinner text typed as a placeholder rather than smuggled in as content,
@@ -3107,6 +3227,12 @@ So that the first-token budget is measured against a real answer and not against
 **Then** the connection opens within **2s**, and the first frame is `event: open` with a JSON `data:` payload carrying `{"turnId":"t-abc","pjid":"holocene","generation":5}`
 **And** every frame carries a named `event:` type and exactly one JSON object as its `data:` payload — never a bare string — so `curl -N` produces something a person can follow live
 **And** the response carries the `X-Sidepiece-Contract` header like every other route.
+
+**Given** the Turn row Story 3.2 wrote, carrying `text`, `page_url` and `page_title`
+**When** `turns/stream.ts` submits the Turn to the gateway session
+**Then** the submission carries the Turn's `pageUrl` and `pageTitle` **alongside its text**, in a form the PM reads as context for the question rather than as part of it — this is FR-10's actual obligation and the half the store alone does not discharge; a PM that receives only `text` is the failure FR-10 opens by naming, and persisting the page into the row while never forwarding it fails this criterion
+**And** a `curl -N` transcript is recorded in which the Turn's text is `what page am I on?` and the answer names the page URL and title the row carried, proving the PM received them and not merely that the Bridge stored them
+**And** the Dispatched Command branch carries the same two fields through `data.page_url` / `data.page_title` in Story 3.12, so FR-10(c) — context surviving the FR-6 classification — holds on both sides and not only in the store.
 
 **Given** the pool has no warm session for this Project and must open a cold one
 **When** the stream is subscribed
@@ -3130,11 +3256,11 @@ So that the first-token budget is measured against a real answer and not against
 **Then** `event: done` carries the terminal status and the Bridge writes the completed answer into the Turn row's `answer_text` and sets `status`, so FR-7's reopen guarantee is satisfiable from the store rather than from the panel document
 **And** a Turn whose stream dies emits `event: failed` carrying the reason, and the row's status becomes `failed` — a stream is never left open and never left pending.
 
-*Satisfies: FR-7(b), FR-7(c), FR-7(d), FR-7(f), FR-15(d), FR-15(e), NFR-7, AR21, AR22, AR43*
+*Satisfies: FR-7(b), FR-7(c), FR-7(d), FR-7(f), FR-10(a), FR-10(c) (the Streamed Exchange branch — the dispatched branch is Story 3.12's), FR-15(d), FR-15(e), NFR-7, AR21, AR22, AR43*
 
 ---
 
-### Story 3.8: The answer streams into the panel while it is still being written
+### Story 3.10: The answer streams into the panel while it is still being written
 
 As Jarad,
 I want the Turn card to fill with the answer as it generates, and to say `warming up the PM` when the session is cold instead of pretending to think,
@@ -3142,7 +3268,7 @@ So that I can read the answer beside the page before it is finished, and so that
 
 **Acceptance Criteria:**
 
-**Given** a Turn accepted and rendered by Story 3.3
+**Given** a Turn accepted and rendered by Story 3.5
 **When** the Cockpit subscribes to its stream
 **Then** the `EventSource` is opened by `lib/stream.ts`, which is imported **only** by modules under `entrypoints/sidepanel/`
 **And** a static import of `lib/stream.ts` from anywhere under `entrypoints/background/` fails an explicit lint rule in `biome.json` — the one import rule in this project worth its own lint, because `EventSource` has no documented exemption from the service worker's ~30s idle timer
@@ -3186,7 +3312,7 @@ So that I can read the answer beside the page before it is finished, and so that
 
 ---
 
-### Story 3.9: A stream that dies says so, and a Turn survives me leaving the page
+### Story 3.11: A stream that dies says so, and a Turn survives me leaving the page
 
 As Jarad,
 I want a broken stream reported as failed with whatever text arrived kept and marked partial, and a Turn I walked away from to still be there when I come back,
@@ -3228,7 +3354,7 @@ So that nothing is ever left spinning, and so that closing the panel mid-answer 
 
 ---
 
-### Story 3.10: Work is published on a legal five-token subject and acknowledged with an id the Bridge minted
+### Story 3.12: Work is published on a legal five-token subject and acknowledged with an id the Bridge minted
 
 As Jarad,
 I want a Turn classified as work published to Bloodbank through the fleet gateway and acknowledged with a correlation identifier,
@@ -3247,12 +3373,22 @@ So that `start on the resolver ticket` becomes a real command I can chase by han
 **Then** it mints a `correlationId` itself, persists the `dispatches` row, and publishes through `bloodbank/adapter.ts`
 **And** the subject is exactly `bloodbank.cmd.agent.invocation.start` — **five tokens**, `bloodbank.<kind>.<domain>.<entity>.<action>`, with **no version segment and no identity slug**
 **And** the target agent travels in `actor.agent_id` and the Project identity in `data.*`, never as a subject token
+**And** FR-10(c)'s page context travels with it: `data.page_url` and `data.page_title` carry the Turn row's `page_url` and `page_title` verbatim — Bloodbank's snake_case spelling, renamed only inside `bloodbank/adapter.ts` per AR54/AR55, exactly as `correlationId` → `correlationid` is — so a Dispatched Command reaches the agent carrying the page the operator was looking at, which is the whole of FR-10 and the half of it the store alone cannot satisfy
+**And** those two fields are confirmed against `schemas/bloodbank/agent/invocation.start.json` **before** this story's code is written; if the schema does not carry them, `bb emit --check` will refuse the type and that refusal is the finding — it is a second EXT-1-shaped dependency on `33GOD/bloodbank`, is filed as one, and is **not** worked around by smuggling the page into a free-text field
 **And** `subject`, `schemaref`, `dataschema`, `kind`, `domain` and `actor` are derived by `bb emit` and never hand-assembled anywhere in the Bridge.
 
-**Given** the producer is new
+**Given** the producer is new and `contract/src/bloodbank.ts` exports the `PRODUCER_TYPES` list Story 1.15 created empty
 **When** the repository's `mise` pre-publish task runs — not a GitHub workflow, because there is no CI on this machine
-**Then** `bb emit --check --type bloodbank.agent.invocation.start` passes, and the deploy task depends on it
+**Then** `bloodbank.agent.invocation.start` is **appended to `PRODUCER_TYPES`** in this same change — this is the backlog's only producer, and until it is appended `mise run bb:check` iterates an empty list and passes vacuously
+**And** a test asserts `PRODUCER_TYPES` is non-empty and that `mise run bb:check` fails when the entry is removed
+**And** `bb emit --check --type bloodbank.agent.invocation.start` passes, and the deploy task depends on it
 **And** `bb` is invoked by **absolute path** from `Environment=` in the `systemd --user` unit, because a unit that inherits `PATH` works by hand and fails at boot.
+
+**Given** `health/aggregator.ts` and the `bloodbank` dependency row Story 1.13 registered as `"status":"unprobed"`
+**When** `curl -s https://<bridge>/v1/health | jq '.dependencies'` is read after this story lands
+**Then** the `bloodbank` row reports a **real status**, fed by its own probe function in `bloodbank/adapter.ts` — this story **fills** the row rather than adding one, because this is the first story in the backlog that holds a Bloodbank client
+**And** `candystore` stays `"unprobed"` until Story 4.5, and AR51's two-separate-probes-in-two-separate-adapter-folders rule holds: no probe function reports for more than one upstream
+**And** the probe's held result is what Story 3.14's accept path reads to refuse a dispatch before publish inside the 500ms budget — without this row, DS-18 has nothing to read.
 
 **Given** the dispatch is published
 **When** the acknowledgement returns
@@ -3264,18 +3400,18 @@ So that `start on the resolver ticket` becomes a real command I can chase by han
 **Given** Bloodbank answers and **refuses** the command
 **When** the refusal returns
 **Then** an `event: rejected` frame carries the reason as Bloodbank reported it, the Turn's status becomes `rejected`, and nothing reports success
-**And** the refusal is distinct in the transcript from Bloodbank being unreachable, which is Story 3.12's DS-18.
+**And** the refusal is distinct in the transcript from Bloodbank being unreachable, which is Story 3.14's DS-18.
 
 **Given** a dispatched Turn
 **When** it is published
 **Then** its `publish_status` is `dispatched` and the row carries no outcome column of any kind — the outcome columns are added by Story 4.2, which is the story that first writes one
 **And** this story claims **nothing** about an outcome or a result — FR-9 is Epic 4's and is blocked on another repository.
 
-*Satisfies: FR-8(a), FR-8(c), FR-8(d), FR-15(d), NFR-7, AR26, AR28, AR29, AR54, AR55, AR56, AR63*
+*Satisfies: FR-8(a), FR-8(c), FR-8(d), FR-10(c) (the dispatched branch — the Streamed Exchange branch is Story 3.9's), FR-14(b) (inherited — the `bloodbank` row filled), FR-15(d), NFR-7, AR26, AR28, AR29, AR50, AR51, AR54, AR55, AR56, AR63*
 
 ---
 
-### Story 3.11: A dispatch renders as a dispatch, not as an answer
+### Story 3.13: A dispatch renders as a dispatch, not as an answer
 
 As Jarad,
 I want a dispatched Turn to look nothing like a streamed one, and to hand me its correlation identifier in a form I can paste,
@@ -3283,7 +3419,7 @@ So that I can tell at a glance which Turns are questions and which are work, and
 
 **Acceptance Criteria:**
 
-**Given** a Turn dispatched by Story 3.10
+**Given** a Turn dispatched by Story 3.12
 **When** its card renders
 **Then** it renders as `{components.turnCard}` variant (c): a bordered block with a 1px `{colors.border.strong}` edge, opening with a `{colors.surface.stamp}` band carrying the state mark and the state word `DISPATCHED`, both in `{colors.text.inverse}`, and **nothing else** — the correlation id is not in the band, because a complete 36-character UUID is 252px of a 282px band and UX-DR49 rule 4 forbids eliding a machine identifier, and because `#C9BDA6` is not one of the 54 tokens; Story 4.6 adds the terminal words to this same band and removes nothing — and an inner body on `{colors.surface.raised}` carrying the acknowledgement in `{typography.mono}` at `{colors.text.machine}`
 **And** it is **visibly distinct** from the streamed variant above it, which has no box, no ground and no border — a side-by-side render of one of each is the acceptance artifact
@@ -3317,7 +3453,7 @@ So that I can tell at a glance which Turns are questions and which are work, and
 
 ---
 
-### Story 3.12: Bloodbank unreachable leaves questions working
+### Story 3.14: Bloodbank unreachable leaves questions working
 
 As Jarad,
 I want an unreachable Bloodbank to take out dispatch and nothing else — composer still live, questions still answered, and the flip control right there,
@@ -3325,7 +3461,7 @@ So that half a Chat pane is still a working Chat pane, and so that the one hones
 
 **Acceptance Criteria:**
 
-**Given** the Bridge is up and its Bloodbank probe reports unreachable at the transport
+**Given** the Bridge is up and the `bloodbank` health row **Story 3.12 filled** reports unreachable at the transport
 **When** the Chat pane renders
 **Then** the Streamed Exchange path stays **fully live** and the composer stays **enabled**
 **And** the notice reads exactly `The Bridge is up. Bloodbank isn't reachable.` / `Questions still work. Anything that would be dispatched can't be published right now.`
@@ -3349,8 +3485,9 @@ So that half a Chat pane is still a working Chat pane, and so that the one hones
 
 **Given** DS-18
 **When** the Tickets pane and the identity header render
-**Then** both are **fully live** — DS-18 is the only half-pane state in the product and it gates half of Chat and nothing else
-**And** `{components.paneSwitch}`'s Chat cell marks the pane degraded while hidden, and the marker distinguishes half-gated from fully gated.
+**Then** both are **fully live** — DS-18 is the only half-pane state in the product, where "half-pane" names a capability refused inside a live pane and never a router shape
+**And** `{components.paneSwitch}`'s Chat cell carries **`marks.degraded`** while the pane is hidden, taken from Story 2.17's two-level mapping rather than decided here — `marks.failed` is the fully-gated mark and DS-18 gates nothing, so the two are already distinct by geometry and not by colour
+**And** the router returns `{ shape: 'partial', gated: [] }` for DS-18, per Story 2.18: the composer's enabled state and the dispatch refusal above are this story's, and no pane-level gate is asserted anywhere in it.
 
 *Satisfies: FR-8(c), FR-6(b), FR-6(e), NFR-2, AR13, AR15, AR51, UX-DR14, UX-DR19, UX-DR41, UX-DR43, UX-DR48, UX-DR49*
 
@@ -3362,7 +3499,7 @@ UJ-2's closing beat, the one the journey text singles out: *"later shows the res
 
 **FRs covered:** FR-9.
 
-**Sequence note.** Story 4.1 is out-of-repository work against `33GOD/bloodbank` and is the only thing in this backlog gated on a repository Sidepiece does not own. It starts day one, in parallel with Epic 1, and sits immediately before the rest of this epic. Stories 4.2, 4.4 and 4.5 do **not** depend on 4.1 landing — the status half of FR-9 is buildable today and is written so it can ship while the content half waits. Story 4.3 is the one that needs 4.1.
+**Sequence note.** Story 4.1 is out-of-repository work against `33GOD/bloodbank` and is the only thing in this backlog gated on a repository Sidepiece does not own. It starts day one, in parallel with Epic 1, and sits immediately before the rest of this epic. Stories 4.2, 4.4 and 4.5 do **not** depend on 4.1 landing — the status half of FR-9 is buildable today and is written so it can ship while the content half waits. **Story 4.3 needs it.** **Story 4.6 ships complete without it** — its `resultContent: null` branch is the specified v1 behaviour, not a degraded one — but its result-content branch cannot be *accepted* until 4.1 lands, because `resultContent` is non-null only after 4.1 and 4.3. **Story 4.8 cannot run at all until it does**, and says so in its own Given. Three stories touch 4.1's blast radius, not one.
 
 ---
 
@@ -3423,7 +3560,7 @@ So that a Dispatched Command stops reading `pending` forever and I can check on 
 
 **Acceptance Criteria:**
 
-**Given** Story 3.10's `dispatches` table holding `(turn_id, pjid, generation, correlation_id, subject, publish_status, dispatched_at, clone_path, board_id)` at `user_version = 4`
+**Given** Story 3.12's `dispatches` table holding `(turn_id, pjid, generation, correlation_id, subject, publish_status, dispatched_at, clone_path, board_id)` at `user_version = 4`
 **When** `db/migrations/005_dispatch_outcome.sql` is applied at startup
 **Then** `dispatches` gains `outcome_status TEXT`, `outcome_code TEXT`, `outcome_message TEXT`, `outcome_at TEXT`, `outcome_source TEXT`, all nullable, and `user_version` becomes `5`
 **And** the migration is forward-only and creates no table — `turns`, `ticket_creates` and `resolutions` are untouched, because this story writes to one table and only that one
@@ -3535,7 +3672,7 @@ So that silence is never rendered as success, and the window is long enough that
 **Given** any dispatch with no outcome recorded
 **When** it is read at any age
 **Then** the status is never `"completed"` — not at the boundary, not on a clock skew, not on a restart
-**And** a test asserts the derived status vocabulary is exactly `{"rejected","pending","unknown","completed","failed"}`: `rejected` is Story 3.10's publish refusal read straight off `publish_status` and is never confused with `failed`, which is a gateway-reported failure; `timed_out` is not a value at all, and a gateway-reported timeout arrives as `"failed"` carrying its own `outcomeCode` and `outcomeMessage` verbatim, per Story 4.2's mapping.
+**And** a test asserts the derived status vocabulary is exactly `{"rejected","pending","unknown","completed","failed"}`: `rejected` is Story 3.12's publish refusal read straight off `publish_status` and is never confused with `failed`, which is a gateway-reported failure; `timed_out` is not a value at all, and a gateway-reported timeout arrives as `"failed"` carrying its own `outcomeCode` and `outcomeMessage` verbatim, per Story 4.2's mapping.
 
 **Given** a Bridge started with `SIDEPIECE_DISPATCH_WINDOW_MINUTES=1` and a dispatch with no outcome
 **When** 61 seconds have passed and `curl -s https://<bridge>/v1/project/<pjid>/dispatch/<correlationId> | jq -r .status` runs
@@ -3565,9 +3702,9 @@ So that a missed message is recoverable rather than permanently unknown, and an 
 **Then** no per-outcome Candystore poll runs — the only Candystore reads are the three triggers above
 **And** a test asserts that a single normal outcome delivery performs zero Candystore requests, because Candystore is the backfill and not the primary.
 
-**Given** `health/aggregator.ts`
+**Given** `health/aggregator.ts`, in which Story 3.12 already filled the `bloodbank` row
 **When** `curl -s https://<bridge>/v1/health` is read
-**Then** the `bloodbank` and `candystore` rows Story 1.13 registered as `"status":"unprobed"` both report a real status, determined independently — `candystore` probed by `GET http://127.0.0.1:8683/readyz`, where `204` means up — and this story **fills** those two rows rather than adding them, because `health/aggregator.ts` is extensible by registration and not by edit
+**Then** the `candystore` row Story 1.13 registered as `"status":"unprobed"` reports a real status, determined independently of `bloodbank` — probed by `GET http://127.0.0.1:8683/readyz`, where `204` means up — and this story **fills** that row rather than adding it, because `health/aggregator.ts` is extensible by registration and not by edit
 **And** `candystore/reader.ts` contains no NATS client, and neither `bloodbank/adapter.ts` nor `bloodbank/outcomes.ts` contains a Candystore URL — one adapter reporting for both could not produce two blast radii.
 
 **Given** the Candystore probe is failing while Bloodbank is reachable
@@ -3608,7 +3745,7 @@ So that reopening the Cockpit on that Project shows me the answer instead of a r
 **And** a written rule is recorded alongside the component for the next change: any chip or control later reintroduced onto this card carrying variable content sets at `{typography.label}` 11.5px or above and is re-measured, never at `{typography.micro}`
 **And** no size override of any kind appears inside this component.
 
-**Given** a dispatch with `status: "completed"` and a non-null `resultContent`
+**Given** a dispatch with `status: "completed"` and a non-null `resultContent` — **the one branch of this story gated on Story 4.1**, because `resultContent` is non-null only after 4.1 lands and 4.3 reads it; every other criterion below is acceptable against today's Bloodbank, and this story ships complete without them
 **When** the card renders
 **Then** the result content appears below a **dashed** 1px `{colors.border.hairline}` rule, in `{typography.body}` at `{colors.text.primary}`, wrapping, selectable, and never truncated or ellipsised by the Cockpit
 **And** given `status: "completed"` with `resultContent: null`, the card renders exactly `Completed. The gateway returned no result content.` — never `Completed` alone, never a bare checkmark, never a tick
@@ -3723,7 +3860,7 @@ So that the first time the journey works completely is a recorded transcript rat
 
 ## Coverage, Verified Mechanically
 
-The set below was built from the `*Satisfies:*` line of all **62** stories, not from the writers' self-reports. Sixteen stories in Epic 1, twenty-six in Epic 2, twelve in Epic 3, eight in Epic 4.
+The set below was built from the `*Satisfies:*` line of all **66** stories, not from the writers' self-reports. Sixteen stories in Epic 1, twenty-eight in Epic 2, fourteen in Epic 3, eight in Epic 4. Step 3 assembled 62; step 4's validation split two oversized stories three ways each — Story 2.23 into 2.23/2.24/2.25 and Story 3.3 into 3.3/3.4/3.5 — and renumbered the stories after them. Coverage was re-derived from scratch after the split and is unchanged.
 
 - **All 16 FRs covered.** FR-1, FR-3, FR-4, FR-12, FR-13 → Epic 2; FR-2, FR-14, FR-15, FR-16 → Epic 1; FR-5, FR-6, FR-7, FR-8, FR-10, FR-11 → Epic 3; FR-9 → Epic 4. The FR Coverage Map's two born-here/rendered-there splits hold: FR-2(c) is an inherited criterion of Story 2.9, FR-14(a)(b) of Story 2.8 and Story 2.13.
 - **All 10 NFRs covered.**
@@ -3741,7 +3878,7 @@ The set below was built from the `*Satisfies:*` line of all **62** stories, not 
 | UX-DR34 | `{components.dischargeControl}` | `[v2]`, Annotations pane |
 | UX-DR35 | `{components.attachmentChip}` | `[v2]`, the attachment seat Story 3.3 reserves and leaves empty |
 
-Writing stories for these would re-admit the `[v2]` seam as work, which is the failure mode SM-C2 names and this project has already died of once. What v1 **does** owe them is built: the empty ruled `[v2]` seats — the third pane-switch cell (Story 2.17), the trailing action slot beside `{components.commandString}` (Stories 2.15 and 3.4), the attachment seat below the classification control (Story 3.3) — plus AR11's px-authored overlay token subset (Story 2.12) and AR12's shadow-root verdict (Story 2.3), so the layer can be built later without reopening v1's geometry.
+Writing stories for these would re-admit the `[v2]` seam as work, which is the failure mode SM-C2 names and this project has already died of once. What v1 **does** owe them is built: the empty ruled `[v2]` seats — the third pane-switch cell (Story 2.17), the trailing action slot beside `{components.commandString}` (Stories 2.15 and 3.4), the attachment seat below the classification control (Story 3.3) — plus AR11's px-authored overlay token subset (Story 2.6, which owns `tokens.css`) and AR12's shadow-root verdict (Story 2.3), so the layer can be built later without reopening v1's geometry.
 
 ---
 
@@ -3751,22 +3888,106 @@ Four writers worked without seeing each other. Where two of them built the same 
 
 **Decided by one epic, inherited by the rest.**
 
-- **The SQLite tables.** Story 1.5 creates `resolutions` and the migration contract, and nothing else. `ticket_creates` is Story 2.22 (`002`), `turns` is Story 3.2 (`003`), `dispatches` is Story 3.10 (`004`), the outcome columns are Story 4.2 (`005`) and the result columns Story 4.3 (`006`). `user_version` advances by exactly one per migration, forward-only, and `turns/store.ts` remains the only module that opens the database. Epic 1's brief said all four tables land in one migration; that is the one place the approved brief loses to the step file's own rule — a story creates the tables it writes to.
+- **The SQLite tables.** Story 1.5 creates `resolutions` and the migration contract, and nothing else. `ticket_creates` is Story 2.22 (`002`), `turns` is Story 3.2 (`003`), `dispatches` is Story 3.12 (`004`), the outcome columns are Story 4.2 (`005`) and the result columns Story 4.3 (`006`). `user_version` advances by exactly one per migration, forward-only, and `turns/store.ts` remains the only module that opens the database. Epic 1's brief said all four tables land in one migration; that is the one place the approved brief loses to the step file's own rule — a story creates the tables it writes to.
 - **The `Degraded` wire shape.** `{ds, params?, remedy?}`, fixed by Story 1.3, `ds` and never `code`, and never a bare code string. Every Bridge route in all four epics now answers in that shape, and the Bridge-composed remedy command rides in `remedy`.
-- **The health `dependencies[]` rows.** Story 1.13 registers all eight — `registry`, `store`, `vault`, `fleet`, `gateway`, `plane`, `bloodbank`, `candystore` — as an array of `{name, status, …}`, with the five it has no adapter for reporting `unprobed` and never `ok`. Story 3.1 fills `fleet` and `gateway`; Story 4.5 fills `bloodbank` and `candystore`. No later story adds a row, and `sessions` (Story 3.6), `dispatchWindowMinutes` (Story 4.4) and the `bloodbank` row's `consumer` object (Story 4.2) are added fields, which need no `CONTRACT_VERSION` bump.
+- **The health `dependencies[]` rows.** Story 1.13 registers all eight — `registry`, `store`, `vault`, `fleet`, `gateway`, `plane`, `bloodbank`, `candystore` — as an array of `{name, status, …}`, with the five it has no adapter for reporting `unprobed` and never `ok`. Story 3.1 fills `fleet` and `gateway`; **Story 3.12 fills `bloodbank`**, because it is the first story holding a Bloodbank client and because Story 3.12's DS-18 accept path reads that row — leaving it to Epic 4 was a live forward dependency across an epic boundary, found and closed at step 4; Story 4.5 fills `candystore`. No later story adds a row, and `sessions` (Story 3.8), `dispatchWindowMinutes` (Story 4.4) and the `bloodbank` row's `consumer` object (Story 4.2) are added fields, which need no `CONTRACT_VERSION` bump.
 - **The action bar's geometry.** Story 2.12 owns it, because the create box sits in that bar twenty stories before the composer does: the 188px cap is removed, the bar is intrinsically sized and pushes the body, the body stays the only pane-level scroll region, and the bar's boundary is promoted from the 1.49:1 hairline to a 1px `{colors.border.strong}` seam. Story 3.3 inherits all of it and bounds the composer's growth at the focused text field, at the measured 288px, which is the single exception Story 2.12 licensed. UX-DR79, UX-DR80 and UX-DR87 are decided once.
-- **The disabled action bar's reason.** UX-DR88's answer is Story 2.23's — the state's headline sentence on a wrapping line in `{typography.label}` at `{colors.text.muted}` above the submit row, with the submit label becoming `CAN'T CREATE`. Story 3.4 takes the same form for the composer (`CAN'T SEND`). `{typography.micro}` is not used for it, because that role is reserved for static chrome.
-- **The relayed deadline's multiple.** Story 2.14's constants: **×3 with a 6-second floor**. Stories 3.5 and 3.9 consume them rather than setting a second number.
+- **The disabled action bar's reason.** UX-DR88's answer is Story 2.25's, which was split out of the create box at step 4 so that Story 3.6's citation points at a story rather than at a paragraph — the state's headline sentence on a wrapping line in `{typography.label}` at `{colors.text.muted}` above the submit row, with the submit label becoming `CAN'T CREATE`. Story 3.4 takes the same form for the composer (`CAN'T SEND`). `{typography.micro}` is not used for it, because that role is reserved for static chrome.
+- **The relayed deadline's multiple.** Story 2.14's constants: **×3 with a 6-second floor**. Stories 3.7 and 3.11 consume them rather than setting a second number.
 - **The `project_id` lint.** Story 1.2 writes the rule and both per-path exceptions. Story 2.19 occupies `tickets/plane.ts`, the path that was reserved for it, and declares nothing.
-- **The correlation id's place on the card.** Not in the stamped band, in any epic: it renders complete, all 36 characters, on the body's acknowledgement line with a copy control (Story 3.11), and Story 4.6 adds the terminal band words to that same band without moving it back. Key-screen finding 7 is decided once and applied forward rather than built twice.
-- **The dispatch status vocabulary.** `publish_status` (`dispatched` | `rejected`) is written by Story 3.10; `outcome_status` by Story 4.2; the API's `dispatch.status` is **derived** over `{rejected, pending, unknown, completed, failed}` in one place and one order (Story 4.4). `unknown` is never stored, so a late outcome supersedes it with nothing to undo.
-- **The SSE subscription sentences.** `Not subscribed to outcomes. Dispatched results won't land here until this reconnects.` belongs to Story 4.7's project-scoped outcomes subscription. Story 3.8's per-Turn stream gets its own sentence, because Story 2.7's copy-uniqueness lint fails the build on a string appearing under two conditions.
+- **The correlation id's place on the card.** Not in the stamped band, in any epic: it renders complete, all 36 characters, on the body's acknowledgement line with a copy control (Story 3.13), and Story 4.6 adds the terminal band words to that same band without moving it back. Key-screen finding 7 is decided once and applied forward rather than built twice.
+- **The dispatch status vocabulary.** `publish_status` (`dispatched` | `rejected`) is written by Story 3.12; `outcome_status` by Story 4.2; the API's `dispatch.status` is **derived** over `{rejected, pending, unknown, completed, failed}` in one place and one order (Story 4.4). `unknown` is never stored, so a late outcome supersedes it with nothing to undo.
+- **The SSE subscription sentences.** `Not subscribed to outcomes. Dispatched results won't land here until this reconnects.` belongs to Story 4.7's project-scoped outcomes subscription. Story 3.10's per-Turn stream gets its own sentence, because Story 2.7's copy-uniqueness lint fails the build on a string appearing under two conditions.
 
 **Legitimately two epics' work, and stated as such.**
 
-- **UX-DR73 (cold start).** Epic 2 owns the render **order** (Story 2.25); Epic 4 owns the outcomes subscription and its failure sentence (Story 4.7), which item (6) describes and which does not exist until Epic 4. Expect the duplicate citation; it is not a duplicate build.
-- **AR66 (the silent credential degradation).** Story 1.14 ships assertion 1 complete and curl-proven, plus assertion 2's *expected* half at `unprobed`. Story 3.6 completes the reported half, because that is the first story in which a session exists to ask — and closes the architecture's `[ASSUMPTION]` in writing either way.
+- **UX-DR73 (cold start).** Epic 2 owns the render **order** (Story 2.27); Epic 4 owns the outcomes subscription and its failure sentence (Story 4.7), which item (6) describes and which does not exist until Epic 4. Expect the duplicate citation; it is not a duplicate build.
+- **AR66 (the silent credential degradation).** Story 1.14 ships assertion 1 complete and curl-proven, plus assertion 2's *expected* half at `unprobed`. Story 3.8 completes the reported half, because that is the first story in which a session exists to ask — and closes the architecture's `[ASSUMPTION]` in writing either way.
 - **The eleven born-here / rendered-there DS codes.** Governed by the rule already stated under *How the 28-State Taxonomy Is Distributed*: born in the epic that detects it, rendered in the epic that owns the surface it degrades. Epic 1 produces DS-9, DS-10, DS-15, DS-20, DS-23 and DS-25 as `curl` transcripts; Epic 2 renders them; Epic 3 gates on DS-20 and DS-25. Story 2.7 carries all 28 sentences from the start, so no later epic authors one that already exists.
-- **FR-3's obligations under a capability story.** Epic 3's Story 3.4 cites FR-3(a) as FR-5's proof and Epic 2 keeps FR-3. Epic 3 is never *done with FR-3*; it is done with FR-5.
+- **FR-3's obligations under a capability story.** Epic 3's Story 3.6 cites FR-3(a) as FR-5's proof and Epic 2 keeps FR-3. Epic 3 is never *done with FR-3*; it is done with FR-5.
 
-**Two things were deliberately not deduplicated.** Story 1.7's `409 stale_generation` conformance test and Story 2.22's stale-create transcript both exercise the generation guard — the first through the production `mutatingRoute()` helper against a fixture route, the second through the first real mutating capability. That is the guard proven twice on purpose, which is what `DEFINITION-OF-DONE.md` item 1 exists for. And the `{components.commandString}` fit is measured twice, in Story 2.15 against a DS-6/DS-8 remedy and in Story 2.19 against DS-14's mandatory board-binding command, because the second string does not exist until the Board endpoint composes it.
+**Two things were deliberately not deduplicated.** Story 1.7's `409 stale_generation` conformance test and Story 2.22's stale-create transcript both exercise the generation guard — the first through the production `mutatingRoute()` helper against a fixture route, the second through the first real mutating capability. That is the guard proven twice on purpose, which is what `DEFINITION-OF-DONE.md` item 1 exists for. And the `{components.commandString}` fit is measured twice, in Story 2.15 against a **DS-6** remedy and in Story 2.19 against DS-14's mandatory board-binding command, because the second string does not exist until the Board endpoint composes it. DS-8 was named as a second source in the assembled draft and is not one — no `remedy` key is ever emitted for it (Story 1.14, UX-DR27, UX-DR46) — so Story 2.15's DS-6 source is conditional and carries an explicit deferral to Story 2.19.
+
+---
+
+## Final Validation
+
+*Step 4, 2026-09-23. Three validators read the step-3 artifact independently — one scoped to requirements coverage, one to story quality, one to epic structure — and returned 19 findings plus their passed checks. Every finding was then re-verified against the document text before being acted on, because a misquoted finding fixed is worse than a finding missed. **Two were refuted. Seventeen survived and are fixed below.** The story count moved from 62 to 66.*
+
+### What each of the five checks actually tested
+
+**1 — FR coverage.** Coverage was re-derived from scratch by parsing the `*Satisfies:*` line of every story and diffing against the full ID ranges, rather than read off step 3's claim. The citation-level result reproduced step 3 exactly: 16/16 FR, 10/10 NFR, 78/78 AR, 83/91 UX-DR. **That result was then re-tested at the criterion level, which is where it failed in four places** — a citation is not coverage, and three requirements were cited by stories carrying no acceptance criterion for them while a fourth was covered literally and unmet in substance. All four are fixed; the counts are unchanged and are now true rather than merely computed.
+
+**2 — Architecture implementation.** The starter-template rule and the database-creation rule. `architecture.md § Selected Starter` names **WXT v0.21.4**; Epic 1 Story 1 is not "set up from the starter template". Ruled on below rather than waved through. The migration chain was walked end to end — `001_resolutions` (1.5) → `002_ticket_creates` (2.22) → `003_turns` (3.2) → `004_dispatches` (3.12) → `005_dispatch_outcome` (4.2) → `006_dispatch_result` (4.3) — `user_version` advancing by exactly one per migration, forward-only, each table created by the story that first writes to it. One exception exists, `resolutions` in Story 1.5, and it is now recorded in that story rather than left to be discovered.
+
+**3 — Story quality.** Template compliance checked mechanically across all 66 stories: heading form, As-/I want/So that, exactly one `**Acceptance Criteria:**`, exactly one `*Satisfies:*`, and Given/When/Then balance. Zero defects after the fixes. Story size was measured rather than eyeballed: the median story carries 6 `Given` groups, and two stories carried **12** — twice the median and clear of a next-highest of 9. Both were split. Hedge language was scanned for across every `**Then**` and `**And**` line and is absent; this backlog's criteria are `curl` transcripts, measured figures and byte-exact strings, and that density was treated as the product rather than as over-specification.
+
+**4 — Epic structure.** The rename test on all four titles, the file-churn check on every file touched by more than one epic (`turns/store.ts`, `lib/stream.ts`, `server/http.ts`, `biome.json`, `health/aggregator.ts`, `contract/src/state.ts`, `copy/*`, `{components.turnCard}`), and the user-value test on Epic 1 for a third independent time.
+
+**5 — Dependency validation.** Epic independence, then every story within every epic in order against a running model of what exists. **This is the check that found the blocker.**
+
+### Fixed
+
+**Blocker — Epic 2 shipped a selectable `CHAT` cell with no Chat pane behind it.** Story 2.17 built the pane switch as two live cells, persisted the selection, gave `Alt+2` to the second, and tested Tickets-degraded-while-hidden "while Chat is selected" — but no Epic 2 story builds a Chat read, and the epic's own narrative forbids the fallback: *"There is no Chat pane here and, crucially, no **empty** one — UX-DR48 Rule 1 says an empty state is a result and only a successful read may render one."* Epic 2 could not function with Epic 3 unbuilt, which is check 5's headline question. **Fixed** by making the `CHAT` cell **reserved and inert at Epic 2's exit** — drawn, ruled and measured at its 158.5px, but not focusable, not clickable, `Alt+2` a no-op — the same treatment the `[v2]` third cell already gets, one epic earlier; the hidden-pane marker test becomes a direct prop test, consistent with how 2.17 already tests its `inert` prop; Story 3.3 flips the cell live with an AC asserting the strip is pixel-identical either way. The alternative — a one-up switch in v1 — was rejected because it takes the strip through two layout passes to save nothing, and this backlog's whole geometry discipline is measuring once.
+
+**FR-10 was stored and never sent.** `pageUrl`/`pageTitle` appeared in exactly three places in all 62 stories — the POST body, the history response, and the client send. Story 3.7 (the SSE stream) never said what it submits upstream; Story 3.10 (the dispatch) specified `actor.agent_id` and "the Project identity in `data.*`" and nothing else. A dev agent building both exactly as written ships a PM that never sees the page, which is the failure FR-10 opens by naming: *"The PM is being asked about a page it cannot see."* The mechanical check passed because each of FR-10's three literal obligations had an AC. **Fixed** with an AC on Story 3.9 requiring the gateway submission to carry the page alongside the text, proven by a `curl -N` transcript in which the Turn asks what page it is on, and an AC on Story 3.12 carrying `data.page_url`/`data.page_title` in Bloodbank's spelling — with the schema confirmed **before** code is written, because if `bloodbank.agent.invocation.start` does not carry those fields that is a second external dependency and must be found now.
+
+**AR11 was cited and unmet, and the "all 78 ARs covered" claim was false.** AR11 requires the `[v2]` overlay be authored in px and scoped to the never-themed token subset **from the first commit** — its entire cost is incurred by deferring it. It was cited on Story 2.12's `*Satisfies:*` line, whose body contains no mention of the overlay, px authoring, `all: initial` or the rem hazard. **Fixed** by moving it to Story 2.6, which owns `tokens.css`, with a real criterion: a separately scoped `overlay-tokens.css`, a build check failing on a `rem` unit or a foreign token reference inside that scope, and a comment recording that `createShadowRootUi` resets with `all: initial` but does not reset the host `<html>` font size.
+
+**A live forward dependency across an epic boundary.** Story 3.12 (now 3.14) reads a Bloodbank health probe "before publish … a read of already-held health state" — but the Seams section assigned that row to **Story 4.5**, and Story 1.13 starts it at `unprobed`. **Fixed** by moving the probe into Story 3.12, the first story holding a Bloodbank client; Story 4.5 now fills `candystore` alone; AR51's two-separate-probes rule is preserved.
+
+**DS-18 had no type and no visual vocabulary.** Story 2.18 fixes the router's return as `{ shape: 'total' | 'partial', gated: PaneId[] }` and states *"nothing else in the extension decides the shape of a failure"*; Story 2.26's matrix then asserted a row reading `partial, **half-pane** … dispatch only`, where `half-pane` is not in the shape union and `dispatch` is not a `PaneId`. The upstream carries the same tension — UX-DR47's *"exactly which of the **two** shapes"* against UX-DR43's *"the HALF-PANE state, and the only one of its shape"*. **Resolved in Story 2.18, in favour of two shapes**, on UX-DR47's own rule: it gates a pane that cannot function, and under DS-18 the Chat pane functions — the composer is enabled and a Streamed Exchange completes. DS-18 returns `{shape:'partial', gated:[]}`; `half-pane` names a capability refused inside a live pane and never a router shape; the dispatch refusal is owned entirely by Story 3.14's accept path. A grep asserting the word appears in no type or union member is part of the story.
+
+**The pane-switch marker had no mapping.** Story 3.12 required the marker to "distinguish half-gated from fully gated" while Story 2.17 specified only "an 11px `{spacing.glyph}` mark plus, where it fits, nothing else" — five marks available, no mapping, and UX-DR65 forbidding colour as a lone signal. **Fixed** by stating the mapping once, in Story 2.17: a pane in the router's `gated` set takes `marks.failed`; a live pane carrying a capability-scoped code takes `marks.degraded`; neither, no mark. The two differ in geometry, not hue, so they survive the grayscale render. Story 2.28's matrix gains the cell mark as a fourth asserted column — which is what keeps DS-18 and DS-19 distinguishable now that both return an empty `gated` set.
+
+**Story 2.23's second gesture path carried none of the first one's protections.** Story 2.11 spent a whole story on `chrome.sidePanel.open()`: zero awaits, first synchronous statement, at most one message hop, and a lint scoped to **`gesture.ts`**. Story 2.23 then added `Alt+Shift+N` with its own `open()` call and never named that file, so the silent no-op NFR-5 and AR73 exist to prevent could ship with nothing catching it. **Fixed** in the split (see below): the handler lives in `gesture.ts` so the existing lint covers it, `open()` is its first synchronous statement, the pane switch and caret placement happen after it, and a test drives the chord ten times because an intermittent bug is not disproved by one pass.
+
+**Two stories were not a single dev-agent session, and both were split.**
+- **Story 2.23 → 2.23 / 2.24 / 2.25.** The create box and the create call; `focus-ticket-title` with its manifest one-way door and the gesture protections above; and the disabled action bar (DS-14/DS-22, `CAN'T CREATE`, the reason pinned above the submit row). Story 3.6 already cited the third as the form it inherits, so giving it a number makes that citation point at a story instead of a paragraph.
+- **Story 3.3 → 3.3 / 3.4 / 3.5.** The composer shell with the four key-screen findings it resolves and the `CHAT` cell going live; FR-6's visible classification; FR-10's context plus the send path. The 244px inner width is produced by the first and consumed by the other two, which is the right direction. The old story named 32 requirements on one `*Satisfies:*` line.
+
+Stories after both splits were renumbered (Epic 2: old 2.24–2.26 → 2.26–2.28; Epic 3: old 3.4–3.12 → 3.6–3.14) and all 30-odd cross-references were repointed.
+
+**Two shared registries had an append obligation written only in the earlier story's prose.** Story 3.1 asserts its Chat-gating precedence table at six entries and names Story 3.6 (now 3.8) as the one that appends `DS-24`/`DS-28` — but 3.8's criteria never mentioned the table, so as written it leaves six and, if appended, breaks 3.1's test. Same shape at Story 1.15's `PRODUCER_TYPES`, shipped empty with a comment naming the epics that would append: Story 3.12 is the backlog's only producer and never added the entry, so `mise run bb:check` would have iterated an empty list and **passed vacuously, forever**. Both are now acceptance criteria on the stories that must perform them, including 3.1's count assertion moving to eight in the same change.
+
+**Story 2.15 measured against a command that never exists.** Its Given named "a DS-6 or DS-8 condition — the only Bridge-composed remedy commands that exist at this story". DS-8 never carries one: Story 1.14 says *"no `remedy` key is emitted for DS-8 — an omitted block, never an empty one"*, UX-DR27 and UX-DR46 both say the block is omitted, and DS-8 rides `/v1/health` rather than `/v1/project/:pjid`. The surviving source, DS-6, is itself conditional (*"if the Bridge can compose one"*). **Fixed**: DS-8 dropped, and an explicit fallback added — if no DS-6 command composes, the measurement defers whole to Story 2.19 and the derived 35-character figure is recorded as provisional and unmeasured so no later story quotes it as measured. The Seams section is corrected to match.
+
+**The Turn-history read had no budget.** Story 2.14 makes `lib/deadline.ts` take a budget as a parameter and lints that every in-flight region uses it; Story 3.5 (now 3.7) said "with the read's budget as a deadline" and NFR-7 enumerates six budgets, none of them this one. Two developers would have picked differently. **Set at ≤2s by analogy to the Board read** — same shape of call, a paged read off the Bridge's own store — declared in the budget table beside it and labelled by-analogy the way note 14(b) labels the subscription budget.
+
+**Three citation-vs-criterion slips.** FR-15(c) ("restarting the Bridge does not require reloading the extension") was claimed by Story 1.10, which has no Chrome surface; the obligation is fully met by Story 2.25 (now 2.27), which did not claim it — moved, with both stories now saying why. UX-DR60's pointer rule was claimed by Story 2.24 (now 2.26), whose only mouse-adjacent line is UX-DR61's acceptance test verbatim; its real v1 obligation — hover may add information but never expose the only path — is asserted in the new Story 3.5 against the context chip, v1's one hover affordance. Story 1.5's `resolutions` table is created one story ahead of its first writer; rather than gut the story that exists to prove the migration contract, the exception is now recorded in it, with its grounds.
+
+**Four scope and dependency descriptions that were wrong about their own stories.** Story 2.1's title and the Epic 2 Sequence called it a three-page fixture; its criteria require ten, so a developer sizing it from the title under-scoped by 3× — retitled. Story 2.12's layout fixture stood at 269px while Story 3.3 derives a 288px real ceiling, so the shell invariant was never exercised against the height that ships — rewritten against the six-line ceiling so the number moves with the font measurement instead of being restated twice. Epic 4's sequence note named 4.3 as the only story needing 4.1; 4.6's result-content branch and 4.8 need it too, and 4.6 now says which of its branches is gated inside the story a developer is holding. Epic 4's file-overlap justification counted two files against an actual five — the conclusion survives (every overlap is additive and pre-declared) but the sentence now carries the real list.
+
+### Refuted
+
+**Two findings did not survive.** Neither is recorded as a fix because neither is a defect.
+
+- **"Epic 2's narrative is stale on the command slots."** It read *"exactly two commands declared **and both handlers built here**"*, which a validator read as contradicted by Story 2.3 declaring one. The stories were right and the sentence was loose rather than wrong — "here" meant the epic, not the story — but it was rewritten anyway because the precise version is short and the loose one invited exactly this reading twice. Recorded as a wording fix, not as the defect it was reported as.
+- **Story 2.17's cell arithmetic against UX-DR14.** UX-DR14 records the v1 two-up cell as (284−1)÷2 = 141.5px; Story 2.17 records 158.5px. This looks like a contradiction and is not: Story 2.12 settles the full-bleed width at 318px and Story 2.17 recomputes both cell budgets against it deliberately, which is UX-DR84's resolution and is stated in the story. Precision restated after a settled decision is not drift.
+
+### The two structural rulings
+
+**The WXT-at-Epic-2 deviation holds.** Check 2's rule assumes the starter scaffolds the project; here it scaffolds **one package of three**. `pnpm dlx wxt@latest init` produces no `pnpm-workspace.yaml`, no `packages/contract/`, no `packages/bridge/`, no `tsconfig.base.json`, no `biome.json` and no `mise.toml` — which is all of Story 1.1. The two artifacts are disjoint, so the hazard the rule exists to prevent, an init clobbering or duplicating hand-built scaffolding, cannot arise. It is enforced rather than hoped: Story 1.1 asserts `packages/extension/` does **not** exist and no `wxt` command has been run; Story 1.16's LNA spike builds its throwaway MV3 extension under `spike/`, outside the workspace globs, with an AC asserting nothing is written under `packages/extension/`; Story 2.3's Given is the monorepo with `contract/` already a workspace package, which it consumes by workspace protocol. Nothing in Epic 1's sixteen stories imports anything WXT would supply. **The literal reading would have been actively worse**: `wxt init` at Story 1.1, into a repo with no workspace file, produces a single-package repo that must then be re-homed under `packages/extension/` — the hand-reconstruction the rule exists to prevent, performed in reverse. The two WXT-specific risks land as criteria on the story that runs the init (AR7's `srcDir` discovery assertion, AR12's recorded open-or-closed verdict) and neither gets cheaper by being found earlier, because nothing before Story 2.3 renders. **That structural argument is the defence**; the one the document recorded — *"scaffolding it first buys a loadable stub and a month of drift"* — is a schedule argument that happens to be true, and it is the weaker of the two.
+
+**Epic 1 survives the user-value test, narrowly, and for a reason neither earlier look stated.** The rename test is decisive in both directions: *"API Development"* would have to include the turn routes, ticket routes and SSE surface Epic 1 does not build, and would exclude the systemd unit, the tailnet transport, the vault path, the last-good snapshot and the content-addressed generation, which are most of the work. The boundary is drawn by capability in the stories and not only in the argument — Stories 2.19, 2.22, 3.1, 3.2, 3.9, 3.12, 4.2 and 4.5 all build Bridge routes inside their own capability epics, which is not what a technical-layer epic does. And FR-16 plus FR-15(a)(b)(f) have no rendering surface at all, so folding them into Epic 2 would not make them user-visible, only later.
+
+The test this pass added is different: **does anything in Epic 1 exist only to serve a later epic?** That is what a layer epic actually looks like from the inside, and Epic 1 refuses it almost everywhere — `turn.ts` and `classify.ts` are explicitly left to the epics that need them, Story 1.5 creates one table and names the owners of the other three, Story 1.13 registers five `unprobed` rows rather than five stub probes, and Story 1.15's `*Satisfies:*` line declines to bank FR-8 coverage it could have claimed. **Almost.** The one real counterexample was found in this pass: `PRODUCER_TYPES` shipped empty with a gate reading it and nothing ever appending, which is upfront scaffolding-for-a-later-epic in its purest form and would have passed vacuously for the life of the project. It is now closed. One instance, found and fixed, against a dozen places the epic held the line.
+
+So: **it holds**, but on a cost argument plus FR-15(d)'s PRD-verbatim hardness — *"this is a hard requirement, not a convenience; a bridge that can only be exercised through Chrome makes every bug a two-variable bug"* — and **not** on a journey completing inside it. No journey does. The document's own Call 1 says this more honestly than a validator could, and names a costed, reversible repair: move the thinnest slice of FR-1 and FR-4 forward as Epic 1's final story so the epic ends with a panel showing an identity header. That trade is Jarad's, it is not a defect, and nothing in this pass was changed on the strength of it.
+
+### Final coverage
+
+Re-derived from scratch after the splits, from the `*Satisfies:*` line of all **66** stories:
+
+| | Covered | Total |
+|---|---|---|
+| FR | 16 | 16 |
+| NFR | 10 | 10 |
+| AR | 78 | 78 |
+| UX-DR | 83 | 91 |
+
+The eight uncovered UX-DRs are **UX-DR28–UX-DR35**, every one a `[v2]` in-page component, each with its reason recorded in the table above. Story counts: **16 / 28 / 14 / 8**. Template compliance is clean across all 66 — heading form, role/want/so-that, one `**Acceptance Criteria:**`, one `*Satisfies:*`, and balanced Given/When/Then with no orphan clause.
+
+### Ready
+
+**Yes.** No blocker is open: the one found was fixed in the document, not deferred. Two questions belong to Jarad rather than to this pass and are recorded rather than answered — whether `bloodbank.agent.invocation.start`'s schema already carries `page_url`/`page_title` or whether that is a second external dependency (Story 3.12 makes the check a precondition of writing the code, so it surfaces before the work rather than during it), and whether Epic 1's `curl`-only exit survives contact with the person building it, whose named repair is recorded above and costed. Neither blocks a dev agent starting at Story 1.1.
