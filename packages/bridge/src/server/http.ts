@@ -4,16 +4,23 @@ import {
   type BridgeHealth,
   CONTRACT_VERSION,
   type Degraded,
+  type ProjectRecord,
 } from '@sidepiece/contract';
 import { log as defaultLog, type Logger } from '../log.ts';
-import { toErrorResponse } from './errors.ts';
+import { assertCurrentGeneration, GenerationAheadError } from '../registry/generation.ts';
+import { HttpRefusal, toErrorResponse } from './errors.ts';
 
 export type HandlerResult = { status: number; body: unknown };
 /** The `:name` segments a pattern route matched, each `decodeURIComponent`-ed once. */
 export type RouteParams = Readonly<Record<string, string>>;
+/**
+ * `signal` aborts once the request can no longer be answered by this handler: its deadline
+ * fired, or the client went away first.
+ */
 export type Handler = (
   req: IncomingMessage,
   params: RouteParams,
+  signal?: AbortSignal,
 ) => HandlerResult | Promise<HandlerResult>;
 /**
  * pathname -> method -> handler. Routing uses the pathname only; the query is ignored. A key
@@ -21,6 +28,30 @@ export type Handler = (
  * exact key wins over a pattern.
  */
 export type RouteTable = Record<string, Partial<Record<string, Handler>>>;
+
+/** A fresh resolution of a pjid, injected into {@link mutatingRoute}; throws `DegradedError`. */
+export type MutationResolver = (pjid: string) => Promise<ProjectRecord>;
+/** What a guarded handler runs with: the path pjid, the checked generation, the fresh record. */
+export type MutationContext = {
+  pjid: string;
+  generation: number;
+  record: ProjectRecord;
+  /** The parsed body minus `pjid` and `generation`, whose canonical values are the fields above. */
+  body: Readonly<Record<string, unknown>>;
+  /** The request's abort signal; a handler with side effects should stop once it aborts. */
+  signal: AbortSignal | undefined;
+};
+export type MutatingHandler = (
+  req: IncomingMessage,
+  ctx: MutationContext,
+) => HandlerResult | Promise<HandlerResult>;
+
+/** A mutation body larger than this is `400 invalid_body`. */
+export const MAX_BODY_BYTES = 65_536;
+
+/** Handlers produced by {@link mutatingRoute}; `createBridgeServer` refuses any other mutator. */
+const guarded = new WeakSet<Handler>();
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 export type BridgeServerOptions = {
   /**
@@ -40,6 +71,8 @@ export type BridgeServerOptions = {
 export const HANDLER_DEADLINE_MS = 10_000;
 
 class HandlerDeadline extends Error {}
+/** The client went away, or the deadline already answered: there is no one left to answer or log for. */
+class RequestAborted extends Error {}
 
 /** The pathname of a request target, query dropped; never parses a `//host` prefix as a host. */
 export function pathOf(url: string | undefined): string {
@@ -89,6 +122,88 @@ function send(
     ...extra,
   });
   res.end(payload);
+}
+
+/** The request body, or `undefined` once it passes {@link MAX_BODY_BYTES} (drained, not kept). */
+function readBody(req: IncomingMessage): Promise<Buffer | undefined> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on('data', (chunk: Buffer) => {
+      size += chunk.length;
+      if (size <= MAX_BODY_BYTES) chunks.push(chunk);
+    });
+    req.on('end', () => resolve(size > MAX_BODY_BYTES ? undefined : Buffer.concat(chunks)));
+    // A client that drops mid-body surfaces as 'error' ("aborted") before 'close'. Either way the
+    // request is incomplete, so the client left. After 'end' has resolved, both are no-ops.
+    const aborted = () => {
+      if (!req.complete) reject(new RequestAborted('request aborted mid-body'));
+    };
+    req.on('error', (err) => (req.complete ? reject(err) : aborted()));
+    req.on('close', aborted);
+  });
+}
+
+/**
+ * The only way to register a mutating method (architecture D11). Before `handler` runs, the
+ * body's top-level `generation` is validated, the path pjid is re-resolved through `resolve`
+ * (never a stored row: a rename no GET has seen must still refuse), and the two are compared.
+ * The pjid comes from the path only; a `pjid` key in the body is ignored. Validation runs
+ * before the fetch, so a `400` touches no upstream.
+ */
+export function mutatingRoute(resolve: MutationResolver, handler: MutatingHandler): Handler {
+  const guard: Handler = async (req, params, signal) => {
+    const { pjid } = params;
+    if (pjid === undefined) throw new Error('mutating route matched without a pjid');
+    const raw = await readBody(req);
+    let parsed: unknown;
+    try {
+      parsed = raw === undefined ? undefined : JSON.parse(raw.toString('utf8'));
+    } catch {
+      parsed = undefined;
+    }
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new HttpRefusal(400, { error: 'invalid_body', pjid });
+    }
+    const body = parsed as Record<string, unknown>;
+    if (!Object.hasOwn(body, 'generation')) {
+      throw new HttpRefusal(400, { error: 'missing_generation', pjid, field: 'generation' });
+    }
+    const generation = body.generation;
+    if (typeof generation !== 'number' || !Number.isSafeInteger(generation) || generation < 0) {
+      throw new HttpRefusal(400, { error: 'invalid_generation', pjid, field: 'generation' });
+    }
+    // A client that left during the body read gets no registry fetch on its behalf.
+    if (signal?.aborted) throw new RequestAborted('request aborted before resolve');
+    const record = await resolve(pjid);
+    // Generation 0 is "cannot validate" (DS-25); whatever resolver is injected, never run at it.
+    if (record.generation < 1) {
+      throw new Error(`resolver returned unminted generation ${record.generation} for ${pjid}`);
+    }
+    assertCurrentGeneration(pjid, generation, record.generation);
+    // The deadline may have answered 500 while `resolve` was in flight: the mutation must not run.
+    if (signal?.aborted) throw new RequestAborted('request aborted before the mutation ran');
+    // `pjid` and `generation` have canonical fields on ctx; a body copy must never be read.
+    const { pjid: _bodyPjid, generation: _bodyGeneration, ...rest } = body;
+    return handler(req, { pjid, generation, record, body: rest, signal });
+  };
+  guarded.add(guard);
+  return guard;
+}
+
+/** Throws at construction for a mutating method not produced by {@link mutatingRoute}. */
+function assertGuarded(routes: RouteTable): void {
+  for (const [pattern, route] of Object.entries(routes)) {
+    for (const [method, handler] of Object.entries(route ?? {})) {
+      if (handler === undefined || SAFE_METHODS.has(method)) continue;
+      if (!guarded.has(handler)) {
+        throw new TypeError(`unguarded mutating route: ${method} ${pattern}`);
+      }
+      if (!pattern.split('/').includes(':pjid')) {
+        throw new TypeError(`mutating route without :pjid: ${method} ${pattern}`);
+      }
+    }
+  }
 }
 
 /** The Bridge's own routes. Exported so tests can force every one of them to throw. */
@@ -152,6 +267,7 @@ export function createBridgeServer(options: BridgeServerOptions): Server {
     ...builtinRoutes(options.startedAt, options.degraded),
     ...options.routes,
   };
+  assertGuarded(routes);
 
   return createServer((req, res) => {
     const started = performance.now();
@@ -198,12 +314,19 @@ export function createBridgeServer(options: BridgeServerOptions): Server {
       else res.destroy();
     };
 
+    const controller = new AbortController();
+    res.once('close', () => {
+      if (!res.writableFinished) controller.abort();
+    });
     let timer: NodeJS.Timeout | undefined;
     const deadline = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new HandlerDeadline()), deadlineMs);
+      timer = setTimeout(() => {
+        controller.abort();
+        reject(new HandlerDeadline());
+      }, deadlineMs);
     });
 
-    Promise.race([Promise.resolve().then(() => handler(req, params)), deadline])
+    Promise.race([Promise.resolve().then(() => handler(req, params, controller.signal)), deadline])
       .then(
         (result) => send(res, result.status, result.body),
         (err: unknown) => {
@@ -219,9 +342,39 @@ export function createBridgeServer(options: BridgeServerOptions): Server {
             send(res, 500, { error: 'internal_error' } satisfies BridgeError);
             return;
           }
+          // The request log on 'close' still records it; a disconnect is not a Bridge fault (DS-5).
+          if (err instanceof RequestAborted) return;
+          if (err instanceof GenerationAheadError) {
+            log({
+              level: 'error',
+              event: 'generation_ahead_of_bridge',
+              ds: 'DS-5',
+              pjid: err.pjid,
+              received: err.received,
+              current: err.current,
+            });
+            send(res, 500, { error: 'internal_error' } satisfies BridgeError);
+            return;
+          }
           const mapped = toErrorResponse(err);
           if (mapped.status === 500) {
             internalError(err instanceof Error ? err.message : undefined);
+            return;
+          }
+          if (mapped.status === 409) {
+            const { pjid, received, current } = mapped.body;
+            log({ level: 'info', event: 'mutation_refused', pjid, received, current });
+            send(res, mapped.status, mapped.body);
+            return;
+          }
+          if (mapped.status === 400) {
+            log({
+              level: 'info',
+              event: 'mutation_rejected',
+              ...(params.pjid !== undefined ? { pjid: params.pjid } : {}),
+              error: mapped.body.error,
+            });
+            send(res, mapped.status, mapped.body);
             return;
           }
           for (const d of mapped.body.degraded) {

@@ -5,7 +5,13 @@ import { join } from 'node:path';
 import { afterEach, test } from 'node:test';
 import { openStore, type TurnStore } from '../turns/store.ts';
 import type { DerivedRecord } from './client.ts';
-import { mintGeneration, recordHash } from './generation.ts';
+import {
+  assertCurrentGeneration,
+  GenerationAheadError,
+  mintGeneration,
+  recordHash,
+  StaleGenerationError,
+} from './generation.ts';
 
 const cleanups: (() => void)[] = [];
 afterEach(() => {
@@ -127,4 +133,39 @@ test('generations are per pjid', () => {
   mintGeneration(store, sidepiece());
   mintGeneration(store, { ...sidepiece(), repo: 'x' });
   assert.equal(mintGeneration(store, { ...sidepiece(), pjid: 'momo' }).generation, 1);
+});
+
+test('assertCurrentGeneration: equal passes', () => {
+  assert.doesNotThrow(() => assertCurrentGeneration('sidepiece', 5, 5));
+  assert.doesNotThrow(() => assertCurrentGeneration('sidepiece', 0, 0));
+});
+
+test('assertCurrentGeneration: less throws a Refusal in wire key order', () => {
+  assert.throws(
+    () => assertCurrentGeneration('sidepiece', 4, 5),
+    (err: unknown) => {
+      assert.ok(err instanceof StaleGenerationError);
+      assert.deepEqual(Object.keys(err.refusal), ['error', 'pjid', 'received', 'current']);
+      assert.equal(
+        JSON.stringify(err.refusal),
+        '{"error":"stale_generation","pjid":"sidepiece","received":4,"current":5}',
+      );
+      return true;
+    },
+  );
+});
+
+test('assertCurrentGeneration: greater throws the ahead error, never a Refusal', () => {
+  assert.throws(
+    () => assertCurrentGeneration('sidepiece', 9, 5),
+    (err: unknown) => {
+      assert.ok(err instanceof GenerationAheadError);
+      assert.ok(!(err instanceof StaleGenerationError));
+      assert.deepEqual(
+        { pjid: err.pjid, received: err.received, current: err.current },
+        { pjid: 'sidepiece', received: 9, current: 5 },
+      );
+      return true;
+    },
+  );
 });
