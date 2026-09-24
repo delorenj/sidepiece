@@ -2,10 +2,10 @@
 title: 'Story 1.3: contract/ — the 28-state taxonomy and the Project Record, typed once for both halves'
 type: 'feature'
 created: '2026-09-24'
-status: 'in-progress'
+status: 'done'
 baseline_revision: '1f1b5042717f1e5c6f884023b2a111d0f1ccf52c'
 review_loop_iteration: 0
-followup_review_recommended: false
+followup_review_recommended: true
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-1-context.md'
 warnings: [oversized]
@@ -102,6 +102,18 @@ deferred: []
 
 ## Review Triage Log
 
+### 2026-09-24 — Review pass
+- intent_gap: 0
+- bad_spec: 0
+- patch: 4 (high 0, medium 2, low 2)
+- defer: 0
+- reject: 22
+- addressed_findings:
+  - `[medium]` `[patch]` The `@ts-expect-error` on `response.boardId` passed for the wrong reason: assignment narrowing had already reduced `response` to the degraded-only member. The fixture now reads `r.boardId` off a `ProjectResponse` parameter. It was mutation-checked: removing the directive gives TS2339 against the full union.
+  - `[medium]` `[patch]` `types: ["node"]` put Node globals into the contract source, which the browser Cockpit will also compile. `tsconfig.json` now sets `types: []` and excludes `*.test.ts`. A new `tsconfig.test.json` adds Node types for the tests only. `typecheck` runs both, and `test` runs `typecheck`. It was mutation-checked: `process.env` in `version.ts` gives TS2591.
+  - `[low]` `[patch]` Tests run under Node's native type stripping, but nothing stopped non-erasable syntax such as `enum` or parameter properties. Added `erasableSyntaxOnly: true` to `tsconfig.base.json`.
+  - `[low]` `[patch]` The `boardId` doc comment hard-coded "the four boardless Projects", a count that goes stale. It now states the rule instead.
+
 ## Design Notes
 
 Exhaustiveness without deriving the type from the array:
@@ -120,3 +132,65 @@ const _complete: [Missing] extends [never] ? true : false = true; // fails if a 
 - `pnpm --filter @sidepiece/contract test` -- expected: tsc clean, all node tests pass.
 - `mise run lint && mise run test && mise run build` -- expected: exit 0.
 - Temporarily delete the `@ts-expect-error` above `{ ds: 'DS-1' }` and run `pnpm --filter @sidepiece/contract typecheck` -- expected: TS2322. Then restore the directive.
+
+## Auto Run Result
+
+Status: done
+
+**Summary:** `@sidepiece/contract` now defines the whole failure taxonomy and the Project Record in one place, and both halves compile against it.
+- **`state.ts`:**
+  - `ClientDsCode` has 7 literals and `BridgeDsCode` has 21. `DsCode` is their union.
+  - `Degraded.ds` is typed `BridgeDsCode`, so a Bridge route cannot emit a Cockpit-only code.
+  - The three non-DS code spaces are `Refusal`, `SubscriptionState` (`pending | established | not_established`) and `IconTransient` (`open_gesture_rejected`).
+  - The header comment names the rule, EXPERIENCE.md's degraded-state table and DoD item 2.
+- **`project.ts`:**
+  - `AgentBinding` is `{id, role, roleDir}` and `TicketProvider` is `{type: string}`.
+  - `ProjectRecord` has 7 fields. `boardId: string` is required and non-nullable.
+  - `ProjectResponse` is a union that forces narrowing.
+- **`version.ts`:** `CONTRACT_VERSION: number = 1`, with the bump-by-hand comment.
+
+**Files changed:**
+- `packages/contract/src/state.ts`: the DS taxonomy split by producer, `Degraded`, and the three non-DS code spaces.
+- `packages/contract/src/project.ts`: `AgentBinding`, `TicketProvider`, `ProjectRecord` and `ProjectResponse`.
+- `packages/contract/src/version.ts`: `CONTRACT_VERSION`, moved out of `index.ts`.
+- `packages/contract/src/index.ts`: re-exports the three modules.
+- `packages/contract/src/state.test.ts`: the runtime 7/21/28, disjointness and DS-1…DS-28 checks. It also has compile-time exhaustiveness checks and `@ts-expect-error` fixtures for `DS-1` in `Degraded` and for each non-DS space in `DsCode`.
+- `packages/contract/src/project.test.ts`: `@ts-expect-error` fixtures for a null `boardId`, a missing `boardId` and an un-narrowed read. It also has a runtime narrowing test and the `CONTRACT_VERSION` integer check.
+- `packages/contract/tsconfig.json`: no Node types, and tests excluded.
+- `packages/contract/tsconfig.test.json`: new. It adds Node types for the tests only.
+- `packages/contract/package.json`: `typecheck` covers both configs and `test` runs typecheck first. `@types/node` 24.13.6 is now a devDependency.
+- `pnpm-lock.yaml`: updated for the new devDependency.
+- `tsconfig.base.json`: `rewriteRelativeImportExtensions` and `erasableSyntaxOnly`, so `.ts` import specifiers run under Node's type stripping.
+
+**Review findings:** 4 patches applied (2 medium, 2 low), 0 deferred, 22 rejected. The rejected ones:
+- widening `CONTRACT_VERSION` to `number`, which the AC requires;
+- adding a `pjid?: never` discriminant, which would change the AC-specified `ProjectResponse` shape;
+- `params` as `Record<string, string>`, which is the AC shape;
+- `remedy` as prose, which A-P2 makes a deliberate exception;
+- runtime code arrays or validators, which the AC mirrors in tests by design;
+- a `Generation` alias;
+- closed `role` enums;
+- an `engines` field, already tracked as DW-1;
+- moving `rewriteRelativeImportExtensions` into the package config;
+- `noUnusedLocals`, which is not enabled;
+- a recursive test glob;
+- `@types/node` duplication;
+- parsing EXPERIENCE.md in tests;
+- the Cockpit not existing yet (Epic 2).
+
+**Follow-up review recommendation:** true. The patched counts are 0 high, 2 medium and 2 low, which scores 3×2 + 1×2 = 8 (≥ 5).
+
+**Verification:**
+- `mise run lint`: exit 0.
+- `mise run test`: exit 0. The contract has 5/5 tests passing and both typechecks clean, so every `@ts-expect-error` is used. The bridge has 2/2 passing and the lint self-test passes.
+- `mise run build`: exit 0, and the bridge bundle still prints `contract v1`.
+- Mutation checks:
+  - removing the `{ ds: 'DS-1' }` directive gives TS2820 (not assignable to `BridgeDsCode`);
+  - removing the un-narrowed-read directive gives TS2339;
+  - `process.env` in contract source gives TS2591.
+
+**Residual risks:**
+- The shapes of `SubscriptionState`, `IconTransient`, `AgentBinding` and `TicketProvider` were chosen here. The epic names these types but doesn't give their members. Later stories may extend them additively.
+- The taxonomy unions are cross-checked against the AC literals only, not parsed from EXPERIENCE.md.
+- `ProjectResponse` has no discriminant, so a hand-built `{pjid, degraded}` literal typechecks as the degraded-only member. The Bridge's resolution handler (Story 1.6) should build responses from a full `ProjectRecord`.
+

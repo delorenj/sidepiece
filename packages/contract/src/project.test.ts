@@ -21,8 +21,12 @@ const { boardId: _dropped, ...withoutBoard } = record;
 const _missingBoard: ProjectRecord = withoutBoard;
 
 const response: ProjectResponse = { degraded: [{ ds: 'DS-2', params: { pjid: 'nope' } }] };
-// @ts-expect-error a record field cannot be read before narrowing
-const _unnarrowed: string = response.boardId;
+
+// A parameter is never narrowed by an assignment, so this is the un-narrowed union for real.
+function _unnarrowed(r: ProjectResponse): string {
+  // @ts-expect-error a record field cannot be read before narrowing
+  return r.boardId;
+}
 
 // Narrowing on `'pjid' in r` is what makes the record fields readable.
 function boardOf(r: ProjectResponse): string | undefined {

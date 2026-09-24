@@ -19,8 +19,8 @@ export type ProjectRecord = {
   repo: string;
   clonePath: string;
   /**
-   * The Plane project bound as this Project's Board. An empty string for the four boardless
-   * Projects, never null or absent; test board presence by truthiness only.
+   * The Plane project bound as this Project's Board. An empty string for a boardless Project,
+   * never null or absent; test board presence by truthiness only.
    */
   boardId: string;
   agents: AgentBinding[];
