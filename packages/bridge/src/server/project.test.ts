@@ -174,7 +174,13 @@ test('registry down is 200 DS-6, a registry error is 200 DS-7; never a 5xx', asy
     const { status, body } = await down.get('/v1/project/sidepiece');
     assert.equal(status, 200);
     assert.deepEqual(body, {
-      degraded: [{ ds: 'DS-6', params: { endpoint: 'http://127.0.0.1:1' } }],
+      degraded: [
+        {
+          ds: 'DS-6',
+          params: { endpoint: 'http://127.0.0.1:1' },
+          remedy: 'systemctl --user start pjangler-project-registry.service',
+        },
+      ],
     });
     assert.equal(down.lines.findLast((l) => l.event === 'degraded')?.pjid, 'sidepiece');
   } finally {
@@ -241,7 +247,15 @@ for (const hang of ['no-response', 'stall-body'] as const) {
       assert.equal(status, 200);
       assert.equal(
         text,
-        JSON.stringify({ degraded: [{ ds: 'DS-6', params: { endpoint: stub.url } }] }),
+        JSON.stringify({
+          degraded: [
+            {
+              ds: 'DS-6',
+              params: { endpoint: stub.url },
+              remedy: 'systemctl --user start pjangler-project-registry.service',
+            },
+          ],
+        }),
       );
       assert.ok(elapsed >= REGISTRY_TIMEOUT_MS - 50, `answered after ${elapsed}ms`);
       assert.ok(elapsed < deadline - 500, `answered after ${elapsed}ms`);

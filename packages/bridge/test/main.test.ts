@@ -242,8 +242,11 @@ test('a rolled-back Bridge serves DS-25 from a store ahead of it, and leaves it 
     assert.equal(await stopBridge(running.child), 0);
     assert.deepEqual(readFileSync(file), bytes, 'the store is byte-identical afterwards');
     assert.deepEqual(
-      readdirSync(stateDir).filter((f) => !/^turns\.db-(wal|shm)$/.test(f)),
-      ['turns.db'],
+      readdirSync(stateDir)
+        .filter((f) => !/^turns\.db-(wal|shm)$/.test(f))
+        .sort(),
+      ['registry-snapshot.json', 'turns.db'],
+      'the snapshot is kept beside the store under DS-25 too',
     );
   } finally {
     await stub.close();

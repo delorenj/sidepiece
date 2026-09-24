@@ -66,6 +66,8 @@ export type BridgeServerOptions = {
   handlerDeadlineMs?: number;
   /** Bridge-wide degraded states echoed on `/v1/health` (e.g. DS-25); read per request. */
   degraded?: () => Degraded[];
+  /** Upstream probes run per health request; their entries follow the Bridge-wide ones. */
+  probes?: () => Promise<Degraded[]>;
 };
 
 export const HANDLER_DEADLINE_MS = 10_000;
@@ -87,15 +89,20 @@ export function pathOf(url: string | undefined): string {
   return raw.split('?')[0] || '/';
 }
 
-function healthHandler(startedAt: string, degraded: () => Degraded[]): Handler {
-  return () => {
+function healthHandler(
+  startedAt: string,
+  degraded: () => Degraded[],
+  probes?: () => Promise<Degraded[]>,
+): Handler {
+  return async () => {
+    const probed = (await probes?.()) ?? [];
     const body: BridgeHealth = {
       status: 'ok',
       contractVersion: CONTRACT_VERSION,
       node: process.version,
       startedAt,
       checkedAt: new Date().toISOString(),
-      degraded: degraded(),
+      degraded: [...degraded(), ...probed],
     };
     return { status: 200, body };
   };
@@ -210,8 +217,9 @@ function assertGuarded(routes: RouteTable): void {
 export function builtinRoutes(
   startedAt: string,
   degraded: () => Degraded[] = () => [],
+  probes?: () => Promise<Degraded[]>,
 ): RouteTable {
-  return { '/v1/health': { GET: healthHandler(startedAt, degraded) } };
+  return { '/v1/health': { GET: healthHandler(startedAt, degraded, probes) } };
 }
 
 type Route = Partial<Record<string, Handler>>;
@@ -264,7 +272,7 @@ export function createBridgeServer(options: BridgeServerOptions): Server {
   const log = options.log ?? defaultLog;
   const deadlineMs = options.handlerDeadlineMs ?? HANDLER_DEADLINE_MS;
   const routes: RouteTable = {
-    ...builtinRoutes(options.startedAt, options.degraded),
+    ...builtinRoutes(options.startedAt, options.degraded, options.probes),
     ...options.routes,
   };
   assertGuarded(routes);

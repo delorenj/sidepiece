@@ -87,6 +87,8 @@ type ErrorLine = Scoped &
         received: number;
         current: number;
       }
+    /** The registry answered, but its last good copy could not be written; the fetch stands. */
+    | { level: 'error'; event: 'snapshot_write_failed'; ds: DsCode; path: string; detail: string }
   );
 
 type WarnLine = Scoped &
@@ -102,6 +104,18 @@ type WarnLine = Scoped &
         storeVersion: number;
         bridgeVersion: number;
       }
+    /** DS-23: the registry did not answer; the record came from its last good copy (logged instead of `resolved`). */
+    | {
+        level: 'warn';
+        event: 'served_from_snapshot';
+        ds: DsCode;
+        pjid: string;
+        generation: number;
+        fetchedAt: string;
+        ageSeconds: number;
+      }
+    /** The registry did not answer and its last good copy could not be read; `ds` is the cause. */
+    | { level: 'warn'; event: 'snapshot_unreadable'; ds: DsCode; path: string; detail: string }
   );
 
 export type LogLine = InfoLine | WarnLine | ErrorLine;

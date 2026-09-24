@@ -1,8 +1,9 @@
 import type { Degraded, ProjectRecord } from '@sidepiece/contract';
 import { log as defaultLog, type Logger } from '../log.ts';
-import { resolveProject } from '../registry/client.ts';
-import { mintGeneration } from '../registry/generation.ts';
+import { type DerivedRecord, resolveProject } from '../registry/client.ts';
+import { mintGeneration, recordHash } from '../registry/generation.ts';
 import { probePaths } from '../registry/paths.ts';
+import type { RegistrySnapshot } from '../registry/snapshot.ts';
 import type { TurnStore } from '../turns/store.ts';
 import { DegradedError } from './errors.ts';
 import type { MutationResolver, RouteTable } from './http.ts';
@@ -16,8 +17,42 @@ export type ProjectRoutesOptions = {
   degraded?: () => Degraded[];
   /** The on-disk prober (DS-9/DS-10/DS-20) for GET only; injectable so tests pin `degraded`. */
   probePaths?: typeof probePaths;
+  /** The registry's last good copy: written on every fetch, read by GET when the fetch fails. */
+  snapshot?: RegistrySnapshot;
   log?: Logger;
 };
+
+function withGeneration(derived: DerivedRecord, generation: number): ProjectRecord {
+  return {
+    pjid: derived.pjid,
+    generation,
+    repo: derived.repo,
+    clonePath: derived.clonePath,
+    boardId: derived.boardId,
+    agents: derived.agents,
+    ticketProvider: derived.ticketProvider,
+  };
+}
+
+/** The fresh record for a registry entry: minted, or `generation: 0` under DS-25. */
+function mintedRecord(options: ProjectRoutesOptions, derived: DerivedRecord): ProjectRecord {
+  const log = options.log ?? defaultLog;
+  const { generation, minted } =
+    options.store === undefined
+      ? { generation: 0, minted: false }
+      : mintGeneration(options.store, derived);
+  log({ level: 'info', event: 'resolved', pjid: derived.pjid, generation, minted });
+  return withGeneration(derived, generation);
+}
+
+/**
+ * The generation a snapshot record is served with. Never minted or written: the stored one
+ * only while its hash still describes this record, else `0` ("cannot validate").
+ */
+function snapshotGeneration(options: ProjectRoutesOptions, derived: DerivedRecord): number {
+  const row = options.store?.readResolution(derived.pjid);
+  return row !== undefined && row.recordHash === recordHash(derived) ? row.generation : 0;
+}
 
 /**
  * A fresh resolution: one registry fetch plus a mint. Throws `DegradedError` for DS-2 and
@@ -26,24 +61,13 @@ export type ProjectRoutesOptions = {
 export function currentProject(
   options: ProjectRoutesOptions,
 ): (pjid: string) => Promise<ProjectRecord> {
-  const log = options.log ?? defaultLog;
   return async (pjid) => {
-    const derived = await resolveProject(options.registryUrl, pjid);
+    // Fresh only: the snapshot is written here, never served (a stale copy validates nothing).
+    const { record: derived } = await resolveProject(options.registryUrl, pjid, {
+      ...(options.snapshot !== undefined ? { snapshot: options.snapshot } : {}),
+    });
     if (derived === undefined) throw new DegradedError({ ds: 'DS-2', params: { pjid } });
-    const { generation, minted } =
-      options.store === undefined
-        ? { generation: 0, minted: false }
-        : mintGeneration(options.store, derived);
-    log({ level: 'info', event: 'resolved', pjid, generation, minted });
-    return {
-      pjid: derived.pjid,
-      generation,
-      repo: derived.repo,
-      clonePath: derived.clonePath,
-      boardId: derived.boardId,
-      agents: derived.agents,
-      ticketProvider: derived.ticketProvider,
-    };
+    return mintedRecord(options, derived);
   };
 }
 
@@ -71,18 +95,47 @@ export function mutationResolver(options: ProjectRoutesOptions): MutationResolve
 /**
  * `GET /v1/project/<pjid>`: the unwrapped Project Record, or `{"degraded":[DS-2]}`. A served
  * record's `degraded` is the Bridge-wide entries, then the on-disk probe (DS-9/DS-10/DS-20).
+ * When the registry does not answer, the record comes from its snapshot with DS-23 and the
+ * DS-6/DS-7 cause between the two; with no usable snapshot the cause is the whole answer.
  */
 export function projectRoutes(options: ProjectRoutesOptions): RouteTable {
-  const current = currentProject(options);
+  const log = options.log ?? defaultLog;
   const probe = options.probePaths ?? probePaths;
   return {
     '/v1/project/:pjid': {
       GET: async (_req, { pjid }) => {
         if (pjid === undefined) throw new Error('route matched without a pjid');
-        const record = await current(pjid);
+        const { record: derived, served } = await resolveProject(options.registryUrl, pjid, {
+          ...(options.snapshot !== undefined ? { snapshot: options.snapshot } : {}),
+          fallback: true,
+          log,
+        });
+        if (derived === undefined) throw new DegradedError({ ds: 'DS-2', params: { pjid } });
+        let record: ProjectRecord;
+        let registry: Degraded[] = [];
+        if (served === undefined) {
+          record = mintedRecord(options, derived);
+        } else {
+          const { fetchedAt, ageSeconds, cause } = served;
+          const generation = snapshotGeneration(options, derived);
+          log({
+            level: 'warn',
+            event: 'served_from_snapshot',
+            ds: 'DS-23',
+            pjid,
+            generation,
+            fetchedAt,
+            ageSeconds,
+          });
+          record = withGeneration(derived, generation);
+          registry = [
+            { ds: 'DS-23', params: { fetchedAt, ageSeconds: String(ageSeconds) } },
+            cause,
+          ];
+        }
         const body: ProjectRecord & { degraded: Degraded[] } = {
           ...record,
-          degraded: [...(options.degraded?.() ?? []), ...(await probe(record))],
+          degraded: [...(options.degraded?.() ?? []), ...registry, ...(await probe(record))],
         };
         return { status: 200, body };
       },

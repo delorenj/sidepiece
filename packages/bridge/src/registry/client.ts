@@ -1,7 +1,9 @@
 import { posix } from 'node:path';
 import type { AgentBinding, Degraded, ProjectRecord } from '@sidepiece/contract';
+import { log as defaultLog, type Logger } from '../log.ts';
 import { DegradedError } from '../server/errors.ts';
 import { sortAgents } from './generation.ts';
+import { type RegistrySnapshot, snapshotAge } from './snapshot.ts';
 
 /**
  * The pjangler Registry client (architecture D5). The ONLY module that spells the registry's
@@ -10,6 +12,10 @@ import { sortAgents } from './generation.ts';
  */
 
 export const REGISTRY_TIMEOUT_MS = 2_000;
+
+/** The systemd user unit that serves the registry on this host. */
+export const REGISTRY_UNIT = 'pjangler-project-registry.service';
+const LOOPBACK = new Set(['127.0.0.1', 'localhost', '[::1]']);
 
 /** A Project Record before its generation is minted. */
 export type DerivedRecord = Omit<ProjectRecord, 'generation'>;
@@ -23,12 +29,26 @@ export class RegistryUnreachable extends Error {}
 /** The registry answered, but not with something this build can read (DS-7). */
 export class RegistryUnparseable extends Error {}
 
+/** A registry on this host can be started; one elsewhere cannot be from here. */
+function isLoopback(endpoint: string): boolean {
+  try {
+    return LOOPBACK.has(new URL(endpoint).hostname);
+  } catch {
+    return false;
+  }
+}
+
 /**
- * The one discriminator between DS-6 and DS-7, shared by resolution and (Story 1.13) health.
- * `undefined` means `err` is not a registry failure at all.
+ * The one discriminator between DS-6 and DS-7, shared by resolution and health. DS-6 names
+ * the unit to start only when the registry is on loopback. `undefined` means `err` is not a
+ * registry failure at all.
  */
 export function registryFailure(err: unknown, endpoint: string): Degraded | undefined {
-  if (err instanceof RegistryUnreachable) return { ds: 'DS-6', params: { endpoint } };
+  if (err instanceof RegistryUnreachable) {
+    return isLoopback(endpoint)
+      ? { ds: 'DS-6', params: { endpoint }, remedy: `systemctl --user start ${REGISTRY_UNIT}` }
+      : { ds: 'DS-6', params: { endpoint } };
+  }
   if (err instanceof RegistryUnparseable) return { ds: 'DS-7', params: { error: err.message } };
   return undefined;
 }
@@ -54,8 +74,14 @@ export function indexRegistry(payload: unknown): RegistryIndex {
   return index;
 }
 
-/** `GET <url>/v1/registry`, whole, under {@link REGISTRY_TIMEOUT_MS}. */
-export async function fetchRegistry(url: string): Promise<RegistryIndex> {
+/**
+ * `GET <url>/v1/registry`, whole, under {@link REGISTRY_TIMEOUT_MS}. An answer that indexes
+ * cleanly is written to `snapshot` as the last good copy, whoever asked.
+ */
+export async function fetchRegistry(
+  url: string,
+  snapshot?: RegistrySnapshot,
+): Promise<RegistryIndex> {
   let res: Response;
   let text: string;
   try {
@@ -71,7 +97,9 @@ export async function fetchRegistry(url: string): Promise<RegistryIndex> {
   } catch (err) {
     throw new RegistryUnparseable(err instanceof Error ? err.message : String(err));
   }
-  return indexRegistry(payload);
+  const index = indexRegistry(payload);
+  snapshot?.write(payload);
+  return index;
 }
 
 const str = (value: unknown): string => (typeof value === 'string' ? value : '');
@@ -113,20 +141,79 @@ export function deriveRecord(pjid: string, entry: Entry): DerivedRecord {
   };
 }
 
+/** Why and from how old a copy a record was served while the registry did not answer. */
+export type ServedFromSnapshot = { fetchedAt: string; ageSeconds: number; cause: Degraded };
+
+/** `record` is `undefined` for an unknown pjid; `served` is set only for a snapshot answer. */
+export type Resolved = { record: DerivedRecord | undefined; served?: ServedFromSnapshot };
+
+export type ResolveOptions = {
+  /** Written on every successful fetch. */
+  snapshot?: RegistrySnapshot;
+  /** GET only: when the fetch itself fails, answer from `snapshot`. Never for a mutation. */
+  fallback?: boolean;
+  log?: Logger;
+};
+
 /**
- * Resolve a pjid against a fresh copy of the registry. `undefined` is an unknown pjid (DS-2,
- * the caller's to answer). A registry failure is thrown as a {@link DegradedError}.
+ * The snapshot's record for `pjid`, or the registry failure `cause` thrown as-is: no copy, a
+ * copy without the pjid (never DS-2 while the registry is down) or an unreadable copy.
+ */
+function fromSnapshot(
+  snapshot: RegistrySnapshot,
+  pjid: string,
+  cause: Degraded,
+  log: Logger,
+): Resolved {
+  let record: DerivedRecord | undefined;
+  let fetchedAt: string;
+  try {
+    const copy = snapshot.read();
+    if (copy === undefined) throw new DegradedError(cause);
+    fetchedAt = copy.fetchedAt;
+    const entry = indexRegistry(copy.payload).get(pjid);
+    record = entry === undefined ? undefined : deriveRecord(pjid, entry);
+  } catch (err) {
+    if (!(err instanceof DegradedError)) {
+      log({
+        level: 'warn',
+        event: 'snapshot_unreadable',
+        ds: cause.ds,
+        path: snapshot.path,
+        detail: err instanceof Error ? err.message : String(err),
+      });
+    }
+    throw new DegradedError(cause);
+  }
+  if (record === undefined) throw new DegradedError(cause);
+  return {
+    record,
+    served: { fetchedAt, ageSeconds: snapshotAge(fetchedAt, snapshot.now()), cause },
+  };
+}
+
+/**
+ * Resolve a pjid against a fresh copy of the registry. `record: undefined` is an unknown pjid
+ * (DS-2, the caller's to answer). A registry failure is thrown as a {@link DegradedError},
+ * unless `fallback` finds the pjid in the snapshot. A bad entry in a fetched registry is plain
+ * DS-7 with no fallback: the registry answered.
  */
 export async function resolveProject(
   url: string,
   pjid: string,
-): Promise<DerivedRecord | undefined> {
+  options: ResolveOptions = {},
+): Promise<Resolved> {
+  let index: RegistryIndex | undefined;
   try {
-    const entry = (await fetchRegistry(url)).get(pjid);
-    return entry === undefined ? undefined : deriveRecord(pjid, entry);
+    index = await fetchRegistry(url, options.snapshot);
+    const entry = index.get(pjid);
+    return { record: entry === undefined ? undefined : deriveRecord(pjid, entry) };
   } catch (err) {
-    const degraded = registryFailure(err, url);
-    if (degraded !== undefined) throw new DegradedError(degraded);
-    throw err;
+    const cause = registryFailure(err, url);
+    if (cause === undefined) throw err;
+    if (index !== undefined || !options.fallback || options.snapshot === undefined) {
+      throw new DegradedError(cause);
+    }
+    return fromSnapshot(options.snapshot, pjid, cause, options.log ?? defaultLog);
   }
 }

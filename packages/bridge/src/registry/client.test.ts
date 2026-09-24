@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 import {
   BOARDLESS,
@@ -10,16 +13,22 @@ import {
   type StubRegistry,
   startStubRegistry,
 } from '../../test/stub-registry.ts';
+import type { LogLine } from '../log.ts';
 import { DegradedError } from '../server/errors.ts';
 import {
   deriveRecord,
   indexRegistry,
   REGISTRY_TIMEOUT_MS,
+  REGISTRY_UNIT,
   RegistryUnparseable,
   RegistryUnreachable,
   registryFailure,
-  resolveProject,
+  resolveProject as resolve,
 } from './client.ts';
+import { openSnapshot, type RegistrySnapshot } from './snapshot.ts';
+
+/** The fresh record only: these cases never fall back. */
+const resolveProject = async (url: string, pjid: string) => (await resolve(url, pjid)).record;
 
 let stub: StubRegistry;
 before(async () => {
@@ -166,6 +175,7 @@ test('a refused connection is DS-6 with the registry URL as endpoint', async () 
   assert.deepEqual(await degradedOf(resolveProject(url, 'sidepiece')), {
     ds: 'DS-6',
     params: { endpoint: url },
+    remedy: 'systemctl --user start pjangler-project-registry.service',
   });
 });
 
@@ -256,5 +266,153 @@ test('malformed agents are DS-7, never coerced to empty strings', async () => {
     assert.equal((await degradedOf(resolveProject(stub.url, 'x'))).ds, 'DS-7');
   } finally {
     stub.override = undefined;
+  }
+});
+
+/** A port nothing listens on: bound, read, then closed. */
+async function closedPortUrl(): Promise<string> {
+  const probe = createServer();
+  await new Promise<void>((resolve) => probe.listen(0, '127.0.0.1', resolve));
+  const port = (probe.address() as { port: number }).port;
+  await new Promise((resolve) => probe.close(resolve));
+  return `http://127.0.0.1:${port}`;
+}
+
+function tempSnapshot(): { snapshot: RegistrySnapshot; lines: LogLine[]; cleanup: () => void } {
+  const dir = mkdtempSync(join(tmpdir(), 'sidepiece-client-snapshot-'));
+  const lines: LogLine[] = [];
+  const snapshot = openSnapshot(dir, { log: (l) => lines.push(l) });
+  return { snapshot, lines, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
+}
+
+test('DS-6 names the unit to start only for a loopback registry', () => {
+  const unreachable = new RegistryUnreachable('x');
+  const remedy = `systemctl --user start ${REGISTRY_UNIT}`;
+  assert.equal(REGISTRY_UNIT, 'pjangler-project-registry.service');
+  for (const url of ['http://127.0.0.1:8790', 'http://localhost:8790', 'http://[::1]:8790']) {
+    assert.deepEqual(registryFailure(unreachable, url), {
+      ds: 'DS-6',
+      params: { endpoint: url },
+      remedy,
+    });
+  }
+  for (const url of ['http://nonexistent.invalid', 'http://big-chungus:8790', 'not a url']) {
+    const d = registryFailure(unreachable, url);
+    assert.deepEqual(d, { ds: 'DS-6', params: { endpoint: url } });
+    assert.equal(d && 'remedy' in d, false, url);
+  }
+});
+
+test('a DNS failure is DS-6 with the endpoint and no remedy key', async () => {
+  const url = 'http://nonexistent.invalid';
+  const d = await degradedOf(resolveProject(url, 'sidepiece'));
+  assert.deepEqual(d, { ds: 'DS-6', params: { endpoint: url } });
+  assert.equal('remedy' in d, false);
+});
+
+test('a successful fetch rewrites the snapshot whole; a failed one never writes it', async () => {
+  const { snapshot, lines, cleanup } = tempSnapshot();
+  try {
+    stub.projects = fixtureProjects();
+    const failing: [number, string][] = [
+      [500, '{}'],
+      [200, 'not json'],
+      [200, '{"nothing":{}}'],
+    ];
+    for (const [status, body] of failing) {
+      stub.override = { status, body };
+      await degradedOf(resolve(stub.url, 'sidepiece', { snapshot }));
+      assert.equal(existsSync(snapshot.path), false, body);
+    }
+    stub.override = undefined;
+    await resolve(stub.url, 'sidepiece', { snapshot });
+    const text = readFileSync(snapshot.path, 'utf8');
+    const parsed = JSON.parse(text) as { fetchedAt: string; payload: { projects: object } };
+    assert.deepEqual(Object.keys(parsed), ['fetchedAt', 'payload']);
+    assert.ok(parsed.payload.projects);
+    // A bad requested entry still means the registry answered: the snapshot is written.
+    stub.projects = { ...fixtureProjects(), broken: { repoPath: '' } };
+    await degradedOf(resolve(stub.url, 'broken', { snapshot }));
+    assert.ok(readFileSync(snapshot.path, 'utf8').includes('broken'));
+    assert.equal(lines.length, 0);
+  } finally {
+    stub.override = undefined;
+    cleanup();
+  }
+});
+
+test('fallback: a failed fetch answers from the snapshot with its age and the cause', async () => {
+  const { snapshot, cleanup } = tempSnapshot();
+  try {
+    stub.projects = fixtureProjects();
+    const fresh = (await resolve(stub.url, 'sidepiece', { snapshot })).record;
+    const down = await closedPortUrl();
+    const served = await resolve(down, 'sidepiece', { snapshot, fallback: true });
+    assert.deepEqual(served.record, fresh);
+    assert.ok(served.served);
+    assert.equal(served.served.cause.ds, 'DS-6');
+    assert.equal(served.served.cause.remedy, `systemctl --user start ${REGISTRY_UNIT}`);
+    assert.ok(served.served.ageSeconds >= 0);
+    // Without `fallback` (the mutation path) the cause is thrown, snapshot or not.
+    assert.equal((await degradedOf(resolve(down, 'sidepiece', { snapshot }))).ds, 'DS-6');
+    // DS-7 from the fetch also falls back.
+    stub.override = { status: 500, body: '{}' };
+    const errored = await resolve(stub.url, 'sidepiece', { snapshot, fallback: true });
+    assert.deepEqual(errored.served?.cause, {
+      ds: 'DS-7',
+      params: { error: '500 Internal Server Error' },
+    });
+  } finally {
+    stub.override = undefined;
+    cleanup();
+  }
+});
+
+test('fallback: a bad entry in a fetched registry is DS-7, never the snapshot', async () => {
+  const { snapshot, cleanup } = tempSnapshot();
+  try {
+    stub.projects = { ...fixtureProjects(), flaky: { repoPath: '/r/flaky' } };
+    await resolve(stub.url, 'flaky', { snapshot });
+    stub.projects = { ...fixtureProjects(), flaky: { repoPath: '' } };
+    const d = await degradedOf(resolve(stub.url, 'flaky', { snapshot, fallback: true }));
+    assert.equal(d.ds, 'DS-7');
+  } finally {
+    cleanup();
+  }
+});
+
+test('fallback: no copy, no pjid in it, or an unreadable copy is the cause alone', async () => {
+  const { snapshot, lines, cleanup } = tempSnapshot();
+  const down = await closedPortUrl();
+  try {
+    const missing = await degradedOf(resolve(down, 'sidepiece', { snapshot, fallback: true }));
+    assert.equal(missing.ds, 'DS-6');
+    assert.equal(lines.length, 0);
+
+    stub.projects = fixtureProjects();
+    await resolve(stub.url, 'sidepiece', { snapshot });
+    const absent = await degradedOf(resolve(down, 'nope', { snapshot, fallback: true }));
+    assert.equal(absent.ds, 'DS-6', 'never DS-2 while the registry is down');
+
+    for (const body of [
+      '{bad',
+      '{"fetchedAt":"yesterday","payload":{"projects":{}}}',
+      '{"fetchedAt":"2026-09-01T00:00:00.000Z","payload":{"projects":[]}}',
+      '{"fetchedAt":"2026-09-01T00:00:00.000Z"}',
+    ]) {
+      lines.length = 0;
+      writeFileSync(snapshot.path, body);
+      const d = await degradedOf(
+        resolve(down, 'sidepiece', { snapshot, fallback: true, log: (l) => lines.push(l) }),
+      );
+      assert.equal(d.ds, 'DS-6', body);
+      const warn = lines.find((l) => l.event === 'snapshot_unreadable');
+      assert.ok(warn && warn.event === 'snapshot_unreadable', body);
+      assert.equal(warn.ds, 'DS-6');
+      assert.equal(warn.path, snapshot.path);
+      assert.equal(typeof warn.detail, 'string');
+    }
+  } finally {
+    cleanup();
   }
 });
