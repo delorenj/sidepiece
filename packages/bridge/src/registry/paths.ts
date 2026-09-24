@@ -24,15 +24,20 @@ export async function probePaths(
   record: Pick<ProjectRecord, 'clonePath' | 'agents'>,
 ): Promise<Degraded[]> {
   const { clonePath, agents } = record;
-  const [cloneOk, ...roleOk] = await Promise.all([
-    isDirectory(clonePath),
-    ...agents.map((a) => isDirectory(posix.resolve(clonePath, a.roleDir))),
-  ]);
+  // A relative clone path would be probed against the Bridge's cwd, which says nothing about
+  // big-chungus. It is never stat'ed, and role dirs under it are joined, never cwd-resolved.
+  const anchored = posix.isAbsolute(clonePath);
+  const roleDirs = agents.map((a) =>
+    anchored ? posix.resolve(clonePath, a.roleDir) : posix.join(clonePath, a.roleDir),
+  );
+  const probe = (path: string) =>
+    posix.isAbsolute(path) ? isDirectory(path) : Promise.resolve(false);
+  const [cloneOk, ...roleOk] = await Promise.all([probe(clonePath), ...roleDirs.map(probe)]);
   const out: Degraded[] = [];
   if (!cloneOk) out.push({ ds: 'DS-9', params: { path: clonePath } });
   agents.forEach((agent, i) => {
-    if (roleOk[i]) return;
-    const roleDir = posix.resolve(clonePath, agent.roleDir);
+    const roleDir = roleDirs[i];
+    if (roleOk[i] || roleDir === undefined) return;
     out.push(
       agent.role === 'pm'
         ? { ds: 'DS-20', params: { pm: agent.id, roleDir } }

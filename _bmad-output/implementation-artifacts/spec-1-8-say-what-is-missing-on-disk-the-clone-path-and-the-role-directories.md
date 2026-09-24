@@ -2,7 +2,7 @@
 title: 'Story 1.8: Say what is missing on disk — the clone path and the role directories'
 type: 'feature'
 created: '2026-09-24'
-status: 'in-progress'
+status: 'awaiting-operator'
 baseline_revision: '09a8e0e341738dee12959ebba8bc3e7916dc8d0d'
 review_loop_iteration: 0
 followup_review_recommended: false
@@ -10,6 +10,10 @@ context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-1-context.md'
 warnings: [oversized]
 deferred: []
+operator_actions:
+  - "Free 127.0.0.1:8787 for the Bridge (still held by curator-serve.service, python3 pid 6375, as owed since Stories 1.4-1.6), or amend architecture.md's Bridge port"
+  - "With 8787 free, on big-chungus run `node packages/bridge/dist/bridge.mjs &` then `curl -s http://127.0.0.1:8787/v1/project/sidepiece | jq '.degraded'` and confirm it is exactly [{\"ds\":\"DS-10\",\"params\":{\"agent\":\"sidepiece-scrum-master\",\"roleDir\":\"/home/delorenj/code/sidepiece/agents/hermes/scrum-master\"}}] with no DS-20, alongside the full record in a 200"
+  - "When re-running Story 1.6's owed 8787 check, expect that DS-10 entry in degraded instead of [] (Story 1.8 now reports the missing scrum-master role dir)"
 ---
 
 <intent-contract>
@@ -106,6 +110,17 @@ deferred: []
 
 ## Review Triage Log
 
+### 2026-09-24 — Review pass
+- intent_gap: 0
+- bad_spec: 0
+- patch: 3: (high 0, medium 0, low 3)
+- defer: 0
+- reject: 24: (high 0, medium 1, low 23)
+- addressed_findings:
+  - `[low]` `[patch]` A relative `clonePath` was stat'ed against the Bridge's cwd, and its role dirs were cwd-resolved. `probePaths` now never stats a non-absolute path: the clone is DS-9, and role dirs are `posix.join`ed and reported missing. Test added (`clonePath: '.'`).
+  - `[low]` `[patch]` `roleDir` was resolved twice (once to probe, once to report). It is now resolved once, so the probed path and the reported path cannot drift.
+  - `[low]` `[patch]` The `sidepieceClone()` doc comment said "mkdtemp". It now says what the helper actually does.
+
 ## Design Notes
 
 - **Why the probe is on GET only:** DS-9, DS-10 and DS-20 are informational on the Bridge. The Cockpit decides gating (DS-20 gates Chat client-side). Probing in the mutation guard would add filesystem latency to a check whose job is generation freshness only.
@@ -117,3 +132,40 @@ deferred: []
 **Commands:**
 - `mise run lint && mise run test && mise run build` -- expected: exit 0.
 - `grep -rn "node:fs" packages/ --include='*.ts' | grep -v node_modules | grep -v "^packages/bridge/"` -- expected: no output.
+
+## Auto Run Result
+
+Status: awaiting-operator
+
+**Summary:** `GET /v1/project/:pjid` now says what is missing on disk.
+- `registry/paths.ts` `probePaths` is the one Project-path prober. It stats the clone path and each Agent's `roleDir`, resolved against the clone. It reports DS-9 (`path`), DS-20 for the PM (`pm`, `roleDir`) and DS-10 for any other role (`agent`, `roleDir`).
+- The entries follow the Bridge-wide ones (such as DS-25) in `degraded[]`, next to the full record, at `200`. There is no prose, no `remedy` key and no warn log.
+- The probe never writes to disk, runs on GET only (never in the mutation guard), and is skipped for an unknown pjid.
+
+**Files changed:**
+- `packages/bridge/src/registry/paths.ts`: new. `probePaths`, read-only; a relative clone path is never probed against the cwd.
+- `packages/bridge/src/registry/paths.test.ts`: new. Every probe-level matrix row on temp trees, plus symlink, ENOTDIR and relative-clone cases.
+- `packages/bridge/src/server/project.ts`: the GET handler appends the probe results; injectable `probePaths?` on `ProjectRoutesOptions`.
+- `packages/bridge/src/server/project.test.ts`: the record-shape tests now use a no-op probe (hermetic). New real-probe end-to-end tests cover DS-10 alongside the full record, DS-20, DS-9 with nothing created, DS-25-then-DS-10 ordering, and that an unknown pjid never calls the probe.
+- `packages/bridge/test/bundle.test.ts`, `packages/bridge/test/main.test.ts`: the sidepiece fixture now points at a temp clone. The bundle test asserts DS-10 comes back alongside the record, and the DS-25 test still gets exactly `[DS-25]`.
+
+**Review findings:** 3 patches applied (all low), 0 deferred, 24 rejected. The rejected findings include:
+- Findings the spec already settles: any stat error counts as missing; role entries still appear under a missing clone; no warn log; GET-only.
+- A timeout for a hung `stat`: the paths are local, not outbound calls.
+- A probe that rejects: the default never throws, and the client validates `roleDir`.
+- `..` in a `roleDir`, and a role constant for `'pm'`.
+- Test-hygiene nits: temp-dir leaks if setup throws, a mix of assertion styles.
+
+**Follow-up review recommendation:** false. Patched: high 0, medium 0, low 3. Score is 3×0 + 3 = 3, which is below 5.
+
+**Verification:**
+- `mise run lint && mise run test && mise run build`: exit 0. Contract passed 5/5; bridge passed 153/153, with 0 skipped.
+- `grep -rn "node:fs" packages/ --include='*.ts' | grep -v node_modules | grep -v "^packages/bridge/"`: no output.
+- Live check: the patched `dist/bridge.mjs` on 127.0.0.1:18787, against the real pjangler registry on :8764, answered `curl -s http://127.0.0.1:18787/v1/project/sidepiece`. It returned `200`, the full record (`clonePath /home/delorenj/code/sidepiece`, generation 1, 2 agents), and `degraded` exactly `[{"ds":"DS-10","params":{"agent":"sidepiece-scrum-master","roleDir":"/home/delorenj/code/sidepiece/agents/hermes/scrum-master"}}]`, with no DS-20.
+- The literal check on port 8787 is owed; see `operator_actions`.
+
+**Residual risks:**
+- A `stat` error such as EACCES is reported as "missing" (the spec's choice). An unreadable directory reads as absent.
+- A `stat` on a hung network mount would block the GET until the handler deadline. The clone paths are local today.
+- Git: during implementation, `origin/main` held an older, split-up version of the story 1-7 commits (`2264793`..`9977970`). It was merged with `-s ours` (`00195af`) because local `09a8e0e` already contains all of that code plus the later `RequestAborted` fix. The local `sprint-status.yaml` row was kept as-is; nothing in this run wrote that file.
+

@@ -123,3 +123,15 @@ test('ENOTDIR under a file is missing, never a throw', async () => {
 test('no agents and a present clone is []', async () => {
   assert.deepEqual(await probePaths({ clonePath: clone('boardless'), agents: [] }), []);
 });
+
+test('a relative clone path is never probed against the cwd: DS-9, and role dirs are joined', async () => {
+  // `.` exists relative to any cwd; a cwd-resolved probe would call it present.
+  const out = await probePaths({ clonePath: '.', agents: [PM] });
+  assert.equal(
+    JSON.stringify(out),
+    JSON.stringify([
+      { ds: 'DS-9', params: { path: '.' } },
+      { ds: 'DS-20', params: { pm: 'sidepiece-pm', roleDir: 'agents/hermes/pm' } },
+    ]),
+  );
+});

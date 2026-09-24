@@ -253,7 +253,7 @@ for (const hang of ['no-response', 'stall-body'] as const) {
   });
 }
 
-/** A mkdtemp clone mirroring this repo: `agents/hermes/pm` present, `scrum-master` absent. */
+/** A fresh clone dir under the temp state dir, mirroring this repo: `agents/hermes/pm` present, `scrum-master` absent. */
 function sidepieceClone(): string {
   const clone = join(stateDir, `clone-${Math.random().toString(36).slice(2)}`);
   mkdirSync(join(clone, 'agents/hermes/pm'), { recursive: true });
