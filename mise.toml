@@ -85,3 +85,8 @@ run = "pnpm -r --if-present run test"
 description = "Build every workspace package"
 depends = ["typecheck", "lint"]
 run = "pnpm -r run build"
+
+[tasks."loop:recover"]
+description = "Recover bmad-loop from diverged baselines or paused manual-rollback states and restart"
+run = "{{config_root}}/.mise/scripts/bmad-loop-recover.py"
+
