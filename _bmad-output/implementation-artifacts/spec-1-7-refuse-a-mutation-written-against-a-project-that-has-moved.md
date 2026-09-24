@@ -2,10 +2,10 @@
 title: 'Story 1.7: Refuse a mutation written against a Project that has moved'
 type: 'feature'
 created: '2026-09-24'
-status: 'in-progress'
+status: 'done'
 baseline_revision: 'c42575e5ecf3c19de6d8342d626e49e83396a66d'
 review_loop_iteration: 0
-followup_review_recommended: false
+followup_review_recommended: true
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-1-context.md'
 warnings: [oversized]
@@ -121,6 +121,20 @@ deferred: []
 
 ## Review Triage Log
 
+### 2026-09-24 — Review pass
+- intent_gap: 0
+- bad_spec: 0
+- patch: 6: (high 0, medium 1, low 5)
+- defer: 0
+- reject: 27: (high 0, medium 1, low 26)
+- addressed_findings:
+  - `[medium]` `[patch]` A guarded handler could run after the handler deadline had already answered 500. `createBridgeServer` now creates a per-request `AbortController` and aborts it on the deadline and on an early `res` close. `mutatingRoute` refuses to run the handler once the signal is aborted. A test with a 400ms resolver against a 200ms deadline asserts a 500 and zero invocations.
+  - `[low]` `[patch]` A `mutatingRoute` on a pattern with no `:pjid` passed construction and then answered 500 on every request. It now throws a `TypeError` at construction, and the `/multi` fixture moved to `/multi/:pjid`.
+  - `[low]` `[patch]` DS-25 still fetched the registry and logged `resolved` before refusing. `mutationResolver` now throws DS-25 before any fetch. A store present at generation < 1 is a plain 500. `mutatingRoute` itself refuses a resolved generation < 1, whichever resolver is injected.
+  - `[low]` `[patch]` `readBody` could hang when a client aborted mid-body. It now rejects on 'close' when `!req.complete`.
+  - `[low]` `[patch]` 400 refusals were not logged. There is now an info event `mutation_rejected {pjid, error}`.
+  - `[low]` `[patch]` `ctx.body` still carried a body `pjid`. The guard now strips `pjid` and `generation` before calling the handler.
+
 ## Design Notes
 
 - **Why re-resolve in the guard:** comparing against the stored row would pass window A's `4` when no one has re-resolved since the rename. That is exactly SM-3's "silent on the dangerous one". One registry fetch is about 2ms and every future mutating handler needs the fresh record anyway, so `ctx.record` hands it over.
@@ -133,3 +147,52 @@ deferred: []
 **Commands:**
 - `mise run lint && mise run test && mise run build` -- expected: exit 0.
 - `mise run test` output lists every `mutating.conformance.test.ts` case as passing.
+
+## Auto Run Result
+
+Status: done
+
+**Summary:** A mutation written against a Project that has moved is refused before its handler runs.
+- `registry/generation.ts` `assertCurrentGeneration(pjid, received, current)` is the one definition of stale. `received < current` throws a `StaleGenerationError` carrying the contract `Refusal`. Equal passes. Greater throws `GenerationAheadError`.
+- `server/http.ts` `mutatingRoute(resolve, handler)` runs these checks in order:
+  1. Validates the body's top-level `generation`. An invalid body, missing generation or invalid generation is answered 400 and never fetches the registry.
+  2. Re-resolves the path pjid fresh, so a rename that no GET has seen is still caught.
+  3. Compares the two. Stale is `409 {"error":"stale_generation","pjid","received","current"}`. Ahead is 500, logged as `generation_ahead_of_bridge`.
+  4. Runs the handler only if the request has not already been answered by the deadline.
+- `createBridgeServer` refuses at construction any non-GET/HEAD/OPTIONS handler not built by `mutatingRoute`, and any guarded route whose pattern has no `:pjid`.
+- DS-2, DS-6, DS-7 and DS-25 are answered `200 {degraded}` and the handler never runs. DS-25 ("cannot validate") makes no registry fetch.
+
+**Files changed:**
+- `packages/contract/src/errors.ts`: the `missing_generation`, `invalid_generation` and `invalid_body` BridgeError shapes.
+- `packages/bridge/src/registry/generation.ts` (+test): `assertCurrentGeneration`, `StaleGenerationError`, `GenerationAheadError`.
+- `packages/bridge/src/server/errors.ts`: `HttpRefusal`; `toErrorResponse` maps 409 and 400.
+- `packages/bridge/src/server/http.ts` (+test): `mutatingRoute`, `MAX_BODY_BYTES`, the guarded `WeakSet`, the construction checks, the per-request abort signal, and the 409/400/ahead send paths.
+- `packages/bridge/src/server/project.ts`: `currentProject` (shared with GET, byte-identical body) and `mutationResolver`.
+- `packages/bridge/src/log.ts`: `mutation_refused`, `mutation_rejected` and `generation_ahead_of_bridge` (DS-5).
+- `packages/bridge/src/server/mutating.conformance.test.ts`: raw-socket conformance against a stub registry and a real temp store.
+- `DEFINITION-OF-DONE.md`: item 1 names `mutatingRoute()`.
+
+**Review findings:** 6 patches applied (1 medium, 5 low), 0 deferred, 27 rejected. The rejected findings include:
+- The literal 2-argument `assertCurrentGeneration` signature. The spec chose `(pjid, received, current)` so that `current` comes from a fresh resolution.
+- `generation_ahead_of_bridge` as a log event value rather than a JSON key.
+- `http.ts` importing the pure comparison from `registry/generation.ts`. The spec's rule targets the fetch, which stays injected.
+- Draining oversized bodies, UTF-8 BOM, `-0`, Content-Type checks, and lowercase method keys.
+- Undocumented check-then-act (TOCTOU) between the guard and a future capability commit. There is no capability yet.
+- Missing EXPERIENCE.md rows. None of these are DsCodes.
+- `HttpRefusal` naming, and the DS-25 fallback without params, which is unreachable from `main.ts`.
+
+**Follow-up review recommendation:** true. Patched: high 0, medium 1, low 5. Score is 3×1 + 5 = 8, which is 5 or more.
+
+**Verification:**
+- `mise run lint && mise run test && mise run build`: exit 0. Contract passed 5/5; bridge passed 136/136, with 0 skipped.
+- The conformance test asserts the exact status line `HTTP/1.1 409 Conflict`, `x-sidepiece-contract: 1`, and the body bytes `{"error":"stale_generation","pjid":"sidepiece","received":4,"current":5}` after a rename with no GET in between. It then asserts `{"generation":5}` returns the fixture's own 200 with one invocation.
+- The header-only generation is `400 missing_generation`.
+- `grep -rn "received < current\|received > current" packages --include='*.ts'` has its only non-comment hits in `registry/generation.ts`.
+- Matrix audit: every I/O matrix row has a passing test.
+
+**Residual risks:**
+- There is no production mutating route yet. Epic 2 (`…/ticket`) and Epic 3 (`…/turn`) must register through `mutatingRoute`, and the construction check enforces that.
+- A capability reachable from a GET handler is still human-checked (DoD item 1).
+- The guard is a pre-check, not a lock. A rename landing between the guard and a later async capability commit is not re-checked.
+- Every guarded mutation now does one registry fetch, about 2ms against the live registry.
+- There is no dedicated test for a client aborting mid-body.
