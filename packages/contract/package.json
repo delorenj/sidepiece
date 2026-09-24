@@ -13,6 +13,10 @@
   },
   "scripts": {
     "build": "tsup src/index.ts --format esm --clean",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
+    "test": "pnpm run typecheck && node --test \"src/*.test.ts\""
+  },
+  "devDependencies": {
+    "@types/node": "24.13.6"
   }
 }
