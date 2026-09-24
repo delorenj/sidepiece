@@ -2,14 +2,26 @@
 title: 'Story 1.5: A Turn store that is versioned, and says so when it is newer than the Bridge'
 type: 'feature'
 created: '2026-09-24'
-status: 'in-progress'
+status: 'awaiting-operator'
 baseline_revision: '62c4b0cd4985744fd89ccbd097b7ae3be9676430'
 review_loop_iteration: 0
-followup_review_recommended: false
+followup_review_recommended: true
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-1-context.md'
 warnings: [oversized]
-deferred: []
+deferred:
+  - summary: >-
+      resolutions.pjid is declared `TEXT PRIMARY KEY` without NOT NULL, which SQLite treats as nullable (non-INTEGER PK quirk).
+    evidence: |-
+      Blind Hunter inserted two NULL-pjid rows into the migrated table in :memory:. The AC fixes the column list literally, and db/README.md's `pjid TEXT NOT NULL` rule is stated for capability tables, so 001 keeps the AC's DDL. Story 1.6 (the first writer) must never bind a null pjid, or a later forward migration can rebuild the table with NOT NULL.
+    location: >-
+      packages/bridge/src/db/migrations/001_resolutions.sql
+    severity: low
+operator_actions:
+  - "Free 127.0.0.1:8787 for the Bridge (still held by curator-serve.service, python3 pid 6375, as owed by Story 1.4), or amend architecture.md's Bridge port"
+  - "With 8787 free, on big-chungus run `node packages/bridge/dist/bridge.mjs & sleep 1; sqlite3 ~/.local/state/sidepiece/turns.db '.tables' 'PRAGMA user_version'; kill %1` and confirm `resolutions` and `1`"
+  - "Then run `sqlite3 ~/.local/state/sidepiece/turns.db 'PRAGMA user_version = 9'`, restart the Bridge, run `curl -s -D- http://127.0.0.1:8787/v1/health` twice, and confirm HTTP/1.1 200 OK with {\"ds\":\"DS-25\",\"params\":{\"storeVersion\":\"9\",\"bridgeVersion\":\"1\"}} both times from the same PID, and that `PRAGMA user_version` still reads 9"
+  - "Reset the real store afterwards with `rm ~/.local/state/sidepiece/turns.db*` (it holds no rows yet) so the next start migrates it to 1"
 ---
 
 <intent-contract>
@@ -103,6 +115,31 @@ deferred: []
 
 ## Review Triage Log
 
+### 2026-09-24 — Review pass
+- intent_gap: 0
+- bad_spec: 0
+- patch: 17 (high 0, medium 4, low 13)
+- defer: 1 (high 0, medium 0, low 1)
+- reject: 10 (high 0, medium 0, low 10)
+- addressed_findings:
+  - `[medium]` `[patch]` `isAtOrUnder` treated `<deploy>/..state` as outside the deploy tree. Now uses an exact `..`/`..`+sep test; refusal cases added.
+  - `[medium]` `[patch]` Two concurrent starts could both migrate from 0. Added a 5s busy timeout, and `user_version` is re-read inside each `BEGIN IMMEDIATE`, so a step is never re-run. A `beforeStep` test hook simulates the race.
+  - `[medium]` `[patch]` Probing an ahead store on a writable connection checkpoints a stale `-wal` into the main file on close. An existing store is now probed read-only; a test proves the main file stays byte-identical with v9 only in the WAL.
+  - `[medium]` `[patch]` No test ran the bundle with `SIDEPIECE_STATE_DIR` unset. Added a bundle test with a temp `HOME` that asserts `store_opened.path` is `<home>/.local/state/sidepiece/turns.db`.
+  - `[low]` `[patch]` A symlink could bypass the deploy-tree/bundle-dir guard. The guard now also compares the realpath of the longest existing ancestor; a real-symlink test was added.
+  - `[low]` `[patch]` `ROLLBACK` could mask the original migration error. It is now guarded by `isTransaction` and try/catch, and the original error is rethrown.
+  - `[low]` `[patch]` A missing or blank `migrations[v]` would advance the version with no schema change. It now throws `migration N missing`.
+  - `[low]` `[patch]` `inspect()` interpolated the table name into `PRAGMA table_info`. It is now a bound `pragma_table_info(?)`.
+  - `[low]` `[patch]` The store was not closed on the `listen_failed`, 5s-fallback and post-open-throw exits. All now close it.
+  - `[low]` `[patch]` The boundary guard omitted `resolved_at`. Added.
+  - `[low]` `[patch]` Schema parity checked tables only. It now compares every `sqlite_master` object, and a test checks the on-disk migration files are contiguous from 001 and match `BRIDGE_STORE_VERSION`.
+  - `[low]` `[patch]` There was no v1→v2 upgrade test. Added; it checks `migratedFrom: 1`.
+  - `[low]` `[patch]` The outbound-timeout exemption covered any `db.` call in any file. It is now `db.exec(` in `turns/store.ts` only, with fixtures.
+  - `[low]` `[patch]` A refused default state dir was logged as `value: ''`. It now logs `(default) <path>`.
+  - `[low]` `[patch]` `startBridge` leaked temp state dirs. They are now removed on stop or on a failed start.
+  - `[low]` `[patch]` A `tsup.config.ts` comment contained the literal `node:sqlite`, which broke the AC grep. Reworded.
+  - `[low]` `[patch]` Re-verified the AC greps across `packages/` (excluding dist and node_modules): only `store.ts` hits.
+
 ## Design Notes
 
 **Why DS-25 covers negative versions.** EXPERIENCE.md defines DS-25 as "a `user_version` this Bridge binary does not recognise". A negative value is not a rollback, but it is unrecognised, and migrating over it would be guessing.
@@ -117,3 +154,67 @@ deferred: []
 - `mise run lint && mise run test && mise run build` -- expected: exit 0.
 - `D=$(mktemp -d); SIDEPIECE_STATE_DIR=$D SIDEPIECE_BRIDGE_PORT=18787 node packages/bridge/dist/bridge.mjs & sleep 1; sqlite3 $D/turns.db '.tables' 'PRAGMA user_version'; kill %1` -- expected: `resolutions`, `1`.
 - The same `$D` after `sqlite3 $D/turns.db 'PRAGMA user_version = 9'`, restarted, with `curl -s -D- …/v1/health` run twice -- expected: `200` with DS-25 both times, then `user_version` is still `9`.
+
+## Auto Run Result
+
+Status: awaiting-operator
+
+**Summary:** The Bridge now has a versioned Turn store.
+- `turns/store.ts` is the only module that imports `node:sqlite`. It opens `$SIDEPIECE_STATE_DIR/turns.db` (default `~/.local/state/sidepiece/turns.db`), creating the directory with mode 0700.
+- It applies numbered `.sql` migrations forward-only, one `BEGIN IMMEDIATE` transaction per step, each paired with `PRAGMA user_version = n`. There is a busy timeout, the version is re-read inside every transaction, and a failure rolls back.
+- Migration 001 creates exactly `resolutions`, with no rows. `db/README.md` records the migration contract and notes that this table arrives one story ahead of its first writer.
+- If `user_version` is above this build's version, or below 0, the store is probed read-only and nothing is migrated or written. The Bridge logs `store_ahead` (DS-25) and keeps serving: `/v1/health` stays `200 ok` with `degraded:[{"ds":"DS-25","params":{"storeVersion":"9","bridgeVersion":"1"}}]`.
+- The Bridge refuses to start if the state dir is empty, relative, or inside `~/.local/lib/sidepiece` or the bundle's own directory, including through a symlink. That exits with `config_invalid` DS-4 and creates nothing.
+- A store that fails to open exits with `store_open_failed` DS-4.
+- tsup inlines the SQL as text and keeps the `node:` prefix (`removeNodeProtocol: false`); without that, `node:sqlite` would bundle as a bare `sqlite` import.
+
+The one item owed is not code. The ACs name `curl http://127.0.0.1:8787` and the real `~/.local/state/sidepiece`, but port 8787 is still held by curator-serve (Story 1.4's open operator action). The same transcript was proven on port 18787 against a temp state dir, and the live-port checks are listed under `operator_actions`.
+
+**Files changed:**
+- `packages/bridge/src/turns/store.ts`: the single opener. Handles migration, the ahead probe, `inspect()` and `close()`.
+- `packages/bridge/src/turns/store.test.ts`: covers the matrix rows, the race, the stale WAL, rollback and upgrade.
+- `packages/bridge/src/db/migrations/001_resolutions.sql`: the one table.
+- `packages/bridge/src/db/schema.sql`: the cumulative reference schema, never executed.
+- `packages/bridge/src/db/README.md`: the migration contract and the recorded exception.
+- `packages/bridge/src/db/schema.test.ts`: exact columns, full `sqlite_master` parity, and on-disk migration numbering.
+- `packages/bridge/src/db/boundary.test.ts`: guards that the SQLite driver and the snake_case names stay in `store.ts` and `db/`.
+- `packages/bridge/src/sql.d.ts` and `packages/bridge/test/sql-loader.ts`: let `.sql` files be imported for typecheck and tests.
+- `packages/bridge/src/config.ts` and `config.test.ts`: `resolveStateDir` and `DEPLOY_TARGET_DIR`, including the symlink-aware guard.
+- `packages/bridge/src/main.ts`: startup order pin → port → state dir → store → listen, and the store is closed on every exit.
+- `packages/bridge/src/log.ts`: the `store_opened`, `store_ahead` (warn, ds) and `store_open_failed` (error, ds) lines.
+- `packages/bridge/src/server/http.ts` and `http.test.ts`: `/v1/health` echoes an injected `degraded()`.
+- `packages/bridge/src/outbound.test.ts`: exempts `db.exec(` in `store.ts` only.
+- `packages/bridge/test/main.test.ts`, `spawn-bridge.ts` and `bundle.test.ts`: every bundle run uses a temp state dir. Adds the rollback (DS-25) run, the bad-state-dir and default-path runs, and cleanup.
+- `packages/bridge/tsup.config.ts`: the `.sql` text loader and `removeNodeProtocol: false`.
+- `packages/bridge/package.json`: the test run loads `sql-loader.ts`.
+
+**Review findings:** 17 patches applied (4 medium, 13 low), 1 deferred (the nullable `resolutions.pjid` primary key; the AC fixes the DDL), and 10 rejected:
+- Negative versions labelled "ahead": intended, and justified in the Design Notes.
+- No `remedy` on DS-25: the Bridge sends codes, not prose.
+- The 0700 mode is not re-applied to an existing dir.
+- The test `--import` path depends on the cwd.
+- Store state is frozen at startup.
+- Asserting `removeNodeProtocol` explicitly: the bundle run already covers it.
+- README guidance on pragmas.
+- `dist/` grep hits: gitignored build output.
+- README naming 3.12 vs the AC's 3.10 for `dispatches`: epics.md's later correction says 3.12.
+- The operator lane: resolved here as `awaiting-operator`.
+
+**Follow-up review recommendation:** true. Patched: high 0, medium 4, low 13. Score is 3×4 + 1×13 = 25, which is 5 or more.
+
+**Verification:**
+- `mise run lint && mise run test && mise run build`: exit 0. Contract passed 5/5; bridge passed 67/67, with 0 skipped.
+- Manual run on port 18787 with a temp state dir:
+  - `sqlite3 .tables` gives `resolutions`, and `user_version` is `1`.
+  - After `PRAGMA user_version = 9` and a restart, two `curl`s both return 200 with the DS-25 entry, the same PID stays alive, and the version is still 9.
+  - `turns.db`'s sha256 is unchanged.
+- `grep -rn "node:sqlite" packages --exclude-dir=node_modules --exclude-dir=dist` hits only `store.ts`.
+- The snake_case column grep outside `store.ts` and `src/db/` is empty.
+
+**Residual risks:**
+- `resolutions.pjid` is nullable (deferred to Story 1.6).
+- DS-25 is decided once at startup, so a store changed under a running Bridge is not re-detected until restart. The AC describes a restart.
+- There are two test-only options on `openStore` (`migrations`, `beforeStep`).
+- An ahead store probed read-only may leave empty `-wal`/`-shm` files beside it; the main file is untouched.
+- The literal AC runs against 8787 and the real state dir are owed (`operator_actions`).
+
