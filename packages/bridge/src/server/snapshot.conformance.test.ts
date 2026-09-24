@@ -349,3 +349,17 @@ test('health: a down registry is DS-6 in degraded, status still ok', async () =>
     { ds: 'DS-6', params: { endpoint: e.stub.url }, remedy: REMEDY },
   ]);
 });
+
+test('the mutation guard writes the snapshot too: currentProject passes it', async () => {
+  const e = await env();
+  const b = await bridge(e);
+  const started = new Date().toISOString();
+  assert.throws(() => readFileSync(e.snapshot.path));
+  // Generation 1 is what the guard's own fresh resolution mints, so the POST is current.
+  const { status, body } = await b.post('/v1/project/sidepiece/fixture', '{"generation":1}');
+  assert.equal(status, 200);
+  assert.deepEqual(body, { fixture: 'ok' });
+  assert.deepEqual(b.invocations, ['sidepiece']);
+  const copy = JSON.parse(readFileSync(e.snapshot.path, 'utf8')) as { fetchedAt: string };
+  assert.ok(copy.fetchedAt >= started, `${copy.fetchedAt} >= ${started}`);
+});

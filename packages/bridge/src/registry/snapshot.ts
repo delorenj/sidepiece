@@ -48,6 +48,8 @@ export function openSnapshot(
     write(payload) {
       const copy: SnapshotCopy = { fetchedAt: now().toISOString(), payload };
       try {
+        // `mode` applies only on create: a temp file an earlier crash left keeps its own.
+        rmSync(temp, { force: true });
         writeFileSync(temp, JSON.stringify(copy), { mode: 0o600 });
         renameSync(temp, path);
       } catch (err) {

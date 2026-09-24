@@ -289,14 +289,24 @@ test('DS-6 names the unit to start only for a loopback registry', () => {
   const unreachable = new RegistryUnreachable('x');
   const remedy = `systemctl --user start ${REGISTRY_UNIT}`;
   assert.equal(REGISTRY_UNIT, 'pjangler-project-registry.service');
-  for (const url of ['http://127.0.0.1:8790', 'http://localhost:8790', 'http://[::1]:8790']) {
+  for (const url of [
+    'http://127.0.0.1:8790',
+    'http://127.0.1.1:8790',
+    'http://localhost:8790',
+    'http://[::1]:8790',
+  ]) {
     assert.deepEqual(registryFailure(unreachable, url), {
       ds: 'DS-6',
       params: { endpoint: url },
       remedy,
     });
   }
-  for (const url of ['http://nonexistent.invalid', 'http://big-chungus:8790', 'not a url']) {
+  for (const url of [
+    'http://nonexistent.invalid',
+    'http://big-chungus:8790',
+    'http://128.0.0.1:8790',
+    'not a url',
+  ]) {
     const d = registryFailure(unreachable, url);
     assert.deepEqual(d, { ds: 'DS-6', params: { endpoint: url } });
     assert.equal(d && 'remedy' in d, false, url);
@@ -412,6 +422,25 @@ test('fallback: no copy, no pjid in it, or an unreadable copy is the cause alone
       assert.equal(warn.path, snapshot.path);
       assert.equal(typeof warn.detail, 'string');
     }
+  } finally {
+    cleanup();
+  }
+});
+
+test('fallback: a snapshot entry that fails to derive is the cause alone, and not unreadable', async () => {
+  const { snapshot, cleanup } = tempSnapshot();
+  const down = await closedPortUrl();
+  try {
+    // The registry answers (momo is fine), so the copy is written with a broken sidepiece.
+    stub.projects = { ...fixtureProjects(), sidepiece: { repoPath: '' } };
+    await resolve(stub.url, 'momo', { snapshot });
+    assert.ok(readFileSync(snapshot.path, 'utf8').includes('"repo_path":""'));
+    const lines: LogLine[] = [];
+    const d = await degradedOf(
+      resolve(down, 'sidepiece', { snapshot, fallback: true, log: (l) => lines.push(l) }),
+    );
+    assert.equal(d.ds, 'DS-6');
+    assert.equal(lines.filter((l) => l.event === 'snapshot_unreadable').length, 0);
   } finally {
     cleanup();
   }

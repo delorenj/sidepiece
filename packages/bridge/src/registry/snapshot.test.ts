@@ -50,6 +50,17 @@ test('write is whole, 0600, {fetchedAt, payload} in key order, and leaves no tem
   });
 });
 
+test('a stale temp file from an earlier crash does not keep its mode', () => {
+  const dir = tempDir();
+  const snapshot = openSnapshot(dir);
+  const temp = `${snapshot.path}.${process.pid}.tmp`;
+  writeFileSync(temp, 'leftover');
+  chmodSync(temp, 0o644);
+  snapshot.write({ projects: {} });
+  assert.equal(statSync(snapshot.path).mode & 0o777, 0o600);
+  assert.deepEqual(readdirSync(dir), [SNAPSHOT_FILE]);
+});
+
 test('a failed write logs snapshot_write_failed and never throws', () => {
   const dir = tempDir();
   const lines: LogLine[] = [];

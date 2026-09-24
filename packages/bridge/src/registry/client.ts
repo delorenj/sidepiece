@@ -16,6 +16,8 @@ export const REGISTRY_TIMEOUT_MS = 2_000;
 /** The systemd user unit that serves the registry on this host. */
 export const REGISTRY_UNIT = 'pjangler-project-registry.service';
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '[::1]']);
+/** The rest of 127.0.0.0/8, e.g. Debian's `127.0.1.1`. */
+const LOOPBACK_V4 = /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 
 /** A Project Record before its generation is minted. */
 export type DerivedRecord = Omit<ProjectRecord, 'generation'>;
@@ -32,7 +34,8 @@ export class RegistryUnparseable extends Error {}
 /** A registry on this host can be started; one elsewhere cannot be from here. */
 function isLoopback(endpoint: string): boolean {
   try {
-    return LOOPBACK.has(new URL(endpoint).hostname);
+    const { hostname } = new URL(endpoint);
+    return LOOPBACK.has(hostname) || LOOPBACK_V4.test(hostname);
   } catch {
     return false;
   }
@@ -165,15 +168,15 @@ function fromSnapshot(
   cause: Degraded,
   log: Logger,
 ): Resolved {
-  let record: DerivedRecord | undefined;
+  let entry: Entry | undefined;
   let fetchedAt: string;
   try {
     const copy = snapshot.read();
     if (copy === undefined) throw new DegradedError(cause);
     fetchedAt = copy.fetchedAt;
-    const entry = indexRegistry(copy.payload).get(pjid);
-    record = entry === undefined ? undefined : deriveRecord(pjid, entry);
+    entry = indexRegistry(copy.payload).get(pjid);
   } catch (err) {
+    // Only a file that cannot be read is unreadable; no copy at all logs nothing more.
     if (!(err instanceof DegradedError)) {
       log({
         level: 'warn',
@@ -185,7 +188,15 @@ function fromSnapshot(
     }
     throw new DegradedError(cause);
   }
-  if (record === undefined) throw new DegradedError(cause);
+  // A pjid the copy lacks, or an entry it cannot derive, is the cause alone, like no copy.
+  if (entry === undefined) throw new DegradedError(cause);
+  let record: DerivedRecord;
+  try {
+    record = deriveRecord(pjid, entry);
+  } catch (err) {
+    if (err instanceof RegistryUnparseable) throw new DegradedError(cause);
+    throw err;
+  }
   return {
     record,
     served: { fetchedAt, ageSeconds: snapshotAge(fetchedAt, snapshot.now()), cause },
