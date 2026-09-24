@@ -309,6 +309,30 @@ test('every request logs a request line; the client comes from X-Forwarded-For f
   assert.equal(plain.client, '127.0.0.1');
 });
 
+test('/v1/health lists the Bridge-wide entries first, then the probes', async () => {
+  const ds25: Degraded = { ds: 'DS-25', params: { storeVersion: '9', bridgeVersion: '1' } };
+  const ds6: Degraded = { ds: 'DS-6', params: { endpoint: 'http://127.0.0.1:1' } };
+  const srv = createBridgeServer({
+    startedAt,
+    log: () => {},
+    degraded: () => [ds25],
+    probes: async () => [ds6],
+  });
+  await new Promise<void>((resolve) => srv.listen(0, '127.0.0.1', resolve));
+  try {
+    const res = await fetch(`http://127.0.0.1:${(srv.address() as AddressInfo).port}/v1/health`, {
+      signal: AbortSignal.timeout(5_000),
+    });
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as { status: string; degraded: unknown };
+    assert.equal(body.status, 'ok');
+    assert.deepEqual(body.degraded, [ds25, ds6]);
+  } finally {
+    srv.closeAllConnections();
+    await new Promise((resolve) => srv.close(resolve));
+  }
+});
+
 test('/v1/health echoes the injected degraded[], read per request, and stays 200 ok', async () => {
   let current: Degraded[] = [];
   let calls = 0;

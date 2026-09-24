@@ -3,8 +3,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CONTRACT_VERSION, type Degraded } from '@sidepiece/contract';
 import { HOST, parsePort, parseRegistryUrl, requestedStateDir, resolveStateDir } from './config.ts';
+import { registryHealth } from './health/registry.ts';
 import { log } from './log.ts';
 import { nodeRefusal } from './node-pin.ts';
+import { openSnapshot } from './registry/snapshot.ts';
 import { createBridgeServer } from './server/http.ts';
 import { projectRoutes } from './server/project.ts';
 import { openStore, STORE_FILE, type TurnStore } from './turns/store.ts';
@@ -109,10 +111,13 @@ try {
   process.exit(1);
 }
 
+// The registry's last good copy lives beside the store, and is kept under DS-25 too.
+const snapshot = openSnapshot(stateDir);
 const server = createBridgeServer({
   startedAt: new Date().toISOString(),
   degraded: () => degraded,
-  routes: projectRoutes({ registryUrl, store, degraded: () => degraded }),
+  probes: registryHealth(registryUrl, snapshot),
+  routes: projectRoutes({ registryUrl, store, degraded: () => degraded, snapshot }),
 });
 
 server.on('error', (err: NodeJS.ErrnoException) => {

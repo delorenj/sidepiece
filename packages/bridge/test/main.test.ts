@@ -242,14 +242,64 @@ test('a rolled-back Bridge serves DS-25 from a store ahead of it, and leaves it 
     assert.equal(await stopBridge(running.child), 0);
     assert.deepEqual(readFileSync(file), bytes, 'the store is byte-identical afterwards');
     assert.deepEqual(
-      readdirSync(stateDir).filter((f) => !/^turns\.db-(wal|shm)$/.test(f)),
-      ['turns.db'],
+      readdirSync(stateDir)
+        .filter((f) => !/^turns\.db-(wal|shm)$/.test(f))
+        .sort(),
+      ['registry-snapshot.json', 'turns.db'],
+      'the snapshot is kept beside the store under DS-25 too',
     );
   } finally {
     await stub.close();
     rmSync(clone, { recursive: true, force: true });
     rmSync(cwd, { recursive: true, force: true });
     rmSync(stateDir, { recursive: true, force: true });
+  }
+});
+
+test('the bundle serves the last good copy with DS-23 when the registry goes down, and health says DS-6', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'sidepiece-cwd-'));
+  const stateDir = tempStateDir();
+  const stub = await startStubRegistry(fixtureProjects());
+  const endpoint = stub.url;
+  const remedy = 'systemctl --user start pjangler-project-registry.service';
+  let running: Awaited<ReturnType<typeof startBridge>> | undefined;
+  try {
+    running = await startBridge(bundle, cwd, stateDir, { SIDEPIECE_REGISTRY_URL: stub.url });
+    const base = `http://127.0.0.1:${running.port}`;
+    const get = async (path: string) => {
+      const res = await fetch(`${base}${path}`, { signal: AbortSignal.timeout(5_000) });
+      return { status: res.status, body: (await res.json()) as Record<string, unknown> };
+    };
+    const fresh = await get('/v1/project/sidepiece');
+    assert.equal(fresh.status, 200);
+    assert.equal(fresh.body.generation, 1);
+    assert.ok(
+      !(fresh.body.degraded as { ds: string }[]).some((d) => d.ds === 'DS-23'),
+      'a fresh answer carries no DS-23',
+    );
+
+    await stub.close();
+    const served = await get('/v1/project/sidepiece');
+    assert.equal(served.status, 200);
+    for (const key of ['pjid', 'generation', 'repo', 'clonePath', 'boardId', 'agents']) {
+      assert.ok(key in served.body, key);
+    }
+    assert.equal(served.body.generation, 1);
+    const degraded = served.body.degraded as { ds: string; params?: Record<string, string> }[];
+    const at = degraded.findIndex((d) => d.ds === 'DS-23');
+    assert.ok(at >= 0, 'DS-23 is present');
+    assert.match(degraded[at]?.params?.ageSeconds ?? '', /^\d+$/);
+    assert.deepEqual(degraded[at + 1], { ds: 'DS-6', params: { endpoint }, remedy });
+
+    const health = await get('/v1/health');
+    assert.equal(health.status, 200);
+    assert.deepEqual(health.body.degraded, [{ ds: 'DS-6', params: { endpoint }, remedy }]);
+  } finally {
+    const code = running ? await stopBridge(running.child) : 0;
+    await stub.close().catch(() => {});
+    rmSync(cwd, { recursive: true, force: true });
+    rmSync(stateDir, { recursive: true, force: true });
+    assert.equal(code, 0);
   }
 });
 

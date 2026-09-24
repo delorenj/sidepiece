@@ -1,0 +1,11 @@
+{
+  "actions": [
+    "After Story 1.10 deploys the Bridge on big-chungus, prime the snapshot with `curl -s http://127.0.0.1:8787/v1/project/sidepiece`, then run `systemctl --user stop pjangler-project-registry.service` and repeat the curl; confirm a 200 with the full ProjectRecord and a degraded[] entry {\"ds\":\"DS-23\",\"params\":{\"fetchedAt\",\"ageSeconds\"}} followed by DS-6 carrying the systemctl remedy.",
+    "While the registry is still stopped, run `sqlite3 ~/.local/state/sidepiece/turns.db \"SELECT generation, record_hash FROM resolutions WHERE pjid='sidepiece'\"` and confirm the output is byte-identical to the output from before the outage, then run `sqlite3 ~/.local/state/sidepiece/turns.db '.tables'` and confirm there is no registry_snapshots table.",
+    "Run `systemctl --user start pjangler-project-registry.service` and confirm that the next curl returns the record with no DS-23 or DS-6, and that the mtime of ~/.local/state/sidepiece/registry-snapshot.json advances."
+  ],
+  "parked_at": "2026-09-24",
+  "run_id": "20260924-133837-2ee7",
+  "spec_file": "_bmad-output/implementation-artifacts/spec-1-9-answer-from-the-last-good-copy-when-the-registry-is-down-and-never-silently.md",
+  "story_key": "1-9-answer-from-the-last-good-copy-when-the-registry-is-down-and-never-silently"
+}

@@ -233,7 +233,15 @@ test('registry down is 200 DS-6 and the handler never runs', async () => {
   assert.equal(r.statusLine, 'HTTP/1.1 200 OK');
   assert.equal(
     r.body,
-    JSON.stringify({ degraded: [{ ds: 'DS-6', params: { endpoint: 'http://127.0.0.1:1' } }] }),
+    JSON.stringify({
+      degraded: [
+        {
+          ds: 'DS-6',
+          params: { endpoint: 'http://127.0.0.1:1' },
+          remedy: 'systemctl --user start pjangler-project-registry.service',
+        },
+      ],
+    }),
   );
   assert.equal(b.invocations.length, 0);
 });
