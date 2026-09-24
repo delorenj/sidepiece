@@ -14,7 +14,8 @@ const MAJOR = 24;
  */
 export function nodeRefusal(versions: string, version: string): string | undefined {
   const refusal = `sidepiece-bridge requires Node ${NODE_PIN}; this is ${version}. Refusing to start.`;
-  const match = versions.match(/^(\d+)\.(\d+)\.(\d+)/);
+  // Anchored: a prerelease or nightly (`24.15.0-rc.1`) is not the pinned release, so it is refused.
+  const match = versions.match(/^(\d+)\.(\d+)\.(\d+)$/);
   if (match === null) return refusal;
   const parts = [Number(match[1]), Number(match[2]), Number(match[3])];
   if (parts[0] !== MAJOR) return refusal;

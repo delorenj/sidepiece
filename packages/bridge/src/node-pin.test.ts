@@ -3,7 +3,15 @@ import { test } from 'node:test';
 import { nodeRefusal } from './node-pin.ts';
 
 const ALLOWED = ['24.15.0', '24.99.1'];
-const REFUSED = ['24.14.9', '24.6.0', '25.0.0', '22.22.2', '26.5.0'];
+const REFUSED = [
+  '24.14.9',
+  '24.6.0',
+  '25.0.0',
+  '22.22.2',
+  '26.5.0',
+  '24.15.0-rc.1',
+  '24.16.0-nightly20260901',
+];
 
 for (const v of ALLOWED) {
   test(`Node ${v} is allowed`, () => {

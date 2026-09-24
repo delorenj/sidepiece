@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
  * balanced argument list must mention `timeout` or `signal`.
  */
 const CALL =
-  /(?:\b(?:fetch|spawn|spawnSync|exec|execSync|execFile|execFileSync|connect|createConnection|request)|\bhttps?\.get)\s*\(/g;
+  /(?:\b(?:fetch|spawn|spawnSync|fork|exec|execSync|execFile|execFileSync|connect|createConnection|request)|\bhttps?\.get|\bnew\s+WebSocket)\s*\(/g;
 
 function stripComments(source: string): string {
   return source
@@ -54,6 +54,8 @@ test('the scanner flags an untimed call and passes a timed one', () => {
   assert.deepEqual(untimedCalls("await fetch('http://x/v1');"), ['1: fetch(']);
   assert.deepEqual(untimedCalls("spawn('op', ['read', ref]);"), ['1: spawn(']);
   assert.deepEqual(untimedCalls("http.get('http://x', (res) => res);"), ['1: http.get(']);
+  assert.deepEqual(untimedCalls("fork('./worker.js');"), ['1: fork(']);
+  assert.deepEqual(untimedCalls("const ws = new WebSocket('ws://x');"), ['1: new WebSocket(']);
   assert.deepEqual(
     untimedCalls('await fetch(url(), { headers: h(1), signal: AbortSignal.timeout(2000) });'),
     [],

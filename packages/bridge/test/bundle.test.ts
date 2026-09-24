@@ -26,8 +26,11 @@ test('bundle runs outside the workspace and answers /v1/health', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'sidepiece-bridge-'));
   const copy = join(dir, 'bridge.mjs');
   copyFileSync(bundle, copy);
-  const { child, port } = await startBridge(copy, dir);
+  let running: Awaited<ReturnType<typeof startBridge>> | undefined;
   try {
+    running = await startBridge(copy, dir);
+    const { port, host } = running;
+    assert.equal(host, '127.0.0.1', 'the Bridge binds loopback only');
     const res = await fetch(`http://127.0.0.1:${port}/v1/health`, {
       signal: AbortSignal.timeout(5_000),
     });
@@ -36,7 +39,8 @@ test('bundle runs outside the workspace and answers /v1/health', async () => {
     const body = (await res.json()) as { contractVersion: number };
     assert.equal(body.contractVersion, CONTRACT_VERSION);
   } finally {
-    assert.equal(await stopBridge(child), 0);
+    const code = running ? await stopBridge(running.child) : 0;
     rmSync(dir, { recursive: true, force: true });
+    assert.equal(code, 0);
   }
 });

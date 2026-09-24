@@ -2,14 +2,17 @@
 title: 'Story 1.4: A Bridge that answers curl, states its contract, and refuses to start on the wrong Node'
 type: 'feature'
 created: '2026-09-24'
-status: 'in-progress'
+status: 'awaiting-operator'
 baseline_revision: 'a9d8a5ea59203ee0aa41fdbaff12a708364abdfb'
 review_loop_iteration: 0
-followup_review_recommended: false
+followup_review_recommended: true
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-1-context.md'
 warnings: [oversized]
 deferred: []
+operator_actions:
+  - "Free 127.0.0.1:8787 for the Bridge: curator-serve.service (folder-curator `serve`, default --port 8787, pid 6375 today) holds it, so move folder-curator to another port and repoint the n8n-nodes-folder-curator node at it, or amend architecture.md's Bridge port instead"
+  - "With 8787 free, run `node packages/bridge/dist/bridge.mjs & sleep 1; curl -s -D- http://127.0.0.1:8787/v1/health; ss -ltnp | grep 8787; kill %1` on big-chungus and confirm HTTP/1.1 200 OK, X-Sidepiece-Contract: 1, and exactly one listener on 127.0.0.1:8787"
 ---
 
 <intent-contract>
@@ -105,6 +108,28 @@ deferred: []
 
 ## Review Triage Log
 
+### 2026-09-24 — Review pass
+- intent_gap: 0
+- bad_spec: 0
+- patch: 14 (high 0, medium 6, low 8)
+- defer: 0
+- reject: 22
+- addressed_findings:
+  - `[medium]` `[patch]` `RequiresDs` in `log.ts` distributed over the union and could never fail. Replaced it with a non-distributive `[Exclude<Extract<…>,{ds}>] extends [never]` check that covers warn and error lines. Mutation-checked: making `ds` optional on one variant gives TS2322.
+  - `[medium]` `[patch]` If a body failed to serialise (e.g. BigInt), `send` threw into `.catch`, which returned a 500 with no log line and could raise an unhandled rejection. There is now one `internalError` path: it logs `handler_failed` with DS-5, then sends a 500 or destroys the socket. A test covers it.
+  - `[medium]` `[patch]` A handler that never settled hung forever, against A-P7. Added `handlerDeadlineMs` (default 10s). A handler past its deadline gets a 500 `internal_error` plus a `handler_timed_out` line with DS-5. A test covers it.
+  - `[medium]` `[patch]` A `DegradedError` answer left no log line carrying its ds (A-P8). It now writes a `level:'warn'`, `event:'degraded'` line with `ds`. A test covers it.
+  - `[medium]` `[patch]` No test asserted the loopback bind or the 8787 default. Moved `HOST` and `parsePort` into `config.ts`, with `config.test.ts` covering them. The bundle test now asserts that the `listening` line's host is `127.0.0.1`.
+  - `[medium]` `[patch]` The throw-forcing test only exercised injected routes. Added `builtinRoutes()`; a new test forces every built-in route and method to throw and checks for a typed 500 with no prose.
+  - `[low]` `[patch]` The request log hung off `'finish'`, so aborted requests went unlogged. It now uses `'close'`, and the flaky `setImmediate` wait is replaced by polling.
+  - `[low]` `[patch]` `HEAD /v1/health` got a 405. HEAD now falls back to GET, and `Allow` lists `HEAD`.
+  - `[low]` `[patch]` `Allow` listed methods whose handler was undefined. It now filters them out.
+  - `[low]` `[patch]` When the URL fallback path was taken, the query string stayed in the path, and a `//x/v1/health` target was parsed as a host. Replaced both with `pathOf()`, which has tests.
+  - `[low]` `[patch]` The Node pin regex had no anchor, so `24.15.0-rc.1` passed. It is anchored now, prereleases and nightlies are refused, and tests cover it.
+  - `[low]` `[patch]` The outbound scanner missed `fork(` and `new WebSocket(`. Both are added, with fixtures.
+  - `[low]` `[patch]` `spawn-bridge.ts` had three problems: a non-JSON line threw, `stopBridge` hung after a signal death, and spawn `'error'` was unhandled. All three are fixed. `bundle.test.ts` cleanup now always removes the temp dir and no longer hides the real assertion.
+  - `[low]` `[patch]` `routes` doc comment clarified: overrides replace whole paths. `http.test.ts` `after()` now awaits `close`.
+
 ## Design Notes
 
 **Which ds a Bridge-side failure logs.** A-P8 requires every failure line to carry a `DsCode`. None of the 21 `BridgeDsCode`s names "the Bridge crashed in a handler". Minting one would be a UX decision (DoD item 2), and this story is forbidden from making it. So the log uses the `DsCode` the operator will actually see:
@@ -121,3 +146,65 @@ The log type is widened to `DsCode`, not `BridgeDsCode`, for this reason only. `
 - `mise run lint && mise run test && mise run build` -- expected: exit 0.
 - `node packages/bridge/dist/bridge.mjs & sleep 1; curl -s -D- http://127.0.0.1:8787/v1/health; curl -s -D- http://127.0.0.1:8787/nope; ss -ltnp | grep 8787; kill %1` -- expected: the AC transcript.
 - `SIDEPIECE_STATE_DIR=$(mktemp -d) ~/.local/share/mise/installs/node/22.22.2/bin/node packages/bridge/dist/bridge.mjs; echo $?` -- expected: the exact refusal line, then `1`.
+
+## Auto Run Result
+
+Status: awaiting-operator
+
+**Summary:** The Bridge is now a daemon. `main.ts` checks the Node pin (`>=24.15.0 <25`) before anything else and refuses with the exact line and exit 1. It then serves `GET /v1/health` on a hard-coded `127.0.0.1` (default port 8787). Every response carries `X-Sidepiece-Contract` and the JSON content type:
+- A throw is mapped to a typed body: `DegradedError` gives 200 with `degraded[]`, anything else gives 500 `internal_error`, never prose.
+- An unknown path gives 404 `not_found`; a wrong method gives 405 with `Allow`.
+- A handler has a 10s deadline.
+
+Logs are typed JSON lines on stdout, and every warn and error line carries a `ds`. A co-located scan test fails any outbound call in `src/` that has no timeout. The one owed item is not code: port 8787 on big-chungus is held by `curator-serve.service` (folder-curator's HTTP engine for n8n), so the Bridge can't bind it yet. Freeing it is a cross-service port decision, listed under `operator_actions`.
+
+**Files changed:**
+- `packages/contract/src/health.ts`: `BridgeHealth` wire type.
+- `packages/contract/src/errors.ts`: `BridgeError` (`not_found`, `method_not_allowed`, `internal_error`).
+- `packages/contract/src/index.ts`: re-exports both.
+- `packages/bridge/src/main.ts`: new entry point. Runs the pin, the port config, the loopback listen, `listen_failed` and `config_invalid` exits, and SIGTERM/SIGINT shutdown.
+- `packages/bridge/src/config.ts` and `config.test.ts`: `HOST`, `DEFAULT_PORT` and `parsePort`, with tests.
+- `packages/bridge/src/node-pin.ts` and `node-pin.test.ts`: the pure pin check, anchored, with prereleases refused.
+- `packages/bridge/src/log.ts`: the typed JSON-line logger, with the ds requirement enforced at compile time.
+- `packages/bridge/src/server/errors.ts`: `DegradedError` and `toErrorResponse`.
+- `packages/bridge/src/server/http.ts`: route table, contract header, 404/405, HEAD, handler deadline, request log and `pathOf`.
+- `packages/bridge/src/server/http.test.ts`: every HTTP matrix row, plus forced throws on every built-in route.
+- `packages/bridge/src/outbound.test.ts`: the A-P7 untimed-outbound-call scanner, with fixtures.
+- `packages/bridge/test/main.test.ts`: the bundle under Node 22.22.2, 24.6.0 and 26.5.0 with a read-only state dir, a bad port env, and a busy port.
+- `packages/bridge/test/spawn-bridge.ts`: a hardened helper that starts and stops the bundle.
+- `packages/bridge/test/bundle.test.ts`: the bundle runs outside the workspace, answers `/v1/health`, and binds loopback.
+- `packages/bridge/package.json`: adds a `start` script, and tests run from both `test/` and co-located `src/**`.
+- `packages/bridge/tsup.config.ts`: entry is now `src/main.ts`.
+- `packages/bridge/src/index.ts`: deleted.
+
+**Review findings:** 14 patches applied (6 medium, 8 low), 0 deferred, 22 rejected. The rejected findings, grouped:
+- Trusting XFF from any peer: the tailnet is the trust boundary, and A-P8 says to read XFF.
+- Silent skips when a mise Node is missing: the spec directs it.
+- The state dir check is vacuous: this is correct until Story 1.5 adds the store.
+- `engines` field: tracked as DW-1.
+- Port 0 and leading zeros: port 0 is allowed by the spec.
+- Stdout truncation before exit: pipes are synchronous on Linux.
+- Second SIGINT, EPIPE on stdout, and the helper exported from a test file.
+- Docs and systemd unit: Story 1.10.
+- The scanner's word-match looseness and string-aware parsing.
+- DS-4 and DS-5 being ClientDsCodes: the spec Design Notes justify it.
+- The HTTP/1.1 status line: covered by the manual transcript.
+
+**Follow-up review recommendation:** true. Patched: high 0, medium 6, low 8. Score is 3×6 + 1×8 = 26, which is 5 or more.
+
+**Verification:**
+- `mise run lint && mise run test && mise run build`: exit 0. Contract passes 5/5; bridge passes 34/34 with 0 skipped.
+- Mutation check: making `ds` optional on `config_invalid` gives TS2322. Restored and clean.
+- Manual run with `SIDEPIECE_BRIDGE_PORT=18787`:
+  - `curl -s -D-` returns `HTTP/1.1 200 OK`, `X-Sidepiece-Contract: 1`, and the exact body.
+  - HEAD returns 200.
+  - `ss` shows one listener, on `127.0.0.1:18787`.
+  - SIGTERM gives exit 0 and a `shutdown` log line.
+- Wrong Node: running under Node 22.22.2 prints the exact refusal line and exits 1.
+- Default port: running with no env var logs `listen_failed` with `ds` DS-4, `port` 8787 and `code` EADDRINUSE, because curator-serve holds 8787. That shows the default is honoured.
+
+**Residual risks:**
+- A-P8 requires a ds on failure lines, so a Bridge-side failure is logged as DS-5 (handler failed or timed out) or DS-4 (listen or config failed). Those are ClientDsCodes. If a dedicated Bridge code is wanted, it is a UX/EXPERIENCE.md decision.
+- The 10s handler deadline is a chosen constant. Later stories with slower upstreams must fit under it or raise it on purpose.
+- The outbound-call scan passes vacuously today, because `src/` makes no outbound calls yet.
+- The rebase in this run replayed the orchestrator's local story-1.3 commit over a divergent `origin/main` 1.3 history. The rebased tree is byte-identical to `a9d8a5e`, and `sprint-status.yaml` was not reverted.

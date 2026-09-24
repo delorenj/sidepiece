@@ -1,4 +1,5 @@
 import { CONTRACT_VERSION } from '@sidepiece/contract';
+import { HOST, parsePort } from './config.ts';
 import { log } from './log.ts';
 import { nodeRefusal } from './node-pin.ts';
 import { createBridgeServer } from './server/http.ts';
@@ -10,17 +11,6 @@ const refusal = nodeRefusal(process.versions.node, process.version);
 if (refusal !== undefined) {
   process.stderr.write(`${refusal}\n`);
   process.exit(1);
-}
-
-/** Never configurable: the tailnet reaches the Bridge through `tailscale serve`, not a bind. */
-const HOST = '127.0.0.1';
-const DEFAULT_PORT = 8787;
-
-function parsePort(raw: string | undefined): number | undefined {
-  if (raw === undefined) return DEFAULT_PORT;
-  if (!/^\d{1,5}$/.test(raw)) return undefined;
-  const port = Number(raw);
-  return port <= 65535 ? port : undefined;
 }
 
 const rawPort = process.env.SIDEPIECE_BRIDGE_PORT;

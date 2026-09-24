@@ -4,7 +4,13 @@ import { after, before, test } from 'node:test';
 import { CONTRACT_VERSION } from '@sidepiece/contract';
 import type { LogLine } from '../log.ts';
 import { DegradedError } from './errors.ts';
-import { createBridgeServer } from './http.ts';
+import {
+  builtinRoutes,
+  createBridgeServer,
+  type Handler,
+  pathOf,
+  type RouteTable,
+} from './http.ts';
 
 const lines: LogLine[] = [];
 const startedAt = new Date().toISOString();
@@ -22,7 +28,15 @@ const server = createBridgeServer({
         throw new DegradedError({ ds: 'DS-7', params: { status: '502' } });
       },
     },
+    '/unserialisable': { GET: () => ({ status: 200, body: { n: 1n } }) },
+    '/hang': { GET: () => new Promise(() => {}) },
+    '/multi': {
+      GET: () => ({ status: 200, body: {} }),
+      PUT: undefined,
+      DELETE: () => ({ status: 200, body: {} }),
+    },
   },
+  handlerDeadlineMs: 200,
 });
 let base = '';
 
@@ -30,10 +44,20 @@ before(async () => {
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });
-after(() => {
+after(async () => {
   server.closeAllConnections();
-  server.close();
+  await new Promise((resolve) => server.close(resolve));
 });
+
+/** Poll the captured log until a line matches; the server logs on 'close', after the client has its answer. */
+async function logged(pred: (l: LogLine) => boolean): Promise<LogLine> {
+  for (let i = 0; i < 100; i++) {
+    const hit = lines.findLast(pred);
+    if (hit) return hit;
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  assert.fail('expected log line never appeared');
+}
 
 async function call(path: string, init: RequestInit = {}) {
   const res = await fetch(`${base}${path}`, { ...init, signal: AbortSignal.timeout(5_000) });
@@ -95,7 +119,7 @@ test('an unknown path is 404 not_found', async () => {
 test('a wrong method is 405 with Allow', async () => {
   const { res, body } = await call('/v1/health', { method: 'POST', body: '{}' });
   assert.equal(res.status, 405);
-  assert.equal(res.headers.get('allow'), 'GET');
+  assert.equal(res.headers.get('allow'), 'GET, HEAD');
   assert.deepEqual(body, { error: 'method_not_allowed', method: 'POST', path: '/v1/health' });
 });
 
@@ -115,17 +139,94 @@ test('a thrown DegradedError is 200 with degraded[]', async () => {
   assert.equal(res.status, 200);
   assert.deepEqual(body, { degraded: [{ ds: 'DS-7', params: { status: '502' } }] });
   assertCamelKeys(body);
+  const warn = await logged((l) => l.event === 'degraded');
+  assert.ok(warn.event === 'degraded');
+  assert.equal(warn.level, 'warn');
+  assert.equal(warn.ds, 'DS-7');
+});
+
+test('HEAD /v1/health is answered like GET, with no body', async () => {
+  const res = await fetch(`${base}/v1/health`, {
+    method: 'HEAD',
+    signal: AbortSignal.timeout(5_000),
+  });
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('x-sidepiece-contract'), String(CONTRACT_VERSION));
+  assert.equal(await res.text(), '');
+});
+
+test('Allow lists only methods with a handler', async () => {
+  const { res } = await call('/multi', { method: 'PATCH', body: '{}' });
+  assert.equal(res.status, 405);
+  assert.equal(res.headers.get('allow'), 'GET, DELETE, HEAD');
+});
+
+test('a body that cannot be serialised is 500 internal_error, and logged with ds', async () => {
+  const { res, body } = await call('/unserialisable');
+  assert.equal(res.status, 500);
+  assert.deepEqual(body, { error: 'internal_error' });
+  const failed = await logged((l) => l.event === 'handler_failed' && l.path === '/unserialisable');
+  assert.ok(failed.level === 'error');
+  assert.equal(failed.ds, 'DS-5');
+});
+
+test('a handler that never settles is answered 500 at its deadline, and logged with ds', async () => {
+  const { res, body } = await call('/hang');
+  assert.equal(res.status, 500);
+  assert.deepEqual(body, { error: 'internal_error' });
+  const timedOut = await logged((l) => l.event === 'handler_timed_out');
+  assert.ok(timedOut.event === 'handler_timed_out');
+  assert.equal(timedOut.ds, 'DS-5');
+  assert.equal(timedOut.deadlineMs, 200);
+});
+
+test('every built-in route, forced to throw, answers a typed code and no prose', async () => {
+  const builtins = builtinRoutes(startedAt);
+  const thrower: Handler = () => {
+    throw new Error('forced secret prose');
+  };
+  const forced: RouteTable = {};
+  for (const [path, methods] of Object.entries(builtins)) {
+    forced[path] = Object.fromEntries(Object.keys(methods).map((m) => [m, thrower]));
+  }
+  const faulty = createBridgeServer({ startedAt, routes: forced, log: () => {} });
+  await new Promise<void>((resolve) => faulty.listen(0, '127.0.0.1', resolve));
+  const port = (faulty.address() as AddressInfo).port;
+  try {
+    for (const [path, methods] of Object.entries(builtins)) {
+      for (const method of Object.keys(methods)) {
+        const res = await fetch(`http://127.0.0.1:${port}${path}`, {
+          method,
+          signal: AbortSignal.timeout(5_000),
+        });
+        const text = await res.text();
+        assert.equal(res.status, 500, `${method} ${path}`);
+        assert.deepEqual(JSON.parse(text), { error: 'internal_error' });
+        assert.doesNotMatch(text, /forced|secret|prose/);
+      }
+    }
+  } finally {
+    faulty.closeAllConnections();
+    await new Promise((resolve) => faulty.close(resolve));
+  }
+});
+
+test('pathOf drops the query and never reads a // prefix as a host', () => {
+  assert.equal(pathOf('/v1/health?x=1'), '/v1/health');
+  assert.equal(pathOf('//evil/v1/health'), '//evil/v1/health');
+  assert.equal(pathOf('http://h/v1/health?x'), '/v1/health');
+  assert.equal(pathOf(undefined), '/');
+  assert.equal(pathOf('?q'), '/');
 });
 
 test('every request logs a request line; the client comes from X-Forwarded-For first hop', async () => {
   await call('/v1/health', { headers: { 'X-Forwarded-For': '100.64.0.7, 10.0.0.1' } });
-  await new Promise((r) => setImmediate(r));
-  const req = lines.filter((l) => l.event === 'request').at(-1);
-  assert.ok(req && req.event === 'request');
+  const req = await logged((l) => l.event === 'request' && l.client === '100.64.0.7');
+  assert.ok(req.event === 'request');
   assert.equal(req.client, '100.64.0.7');
   assert.equal(req.status, 200);
   assert.equal(req.path, '/v1/health');
-  const plain = lines.find((l) => l.event === 'request' && l.path === '/nope');
+  const plain = await logged((l) => l.event === 'request' && l.path === '/nope');
   assert.ok(plain && plain.event === 'request');
   assert.equal(plain.client, '127.0.0.1');
 });
