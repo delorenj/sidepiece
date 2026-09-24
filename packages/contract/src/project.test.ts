@@ -16,6 +16,8 @@ const record = {
 // `boardId` is required and never null: a boardless Project carries `''`.
 // @ts-expect-error boardId cannot be null
 const _nullBoard: ProjectRecord = { ...record, boardId: null };
+// @ts-expect-error boardId cannot be undefined
+const _undefinedBoard: ProjectRecord = { ...record, boardId: undefined };
 const { boardId: _dropped, ...withoutBoard } = record;
 // @ts-expect-error boardId cannot be omitted
 const _missingBoard: ProjectRecord = withoutBoard;

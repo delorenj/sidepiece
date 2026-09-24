@@ -5,7 +5,7 @@ created: '2026-09-24'
 status: 'done'
 baseline_revision: '1f1b5042717f1e5c6f884023b2a111d0f1ccf52c'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-1-context.md'
 warnings: [oversized]
@@ -114,6 +114,16 @@ deferred: []
   - `[low]` `[patch]` Tests run under Node's native type stripping, but nothing stopped non-erasable syntax such as `enum` or parameter properties. Added `erasableSyntaxOnly: true` to `tsconfig.base.json`.
   - `[low]` `[patch]` The `boardId` doc comment hard-coded "the four boardless Projects", a count that goes stale. It now states the rule instead.
 
+### 2026-09-24 — Review pass
+- intent_gap: 0
+- bad_spec: 0
+- patch: 2 (high 0, medium 0, low 2)
+- defer: 0
+- reject: 30
+- addressed_findings:
+  - `[low]` `[patch]` The `Degraded` doc comment said "typed params, never prose", which contradicts `remedy?: string`. Reworded: the Cockpit renders wording from `ds` and `params`, and `remedy` is the one free-text field (A-P2's exception).
+  - `[low]` `[patch]` The intent says `boardId` is "never null or undefined", but only `null` and omission had fixtures. Added a `@ts-expect-error` fixture for `boardId: undefined` in `project.test.ts`. Mutation-checked: removing the directive gives TS2322.
+
 ## Design Notes
 
 Exhaustiveness without deriving the type from the array:
@@ -137,60 +147,44 @@ const _complete: [Missing] extends [never] ? true : false = true; // fails if a 
 
 Status: done
 
-**Summary:** `@sidepiece/contract` now defines the whole failure taxonomy and the Project Record in one place, and both halves compile against it.
-- **`state.ts`:**
-  - `ClientDsCode` has 7 literals and `BridgeDsCode` has 21. `DsCode` is their union.
-  - `Degraded.ds` is typed `BridgeDsCode`, so a Bridge route cannot emit a Cockpit-only code.
-  - The three non-DS code spaces are `Refusal`, `SubscriptionState` (`pending | established | not_established`) and `IconTransient` (`open_gesture_rejected`).
-  - The header comment names the rule, EXPERIENCE.md's degraded-state table and DoD item 2.
-- **`project.ts`:**
-  - `AgentBinding` is `{id, role, roleDir}` and `TicketProvider` is `{type: string}`.
-  - `ProjectRecord` has 7 fields. `boardId: string` is required and non-nullable.
-  - `ProjectResponse` is a union that forces narrowing.
-- **`version.ts`:** `CONTRACT_VERSION: number = 1`, with the bump-by-hand comment.
+**Summary:** This was a follow-up review of the finished Story 1.3 contract (`state.ts`, `project.ts`, `version.ts`, the barrel and the tests). The implementation was already complete. This pass made two small fixes: one doc comment and one missing type fixture.
 
-**Files changed:**
-- `packages/contract/src/state.ts`: the DS taxonomy split by producer, `Degraded`, and the three non-DS code spaces.
-- `packages/contract/src/project.ts`: `AgentBinding`, `TicketProvider`, `ProjectRecord` and `ProjectResponse`.
-- `packages/contract/src/version.ts`: `CONTRACT_VERSION`, moved out of `index.ts`.
-- `packages/contract/src/index.ts`: re-exports the three modules.
-- `packages/contract/src/state.test.ts`: the runtime 7/21/28, disjointness and DS-1…DS-28 checks. It also has compile-time exhaustiveness checks and `@ts-expect-error` fixtures for `DS-1` in `Degraded` and for each non-DS space in `DsCode`.
-- `packages/contract/src/project.test.ts`: `@ts-expect-error` fixtures for a null `boardId`, a missing `boardId` and an un-narrowed read. It also has a runtime narrowing test and the `CONTRACT_VERSION` integer check.
-- `packages/contract/tsconfig.json`: no Node types, and tests excluded.
-- `packages/contract/tsconfig.test.json`: new. It adds Node types for the tests only.
-- `packages/contract/package.json`: `typecheck` covers both configs and `test` runs typecheck first. `@types/node` 24.13.6 is now a devDependency.
-- `pnpm-lock.yaml`: updated for the new devDependency.
-- `tsconfig.base.json`: `rewriteRelativeImportExtensions` and `erasableSyntaxOnly`, so `.ts` import specifiers run under Node's type stripping.
+**Files changed (this pass):**
+- `packages/contract/src/state.ts`: the `Degraded` doc comment now matches the shape, and names `remedy` as the one free-text field.
+- `packages/contract/src/project.test.ts`: adds a `@ts-expect-error` fixture that rejects `boardId: undefined`.
 
-**Review findings:** 4 patches applied (2 medium, 2 low), 0 deferred, 22 rejected. The rejected ones:
-- widening `CONTRACT_VERSION` to `number`, which the AC requires;
-- adding a `pjid?: never` discriminant, which would change the AC-specified `ProjectResponse` shape;
-- `params` as `Record<string, string>`, which is the AC shape;
-- `remedy` as prose, which A-P2 makes a deliberate exception;
-- runtime code arrays or validators, which the AC mirrors in tests by design;
-- a `Generation` alias;
-- closed `role` enums;
-- an `engines` field, already tracked as DW-1;
-- moving `rewriteRelativeImportExtensions` into the package config;
-- `noUnusedLocals`, which is not enabled;
-- a recursive test glob;
-- `@types/node` duplication;
-- parsing EXPERIENCE.md in tests;
-- the Cockpit not existing yet (Epic 2).
+**Review findings:**
+- 2 patches applied, both low.
+- 0 deferred.
+- 30 rejected. Most repeat earlier rejections or would change the AC-fixed shapes:
+  - widening `CONTRACT_VERSION`;
+  - making the degraded-only `ProjectResponse` non-empty, or adding a discriminant;
+  - typing `params` per code;
+  - exporting runtime code arrays or validators (forbidden by "no runtime logic");
+  - a `Generation` doc;
+  - `'plane' | (string & {})`;
+  - header and path constants;
+  - `engines` or a Node pin (already tracked as DW-1);
+  - a recursive test glob;
+  - scoping `erasableSyntaxOnly` to one package (the bridge still typechecks);
+  - a missing `--dts` (consumers resolve `types` from `src`);
+  - a barrel test (the bridge bundle already goes through the barrel);
+  - whitespace `boardId`;
+  - the fixture path;
+  - the TS and Node version floor (TS 6.0.3, Node 24.15);
+  - R2 cross-package enforcement (the Bridge's routes and the Cockpit belong to later stories).
 
-**Follow-up review recommendation:** true. The patched counts are 0 high, 2 medium and 2 low, which scores 3×2 + 1×2 = 8 (≥ 5).
+**Follow-up review recommendation:** false. The patched counts are 0 high, 0 medium and 2 low, which scores 3×0 + 1×2 = 2 (< 5).
 
 **Verification:**
-- `mise run lint`: exit 0.
-- `mise run test`: exit 0. The contract has 5/5 tests passing and both typechecks clean, so every `@ts-expect-error` is used. The bridge has 2/2 passing and the lint self-test passes.
-- `mise run build`: exit 0, and the bridge bundle still prints `contract v1`.
+- `mise run lint && mise run test && mise run build`: exit 0.
+  - The contract has 5/5 tests passing, and both typechecks are clean, so every `@ts-expect-error` directive is used.
+  - The bridge has 2/2 tests passing, including the `contract v\d+` bundle assertion.
 - Mutation checks:
-  - removing the `{ ds: 'DS-1' }` directive gives TS2820 (not assignable to `BridgeDsCode`);
-  - removing the un-narrowed-read directive gives TS2339;
-  - `process.env` in contract source gives TS2591.
+  - removing the `{ ds: 'DS-1' }` directive gives TS2820;
+  - removing the new `boardId: undefined` directive gives TS2322.
 
-**Residual risks:**
-- The shapes of `SubscriptionState`, `IconTransient`, `AgentBinding` and `TicketProvider` were chosen here. The epic names these types but doesn't give their members. Later stories may extend them additively.
-- The taxonomy unions are cross-checked against the AC literals only, not parsed from EXPERIENCE.md.
-- `ProjectResponse` has no discriminant, so a hand-built `{pjid, degraded}` literal typechecks as the degraded-only member. The Bridge's resolution handler (Story 1.6) should build responses from a full `ProjectRecord`.
-
+**Residual risks:** These are unchanged from the previous run.
+- The members of `SubscriptionState`, `IconTransient`, `AgentBinding` and `TicketProvider` were chosen by this story, because the epic only names these types.
+- `ProjectResponse` has no discriminant, so Story 1.6 should build its responses from a full `ProjectRecord`.
+- The taxonomy is cross-checked against the AC literals, not parsed from EXPERIENCE.md.

@@ -34,7 +34,10 @@ export type BridgeDsCode =
 
 export type DsCode = BridgeDsCode | ClientDsCode;
 
-/** One degraded state as the Bridge sends it: a code plus typed params, never prose. */
+/**
+ * One degraded state as the Bridge sends it. The Cockpit renders the wording from `ds` and
+ * `params`; `remedy` is the one free-text field, A-P2's deliberate exception.
+ */
 export type Degraded = {
   ds: BridgeDsCode;
   params?: Record<string, string>;
