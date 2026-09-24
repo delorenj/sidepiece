@@ -1,3 +1,12 @@
+/**
+ * The Bridge's HTTP surface: routing, the request log, CORS, and the one response writer.
+ *
+ * Authentication: none. The Bridge checks no token, no cookie and no `Authorization` header.
+ * It listens on 127.0.0.1 only and is reached through `tailscale serve`, so WireGuard device
+ * authentication on the tailnet is the trust boundary (NFR-1). The consequence: any device on
+ * `burro-salmon.ts.net` can call every route, mutations included. For the same reason CORS
+ * reflects the caller's `Origin` instead of checking it against an allow-list.
+ */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import {
   type BridgeError,
@@ -115,6 +124,12 @@ function clientOf(req: IncomingMessage): string {
   return first || req.socket.remoteAddress || 'unknown';
 }
 
+/** `Access-Control-Allow-Origin`: the request's `Origin` reflected, or `*` when it sent none. */
+function allowOriginOf(req: IncomingMessage): string {
+  const origin = req.headers.origin;
+  return origin === undefined || origin === '' ? '*' : origin;
+}
+
 function send(
   res: ServerResponse,
   status: number,
@@ -124,6 +139,9 @@ function send(
   const payload = JSON.stringify(body);
   res.writeHead(status, {
     'X-Sidepiece-Contract': String(CONTRACT_VERSION),
+    'Access-Control-Allow-Origin': allowOriginOf(res.req),
+    Vary: 'Origin',
+    'Access-Control-Expose-Headers': 'X-Sidepiece-Contract',
     'Content-Type': 'application/json; charset=utf-8',
     'Content-Length': String(Buffer.byteLength(payload)),
     ...extra,
@@ -296,6 +314,29 @@ export function createBridgeServer(options: BridgeServerOptions): Server {
     });
 
     const matched = matchRoute(routes, path);
+
+    // Every preflight is answered here, on any path and before any handler (a route's own
+    // OPTIONS handler never runs), with nothing gating it: no flag, no env, no UA sniffing.
+    if (method === 'OPTIONS') {
+      const methods = matched === undefined ? ['GET', 'HEAD'] : allowOf(matched.route);
+      if (!methods.includes('OPTIONS')) methods.push('OPTIONS');
+      const requested = req.headers['access-control-request-headers'];
+      res.writeHead(204, {
+        // The MagicDNS certificate is NOT an LNA mitigation: HTTPS is what lets Chrome ask
+        // (Local Network Access preflights only over a secure context), not what stops it asking.
+        // Only this header answers it.
+        'Access-Control-Allow-Private-Network': 'true',
+        'Access-Control-Allow-Origin': allowOriginOf(req),
+        Vary: 'Origin',
+        'Access-Control-Allow-Methods': methods.join(', '),
+        'Access-Control-Allow-Headers': requested || 'Content-Type',
+        'Access-Control-Max-Age': '600',
+        'X-Sidepiece-Contract': String(CONTRACT_VERSION),
+      });
+      res.end();
+      return;
+    }
+
     if (matched === undefined) {
       const body: BridgeError = { error: 'not_found', path };
       send(res, 404, body);

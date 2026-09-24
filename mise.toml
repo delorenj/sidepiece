@@ -99,6 +99,10 @@ description = "Install the Bridge bundle + systemd --user unit on big-chungus, n
 depends = ["build:bridge"]
 run = "bash .mise/scripts/deploy-bridge.sh"
 
+[tasks."tailnet:check"]
+description = "From a tailnet device: TLS without -k, the LNA preflight, and 50-request p50/p95 against the Bridge"
+run = "sh .mise/scripts/tailnet-check.sh"
+
 [tasks."loop:recover"]
 description = "Recover bmad-loop from diverged baselines or paused manual-rollback states and restart"
 run = "{{config_root}}/.mise/scripts/bmad-loop-recover.py"

@@ -5,6 +5,7 @@
 # Steps, in order; nothing on the target is written before step 5:
 #   1 bundle check   2 target resolution   3 blast-radius guard   4 node pin check
 #   5 install (one file + the unit, never a directory)   6 supervise   7 post-checks
+#   8 expose (tailscale serve path /v1 -> the live loopback port; no other handler touched)
 #
 # Every failure exits non-zero with exactly one line on stderr: `deploy-bridge: <code>: <detail>`.
 # The state dir is canonicalized for the guard and otherwise never read, written, or rsynced;
@@ -16,6 +17,7 @@
 #   SIDEPIECE_DEPLOY_LIB_DIR     test seam: overrides <home>/.local/lib/sidepiece
 #   SIDEPIECE_DEPLOY_STATE_DIR   test seam: overrides <home>/.local/state/sidepiece
 #   SIDEPIECE_DEPLOY_HEALTH_TIMEOUT  seconds to poll /v1/health (default 10)
+#   SIDEPIECE_TAILSCALE_BIN      tailscale binary on the target (default: tailscale on PATH)
 set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -163,4 +165,41 @@ say "health ok on $url"
 lib_listing="$(run ls -A -- "$lib_dir")"
 [[ "$lib_listing" == "bridge.mjs" ]] ||
   die lib_dir_not_single_file "$lib_dir holds: $(echo "$lib_listing" | tr '\n' ' ') (reported only; nothing deleted)"
+
+# ---- 8. expose -------------------------------------------------------------------------------
+# tailscale serve is the only way onto the tailnet (Story 1.11): never funnel, never Traefik or
+# Cloudflare, never `serve reset`. Only the /v1 handler is set; every other handler must survive.
+command -v jq >/dev/null || die jq_missing "jq is needed to read tailscale's JSON"
+tailscale_bin="${SIDEPIECE_TAILSCALE_BIN:-tailscale}"
+listeners="$(run ss -Hltn "sport = :$port" 2>/dev/null | awk '{print $4}' | sort -u | tr '\n' ' ' || true)"
+listeners="${listeners% }"
+[[ -n "$listeners" ]] || die bridge_not_loopback_only "nothing listens on :$port"
+for addr in $listeners; do
+  [[ "$addr" == "127.0.0.1:$port" ]] || die bridge_not_loopback_only "$listeners"
+done
+dns="$(run "$tailscale_bin" status --json | jq -r '.Self.DNSName // empty')" ||
+  die tailnet_serve_failed "tailscale status --json failed on $host"
+dns="${dns%.}"
+[[ -n "$dns" ]] || die tailnet_serve_failed "tailscale status --json has no .Self.DNSName"
+web_key="$dns:443"
+target="http://127.0.0.1:$port/v1"
+handlers() {
+  run "$tailscale_bin" serve status --json | jq -r --arg k "$web_key" '(.Web // {})[$k].Handlers // {} | keys[]'
+}
+before_keys="$(handlers)" || die tailnet_serve_unverified "tailscale serve status --json failed before the change"
+if ! serve_err="$(run "$tailscale_bin" serve --bg --https=443 --set-path /v1 "$target" 2>&1 >/dev/null)"; then
+  die tailnet_serve_failed "$serve_err"
+fi
+after_json="$(run "$tailscale_bin" serve status --json)" || die tailnet_serve_unverified "tailscale serve status --json failed after the change"
+proxy="$(jq -r --arg k "$web_key" '(.Web // {})[$k].Handlers["/v1"].Proxy // "none"' <<<"$after_json")"
+after_keys="$(jq -r --arg k "$web_key" '(.Web // {})[$k].Handlers // {} | keys[]' <<<"$after_json")"
+missing=""
+while IFS= read -r key; do
+  [[ -z "$key" ]] && continue
+  grep -qxF -- "$key" <<<"$after_keys" || missing+="$key "
+done <<<"$before_keys"
+if [[ "$proxy" != "$target" || -n "$missing" ]]; then
+  die tailnet_serve_unverified "/v1 -> $proxy (want $target); handlers lost: ${missing:-none}"
+fi
+say "exposed https://$dns/v1 -> $target"
 say "done"

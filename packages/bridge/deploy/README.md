@@ -7,7 +7,8 @@
 3. refuses unless the unit's `ExecStart=` node is an absolute `.../node/24.15.<n>/...` path (no `lts`, `latest`, shims) printing `v24.*`;
 4. rsyncs **one file** to `~/.local/lib/sidepiece/bridge.mjs` and installs `sidepiece-bridge.service` verbatim to `~/.config/systemd/user/`;
 5. ensures lingering, then `daemon-reload`, `enable`, `restart`;
-6. polls `http://127.0.0.1:<port>/v1/health` for 10s (200 + `x-sidepiece-contract`), naming whoever holds the port on failure.
+6. polls `http://127.0.0.1:<port>/v1/health` for 10s (200 + `x-sidepiece-contract`), naming whoever holds the port on failure;
+7. exposes it on the tailnet (see [Expose](#expose)).
 
 Every failure is one line: `deploy-bridge: <code>: <detail>`. `mise run deploy:selftest` covers the refusal paths.
 
@@ -42,3 +43,27 @@ Environment=SIDEPIECE_BRIDGE_PORT=8789
 ```
 
 The deploy reads the port from the unit's `Environment=`, so the health check follows the drop-in.
+
+## Expose
+
+The last deploy step puts the Bridge on the tailnet with `tailscale serve`, and nowhere else: no Traefik route, no Cloudflare ingress, no `delo.sh` name, never `tailscale funnel`.
+
+1. `ss -Hltn "sport = :<port>"` must show only `127.0.0.1:<port>`, else `bridge_not_loopback_only`.
+2. The MagicDNS name comes from `tailscale status --json` (`.Self.DNSName`).
+3. `tailscale serve --bg --https=443 --set-path /v1 http://127.0.0.1:<port>/v1`. A refusal is `tailnet_serve_failed` with tailscale's stderr verbatim.
+4. `tailscale serve status --json` is re-read: `/v1` must proxy to exactly that target, and every handler present before (today `/` -> `http://127.0.0.1:5173`) must still be there, else `tailnet_serve_unverified`. The deploy never runs `serve reset` and never touches another handler.
+
+`<port>` is the one the health check used, so `/v1` follows the `port-conflict.conf` drop-in. Once 8787 is free, re-run `mise run deploy` and `/v1` is re-pointed.
+
+Result: `https://big-chungus.burro-salmon.ts.net/v1/...` reaches `http://127.0.0.1:<port>/v1/...` (serve strips the `/v1` mount and joins the rest onto the target path). The Bridge authenticates no caller: the tailnet is the trust boundary, so any device on `burro-salmon.ts.net` can call every route. The client address in the request log comes from `X-Forwarded-For`.
+
+If `serve` is denied, the user is not the tailscale operator: `sudo tailscale set --operator=$USER` once, then redeploy.
+
+From any tailnet device (the laptop):
+
+```sh
+mise run tailnet:check                                                   # in a checkout
+ssh carries-macbook-air sh -s < .mise/scripts/tailnet-check.sh           # or pipe it to one
+```
+
+It checks TLS without `-k`, the Chrome LNA preflight (`Access-Control-Allow-Private-Network: true` plus ACAO, Allow-Methods, Allow-Headers), and prints `p50=<ms> p95=<ms> n=50` for 50 sequential `GET /project/sidepiece`, failing over 1000ms.

@@ -44,6 +44,8 @@ let slowRuns = 0;
 const GONE_RESOLVE_MS = 100;
 const gone = { resolves: 0, runs: 0 };
 
+let ownOptionsRuns = 0;
+
 const lines: LogLine[] = [];
 const startedAt = new Date().toISOString();
 const server = createBridgeServer({
@@ -66,6 +68,14 @@ const server = createBridgeServer({
       GET: (_req, params) => ({ status: 200, body: { params } }),
     },
     '/v1/thing/exact': { GET: () => ({ status: 200, body: { exact: true } }) },
+    '/v1/own-options': {
+      GET: () => ({ status: 200, body: {} }),
+      OPTIONS: () => {
+        ownOptionsRuns++;
+        return { status: 200, body: { handler: true } };
+      },
+    },
+    '/v1/project/:pjid': { GET: (_req, { pjid }) => ({ status: 200, body: { pjid } }) },
     '/v1/thing/:id/sub/:pjid': {
       GET: (_req, { pjid }) => {
         throw new DegradedError({ ds: 'DS-2', params: { pjid: pjid ?? '' } });
@@ -307,6 +317,100 @@ test('every request logs a request line; the client comes from X-Forwarded-For f
   const plain = await logged((l) => l.event === 'request' && l.path === '/nope');
   assert.ok(plain && plain.event === 'request');
   assert.equal(plain.client, '127.0.0.1');
+});
+
+test('two callers through tailscale serve log two distinct XFF clients, neither loopback', async () => {
+  await call('/v1/health?caller=laptop', { headers: { 'X-Forwarded-For': '100.81.162.91' } });
+  await call('/v1/health?caller=host', { headers: { 'X-Forwarded-For': '100.66.29.76' } });
+  const laptop = await logged((l) => l.event === 'request' && l.client === '100.81.162.91');
+  const host = await logged((l) => l.event === 'request' && l.client === '100.66.29.76');
+  assert.ok(laptop.event === 'request' && host.event === 'request');
+  assert.notEqual(laptop.client, host.client);
+  assert.notEqual(laptop.client, '127.0.0.1');
+  assert.notEqual(host.client, '127.0.0.1');
+});
+
+const EXT_ORIGIN = 'chrome-extension://abcdefghijklmnopabcdefghijklmnop';
+
+/** A preflight: 204, empty body, and the headers every preflight carries whatever the path. */
+async function preflight(path: string, headers: Record<string, string> = {}) {
+  const res = await fetch(`${base}${path}`, {
+    method: 'OPTIONS',
+    headers,
+    signal: AbortSignal.timeout(5_000),
+  });
+  assert.equal(res.status, 204);
+  assert.equal(await res.text(), '');
+  assert.equal(res.headers.get('access-control-allow-private-network'), 'true');
+  assert.equal(res.headers.get('access-control-max-age'), '600');
+  assert.equal(res.headers.get('vary'), 'Origin');
+  assert.equal(res.headers.get('x-sidepiece-contract'), String(CONTRACT_VERSION));
+  return res;
+}
+
+test('preflight on a known route: 204, the origin reflected, the route methods plus OPTIONS', async () => {
+  const res = await preflight('/v1/project/x', {
+    Origin: EXT_ORIGIN,
+    'Access-Control-Request-Method': 'GET',
+    'Access-Control-Request-Private-Network': 'true',
+  });
+  assert.equal(res.headers.get('access-control-allow-origin'), EXT_ORIGIN);
+  assert.equal(res.headers.get('access-control-allow-methods'), 'GET, HEAD, OPTIONS');
+  assert.equal(res.headers.get('access-control-allow-headers'), 'Content-Type');
+});
+
+test('preflight on an unknown path is 204 with ACAPN, not 404 or 405', async () => {
+  const res = await preflight('/nope', { Origin: EXT_ORIGIN });
+  assert.equal(res.headers.get('access-control-allow-methods'), 'GET, HEAD, OPTIONS');
+});
+
+test('preflight with no Origin allows *', async () => {
+  const res = await preflight('/v1/health');
+  assert.equal(res.headers.get('access-control-allow-origin'), '*');
+});
+
+test('preflight echoes the requested headers', async () => {
+  const res = await preflight('/v1/health', {
+    Origin: EXT_ORIGIN,
+    'Access-Control-Request-Headers': 'content-type, x-foo',
+  });
+  assert.equal(res.headers.get('access-control-allow-headers'), 'content-type, x-foo');
+});
+
+test('preflight on a mutating route lists its methods', async () => {
+  const res = await preflight('/multi/x', { Origin: EXT_ORIGIN });
+  assert.equal(res.headers.get('access-control-allow-methods'), 'GET, DELETE, HEAD, OPTIONS');
+});
+
+test('a route that registers OPTIONS is still answered by the server; its handler never runs', async () => {
+  const res = await preflight('/v1/own-options', { Origin: EXT_ORIGIN });
+  assert.equal(res.headers.get('access-control-allow-methods'), 'GET, OPTIONS, HEAD');
+  assert.equal(ownOptionsRuns, 0);
+});
+
+test('a preflight logs a request line with its client', async () => {
+  await preflight('/v1/health?pf=1', { 'X-Forwarded-For': '100.81.162.91' });
+  const line = await logged(
+    (l) => l.event === 'request' && l.method === 'OPTIONS' && l.client === '100.81.162.91',
+  );
+  assert.ok(line.event === 'request');
+  assert.equal(line.status, 204);
+});
+
+test('a plain GET with Origin carries the CORS read headers', async () => {
+  const { res } = await call('/v1/health', { headers: { Origin: 'o' } });
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('access-control-allow-origin'), 'o');
+  assert.equal(res.headers.get('vary'), 'Origin');
+  assert.equal(res.headers.get('access-control-expose-headers'), 'X-Sidepiece-Contract');
+});
+
+test('every non-preflight response carries CORS read headers, errors included', async () => {
+  for (const path of ['/nope', '/boom']) {
+    const { res } = await call(path);
+    assert.equal(res.headers.get('access-control-allow-origin'), '*', path);
+    assert.equal(res.headers.get('access-control-expose-headers'), 'X-Sidepiece-Contract', path);
+  }
 });
 
 test('/v1/health lists the Bridge-wide entries first, then the probes', async () => {
