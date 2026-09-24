@@ -251,3 +251,75 @@ test('a migration that ends its own transaction still reports its own error', ()
     /no such table: missing/,
   );
 });
+
+function resolution(pjid: string, generation = 1) {
+  return {
+    pjid,
+    generation,
+    recordHash: 'a'.repeat(64),
+    resolvedAt: '2026-09-24T00:00:00.000Z',
+    clonePath: `/home/x/code/${pjid}`,
+    boardId: '',
+  };
+}
+
+test('resolutions round-trip camelCase in and out, and a write replaces the row', () => {
+  const store = ready(openStore(tempRoot()));
+  try {
+    assert.equal(store.readResolution('sidepiece'), undefined);
+    store.writeResolution(resolution('sidepiece'));
+    assert.deepEqual(store.readResolution('sidepiece'), resolution('sidepiece'));
+    store.writeResolution({ ...resolution('sidepiece', 2), boardId: 'b' });
+    assert.deepEqual(store.readResolution('sidepiece'), {
+      ...resolution('sidepiece', 2),
+      boardId: 'b',
+    });
+    assert.equal(store.readResolution('Sidepiece'), undefined, 'no normalisation');
+  } finally {
+    store.close();
+  }
+});
+
+test('DW-3: an empty or non-string pjid is refused before it reaches SQLite', () => {
+  const store = ready(openStore(tempRoot()));
+  try {
+    for (const bad of ['', null, undefined, 7] as unknown[]) {
+      assert.throws(() => store.readResolution(bad as string), TypeError);
+      assert.throws(
+        () => store.writeResolution({ ...resolution('x'), pjid: bad as string }),
+        TypeError,
+      );
+    }
+    assert.equal(store.readResolution('x'), undefined, 'nothing was written');
+  } finally {
+    store.close();
+  }
+});
+
+test('transaction commits on return and rolls back on throw', () => {
+  const store = ready(openStore(tempRoot()));
+  try {
+    assert.equal(
+      store.transaction(() => {
+        store.writeResolution(resolution('a'));
+        return 42;
+      }),
+      42,
+    );
+    assert.throws(
+      () =>
+        store.transaction(() => {
+          store.writeResolution(resolution('b'));
+          throw new Error('abort');
+        }),
+      /abort/,
+    );
+    assert.ok(store.readResolution('a'));
+    assert.equal(store.readResolution('b'), undefined, 'rolled back');
+    // Usable again after a rollback.
+    store.transaction(() => store.writeResolution(resolution('c')));
+    assert.ok(store.readResolution('c'));
+  } finally {
+    store.close();
+  }
+});

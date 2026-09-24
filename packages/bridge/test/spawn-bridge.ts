@@ -29,12 +29,23 @@ const owned = new WeakMap<ChildProcess, string>();
  * Start a bundle and wait for its `listening` JSON line; rejects on exit or after 10s.
  * Without a state dir, a fresh one from {@link tempStateDir} is used and removed again by
  * {@link stopBridge} (or on a failed start). A caller-passed dir is the caller's to remove.
+ * `extraEnv` is layered last, e.g. `SIDEPIECE_REGISTRY_URL` pointing at a stub registry.
  */
-export function startBridge(bundle: string, cwd: string, given?: string): Promise<Running> {
+export function startBridge(
+  bundle: string,
+  cwd: string,
+  given?: string,
+  extraEnv: Record<string, string> = {},
+): Promise<Running> {
   const stateDir = given ?? tempStateDir();
   const child = spawn(process.execPath, [bundle], {
     cwd,
-    env: { ...process.env, SIDEPIECE_BRIDGE_PORT: '0', SIDEPIECE_STATE_DIR: stateDir },
+    env: {
+      ...process.env,
+      SIDEPIECE_BRIDGE_PORT: '0',
+      SIDEPIECE_STATE_DIR: stateDir,
+      ...extraEnv,
+    },
     stdio: ['ignore', 'pipe', 'inherit'],
     timeout: 30_000,
   });

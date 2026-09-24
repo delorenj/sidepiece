@@ -2,10 +2,11 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CONTRACT_VERSION, type Degraded } from '@sidepiece/contract';
-import { HOST, parsePort, requestedStateDir, resolveStateDir } from './config.ts';
+import { HOST, parsePort, parseRegistryUrl, requestedStateDir, resolveStateDir } from './config.ts';
 import { log } from './log.ts';
 import { nodeRefusal } from './node-pin.ts';
 import { createBridgeServer } from './server/http.ts';
+import { projectRoutes } from './server/project.ts';
 import { openStore, STORE_FILE, type TurnStore } from './turns/store.ts';
 
 // The pin runs first: before any env parsing, listen, file or DB access. The static imports
@@ -30,7 +31,7 @@ if (port === undefined) {
   process.exit(1);
 }
 
-// Startup order: pin -> port -> state dir -> store -> listen.
+// Startup order: pin -> port -> state dir -> registry URL -> store -> listen.
 const rawStateDir = process.env.SIDEPIECE_STATE_DIR;
 const home = homedir();
 const stateDir = resolveStateDir(rawStateDir, {
@@ -45,6 +46,19 @@ if (stateDir === undefined) {
     key: 'SIDEPIECE_STATE_DIR',
     // Unset means the default was refused; name the path that was, not ''.
     value: rawStateDir ?? `(default) ${requestedStateDir(undefined, home)}`,
+  });
+  process.exit(1);
+}
+
+const rawRegistryUrl = process.env.SIDEPIECE_REGISTRY_URL;
+const registryUrl = parseRegistryUrl(rawRegistryUrl);
+if (registryUrl === undefined) {
+  log({
+    level: 'error',
+    event: 'config_invalid',
+    ds: 'DS-4',
+    key: 'SIDEPIECE_REGISTRY_URL',
+    value: rawRegistryUrl ?? '',
   });
   process.exit(1);
 }
@@ -98,6 +112,7 @@ try {
 const server = createBridgeServer({
   startedAt: new Date().toISOString(),
   degraded: () => degraded,
+  routes: projectRoutes({ registryUrl, store, degraded: () => degraded }),
 });
 
 server.on('error', (err: NodeJS.ErrnoException) => {

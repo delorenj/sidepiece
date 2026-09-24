@@ -35,6 +35,8 @@ type InfoLine = Scoped &
         userVersion: number;
         migratedFrom: number;
       }
+    /** `minted` is false for an unchanged hash and under DS-25 (`generation: 0`). */
+    | { level: 'info'; event: 'resolved'; pjid: string; generation: number; minted: boolean }
   );
 
 type ErrorLine = Scoped &

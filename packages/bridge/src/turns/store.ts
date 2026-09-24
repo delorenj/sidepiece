@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import m001 from '../db/migrations/001_resolutions.sql';
 
 /**
@@ -25,10 +25,27 @@ export type TableInfo = { name: string; sql: string; columns: ColumnInfo[] };
 /** Every schema object SQLite did not create itself (tables, indexes, triggers, views). */
 export type SchemaObject = { type: string; name: string; tableName: string; sql: string };
 
+/** One `resolutions` row: the generation minted for a pjid and the hash it was minted from. */
+export type Resolution = {
+  pjid: string;
+  generation: number;
+  recordHash: string;
+  /** ISO 8601 UTC: when the current generation was minted (not the last re-resolution). */
+  resolvedAt: string;
+  clonePath: string;
+  boardId: string;
+};
+
 export type TurnStore = {
   readonly path: string;
   userVersion(): number;
   inspect(): { tables: TableInfo[]; objects: SchemaObject[] };
+  /** The row for a pjid, or `undefined`. Throws on an empty or non-string pjid (DW-3). */
+  readResolution(pjid: string): Resolution | undefined;
+  /** Insert or replace the row for `row.pjid`. Throws on an empty or non-string pjid (DW-3). */
+  writeResolution(row: Resolution): void;
+  /** Run `fn` inside one `BEGIN IMMEDIATE` transaction: committed on return, rolled back on throw. */
+  transaction<T>(fn: () => T): T;
   close(): void;
 };
 
@@ -131,9 +148,80 @@ export function openStore(stateDir: string, options: OpenStoreOptions = {}): Sto
   }
 }
 
+/** DW-3: `resolutions.pjid` is nullable in SQLite, so no caller may ever bind a null or empty one. */
+function assertPjid(pjid: unknown): asserts pjid is string {
+  if (typeof pjid !== 'string' || pjid === '') {
+    throw new TypeError(
+      `resolutions: pjid must be a non-empty string, got ${JSON.stringify(pjid)}`,
+    );
+  }
+}
+
+type ResolutionRow = {
+  pjid: string;
+  generation: number;
+  record_hash: string;
+  resolved_at: string;
+  clone_path: string | null;
+  board_id: string | null;
+};
+
 function wrap(db: DatabaseSync, path: string): TurnStore {
+  // Prepared on first use: a test store opened with substitute migrations has no such table.
+  let select: StatementSync | undefined;
+  let upsert: StatementSync | undefined;
+  const selectResolution = () =>
+    (select ??= db.prepare(
+      'SELECT pjid, generation, record_hash, resolved_at, clone_path, board_id FROM resolutions WHERE pjid = ?',
+    ));
+  const upsertResolution = () =>
+    (upsert ??= db.prepare(
+      `INSERT INTO resolutions (pjid, generation, record_hash, resolved_at, clone_path, board_id)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT (pjid) DO UPDATE SET
+       generation = excluded.generation,
+       record_hash = excluded.record_hash,
+       resolved_at = excluded.resolved_at,
+       clone_path = excluded.clone_path,
+       board_id = excluded.board_id`,
+    ));
   return {
     path,
+    readResolution: (pjid) => {
+      assertPjid(pjid);
+      const row = selectResolution().get(pjid) as ResolutionRow | undefined;
+      if (row === undefined) return undefined;
+      return {
+        pjid: row.pjid,
+        generation: row.generation,
+        recordHash: row.record_hash,
+        resolvedAt: row.resolved_at,
+        clonePath: row.clone_path ?? '',
+        boardId: row.board_id ?? '',
+      };
+    },
+    writeResolution: (row) => {
+      assertPjid(row.pjid);
+      upsertResolution().run(
+        row.pjid,
+        row.generation,
+        row.recordHash,
+        row.resolvedAt,
+        row.clonePath,
+        row.boardId,
+      );
+    },
+    transaction: (fn) => {
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        const result = fn();
+        db.exec('COMMIT');
+        return result;
+      } catch (err) {
+        if (db.isTransaction) db.exec('ROLLBACK');
+        throw err;
+      }
+    },
     userVersion: () => readUserVersion(db),
     inspect: () => {
       const tables = db

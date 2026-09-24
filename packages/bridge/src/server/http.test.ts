@@ -8,6 +8,7 @@ import {
   builtinRoutes,
   createBridgeServer,
   type Handler,
+  matchRoute,
   pathOf,
   type RouteTable,
 } from './http.ts';
@@ -30,6 +31,15 @@ const server = createBridgeServer({
     },
     '/unserialisable': { GET: () => ({ status: 200, body: { n: 1n } }) },
     '/hang': { GET: () => new Promise(() => {}) },
+    '/v1/thing/:id': {
+      GET: (_req, params) => ({ status: 200, body: { params } }),
+    },
+    '/v1/thing/exact': { GET: () => ({ status: 200, body: { exact: true } }) },
+    '/v1/thing/:id/sub/:pjid': {
+      GET: (_req, { pjid }) => {
+        throw new DegradedError({ ds: 'DS-2', params: { pjid: pjid ?? '' } });
+      },
+    },
     '/multi': {
       GET: () => ({ status: 200, body: {} }),
       PUT: undefined,
@@ -266,4 +276,46 @@ test('/v1/health echoes the injected degraded[], read per request, and stays 200
     srv.closeAllConnections();
     await new Promise((resolve) => srv.close(resolve));
   }
+});
+
+test('a :name segment matches one non-empty segment, decoded once, and reaches the handler', async () => {
+  const { res, body } = await call('/v1/thing/a%2Fb%2520c');
+  assert.equal(res.status, 200);
+  assert.deepEqual(body, { params: { id: 'a/b%20c' } });
+  for (const miss of ['/v1/thing/', '/v1/thing', '/v1/thing/a/b', '/v1/thing/%E0%A4%A']) {
+    const r = await call(miss);
+    assert.equal(r.res.status, 404, miss);
+    assert.deepEqual(r.body, { error: 'not_found', path: miss });
+  }
+});
+
+test('an exact route wins over a pattern that also matches', async () => {
+  const { body } = await call('/v1/thing/exact');
+  assert.deepEqual(body, { exact: true });
+  assert.deepEqual(matchRoute({ '/a/:x': {}, '/a/b': {} }, '/a/b')?.params, {});
+  assert.deepEqual(
+    matchRoute({ '/a/:x': { GET: () => ({ status: 200, body: {} }) } }, '/a/:x')?.params,
+    { x: ':x' },
+  );
+});
+
+test('a pattern route keeps HEAD and 405 semantics', async () => {
+  const head = await fetch(`${base}/v1/thing/x`, {
+    method: 'HEAD',
+    signal: AbortSignal.timeout(5_000),
+  });
+  assert.equal(head.status, 200);
+  assert.equal(await head.text(), '');
+  const { res, body } = await call('/v1/thing/x', { method: 'POST', body: '{}' });
+  assert.equal(res.status, 405);
+  assert.equal(res.headers.get('allow'), 'GET, HEAD');
+  assert.deepEqual(body, { error: 'method_not_allowed', method: 'POST', path: '/v1/thing/x' });
+});
+
+test('a degraded warn line carries the matched pjid top-level', async () => {
+  const { res, body } = await call('/v1/thing/1/sub/nope');
+  assert.equal(res.status, 200);
+  assert.deepEqual(body, { degraded: [{ ds: 'DS-2', params: { pjid: 'nope' } }] });
+  const warn = await logged((l) => l.event === 'degraded' && l.ds === 'DS-2');
+  assert.equal(warn.pjid, 'nope');
 });

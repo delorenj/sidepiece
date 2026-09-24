@@ -9,9 +9,14 @@ import { fileURLToPath } from 'node:url';
 const packages = fileURLToPath(new URL('../../../', import.meta.url));
 const STORE = ['bridge', 'src', 'turns', 'store.ts'].join('/');
 const DB_DIR = ['bridge', 'src', 'db', ''].join('/');
+/** Renames the registry's foreign names on read; the one file allowed to spell them. */
+const REGISTRY_CLIENT = ['bridge', 'src', 'registry', 'client.ts'].join('/');
 
 const DRIVER = `node:${'sqlite'}`;
-const COLUMNS = [`record${'_'}hash`, `clone${'_'}path`, `board${'_'}id`, `created${'_'}at`];
+const BOARD_COLUMN = `board${'_'}id`;
+const COLUMNS = [`record${'_'}hash`, `clone${'_'}path`, BOARD_COLUMN, `created${'_'}at`];
+/** The registry's identifier key (A-P1): renamed to `pjid` on read, in one file only. */
+const FOREIGN_PJID = `project${'_'}id`;
 
 function* walk(dir: string): Generator<string> {
   let entries: Dirent[];
@@ -61,6 +66,16 @@ test('the SQLite driver is imported only by turns/store.ts', () => {
 test('snake_case column names appear only in turns/store.ts and under src/db/', () => {
   const leaks = files
     .filter((f) => f.rel !== STORE && !f.rel.startsWith(DB_DIR))
-    .flatMap((f) => COLUMNS.filter((c) => f.text.includes(c)).map((c) => `${f.rel}: ${c}`));
+    .flatMap((f) =>
+      COLUMNS.filter((c) => f.text.includes(c))
+        // The registry's own name for the Board, renamed to `boardId` on read.
+        .filter((c) => !(c === BOARD_COLUMN && f.rel === REGISTRY_CLIENT))
+        .map((c) => `${f.rel}: ${c}`),
+    );
   assert.deepEqual(leaks, []);
+});
+
+test('the registry identifier key is spelled only in registry/client.ts', () => {
+  const hits = files.filter((f) => f.text.includes(FOREIGN_PJID)).map((f) => f.rel);
+  assert.deepEqual(hits, [REGISTRY_CLIENT]);
 });

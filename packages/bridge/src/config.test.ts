@@ -5,9 +5,11 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import {
   DEFAULT_PORT,
+  DEFAULT_REGISTRY_URL,
   DEPLOY_TARGET_DIR,
   HOST,
   parsePort,
+  parseRegistryUrl,
   requestedStateDir,
   resolveStateDir,
 } from './config.ts';
@@ -94,4 +96,22 @@ test('SIDEPIECE_STATE_DIR refuses a path that reaches the deploy tree or bundle 
 test('requestedStateDir names the default when the variable is unset', () => {
   assert.equal(requestedStateDir(undefined, '/home/u'), '/home/u/.local/state/sidepiece');
   assert.equal(requestedStateDir('/x', '/home/u'), '/x');
+});
+
+test('SIDEPIECE_REGISTRY_URL defaults to the live registry and refuses non-http URLs', () => {
+  assert.equal(DEFAULT_REGISTRY_URL, 'http://127.0.0.1:8764');
+  assert.equal(parseRegistryUrl(undefined), DEFAULT_REGISTRY_URL);
+  assert.equal(parseRegistryUrl('http://127.0.0.1:9999'), 'http://127.0.0.1:9999');
+  assert.equal(parseRegistryUrl('https://registry.example/base/'), 'https://registry.example/base');
+  for (const bad of [
+    '',
+    '127.0.0.1:8764',
+    '/v1/registry',
+    'ftp://x',
+    'http:x',
+    'http://',
+    'nope',
+  ]) {
+    assert.equal(parseRegistryUrl(bad), undefined, bad);
+  }
 });

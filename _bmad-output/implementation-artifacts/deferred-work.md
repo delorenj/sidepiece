@@ -20,4 +20,5 @@ location: packages/bridge/src/db/migrations/001_resolutions.sql
 source_spec: `spec-1-5-a-turn-store-that-is-versioned-and-says-so-when-it-is-newer-than-the-bridge.md`
 severity: low
 reason: Blind Hunter inserted two NULL-pjid rows into the migrated table in :memory:. The AC fixes the column list literally, and db/README.md's `pjid TEXT NOT NULL` rule is stated for capability tables, so 001 keeps the AC's DDL. Story 1.6 (the first writer) must never bind a null pjid, or a later forward migration can rebuild the table with NOT NULL.
-status: open
+status: addressed
+resolution: Story 1.6 — `turns/store.ts` `readResolution`/`writeResolution` throw a TypeError on an empty or non-string pjid before binding (tested in `store.test.ts`). The DDL is unchanged; a later forward migration may still add NOT NULL.

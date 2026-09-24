@@ -4,8 +4,10 @@ import { builtinModules } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { CONTRACT_VERSION } from '@sidepiece/contract';
 import { startBridge, stopBridge, tempStateDir } from './spawn-bridge.ts';
+import { SIDEPIECE_BOARD, startStubRegistry } from './stub-registry.ts';
 
 const bundle = new URL('../dist/bridge.mjs', import.meta.url);
 
@@ -44,6 +46,58 @@ test('bundle runs outside the workspace and answers /v1/health', async () => {
   } finally {
     const code = running ? await stopBridge(running.child) : 0;
     rmSync(dir, { recursive: true, force: true });
+    rmSync(stateDir, { recursive: true, force: true });
+    assert.equal(code, 0);
+  }
+});
+
+test('bundle resolves against a stub registry: sidepiece, an unknown pjid, then 50 timed', async (t) => {
+  const stub = await startStubRegistry();
+  const stateDir = tempStateDir();
+  let running: Awaited<ReturnType<typeof startBridge>> | undefined;
+  try {
+    running = await startBridge(fileURLToPath(bundle), tmpdir(), stateDir, {
+      SIDEPIECE_REGISTRY_URL: stub.url,
+    });
+    const base = `http://127.0.0.1:${running.port}/v1/project`;
+    const get = async (pjid: string) => {
+      const res = await fetch(`${base}/${pjid}`, { signal: AbortSignal.timeout(5_000) });
+      return { status: res.status, body: (await res.json()) as Record<string, unknown> };
+    };
+
+    const known = await get('sidepiece');
+    assert.equal(known.status, 200);
+    assert.equal(known.body.generation, 1);
+    assert.equal(known.body.boardId, SIDEPIECE_BOARD);
+    assert.deepEqual(
+      (known.body.agents as { id: string }[]).map((a) => a.id),
+      ['sidepiece-pm', 'sidepiece-scrum-master'],
+    );
+    assert.deepEqual(known.body.degraded, []);
+
+    const unknown = await get('not-a-real-pjid');
+    assert.equal(unknown.status, 200);
+    assert.deepEqual(unknown.body, {
+      degraded: [{ ds: 'DS-2', params: { pjid: 'not-a-real-pjid' } }],
+    });
+
+    const samples: number[] = [];
+    for (let i = 0; i < 50; i++) {
+      const started = performance.now();
+      const { body } = await get('sidepiece');
+      samples.push(performance.now() - started);
+      assert.equal(body.generation, 1, 'an unchanged Project never advances');
+    }
+    samples.sort((a, b) => a - b);
+    const pct = (p: number) =>
+      samples[Math.min(samples.length - 1, Math.ceil(p * samples.length) - 1)] ?? 0;
+    const p50 = pct(0.5);
+    const p95 = pct(0.95);
+    t.diagnostic(`resolution p50=${p50.toFixed(2)}ms p95=${p95.toFixed(2)}ms (n=50)`);
+    assert.ok(p95 < 1_000, `p95 ${p95}ms`);
+  } finally {
+    const code = running ? await stopBridge(running.child) : 0;
+    await stub.close();
     rmSync(stateDir, { recursive: true, force: true });
     assert.equal(code, 0);
   }

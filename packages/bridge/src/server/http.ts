@@ -9,8 +9,17 @@ import { log as defaultLog, type Logger } from '../log.ts';
 import { toErrorResponse } from './errors.ts';
 
 export type HandlerResult = { status: number; body: unknown };
-export type Handler = (req: IncomingMessage) => HandlerResult | Promise<HandlerResult>;
-/** pathname -> method -> handler. Routing uses the pathname only; the query is ignored. */
+/** The `:name` segments a pattern route matched, each `decodeURIComponent`-ed once. */
+export type RouteParams = Readonly<Record<string, string>>;
+export type Handler = (
+  req: IncomingMessage,
+  params: RouteParams,
+) => HandlerResult | Promise<HandlerResult>;
+/**
+ * pathname -> method -> handler. Routing uses the pathname only; the query is ignored. A key
+ * may hold `:name` segments (`'/v1/project/:pjid'`), each matching one non-empty segment; an
+ * exact key wins over a pattern.
+ */
 export type RouteTable = Record<string, Partial<Record<string, Handler>>>;
 
 export type BridgeServerOptions = {
@@ -90,8 +99,45 @@ export function builtinRoutes(
   return { '/v1/health': { GET: healthHandler(startedAt, degraded) } };
 }
 
+type Route = Partial<Record<string, Handler>>;
+
+/**
+ * The route for a pathname: the exact entry, else the first pattern whose segments all match.
+ * A `:name` segment whose escape is malformed matches nothing, so the answer is a 404.
+ */
+export function matchRoute(
+  routes: RouteTable,
+  path: string,
+): { route: Route; params: RouteParams } | undefined {
+  // A request for a pattern's own spelling (`/v1/project/:pjid`) is matched as a pattern.
+  if (!path.includes('/:') && Object.hasOwn(routes, path)) {
+    const route = routes[path];
+    if (route !== undefined) return { route, params: {} };
+  }
+  const segments = path.split('/');
+  for (const [pattern, route] of Object.entries(routes)) {
+    if (route === undefined || !pattern.includes('/:')) continue;
+    const want = pattern.split('/');
+    if (want.length !== segments.length) continue;
+    const params: Record<string, string> = {};
+    const matched = want.every((w, i) => {
+      const got = segments[i] ?? '';
+      if (!w.startsWith(':')) return w === got;
+      if (got === '') return false;
+      try {
+        params[w.slice(1)] = decodeURIComponent(got);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+    if (matched) return { route, params };
+  }
+  return undefined;
+}
+
 /** Methods a route actually answers; a defined GET implies HEAD. */
-function allowOf(route: Partial<Record<string, Handler>>): string[] {
+function allowOf(route: Route): string[] {
   const methods = Object.entries(route)
     .filter(([, h]) => h !== undefined)
     .map(([m]) => m);
@@ -125,12 +171,13 @@ export function createBridgeServer(options: BridgeServerOptions): Server {
       });
     });
 
-    const route = routes[path];
-    if (route === undefined) {
+    const matched = matchRoute(routes, path);
+    if (matched === undefined) {
       const body: BridgeError = { error: 'not_found', path };
       send(res, 404, body);
       return;
     }
+    const { route, params } = matched;
     const handler = route[method] ?? (method === 'HEAD' ? route.GET : undefined);
     if (handler === undefined) {
       const body: BridgeError = { error: 'method_not_allowed', method, path };
@@ -156,7 +203,7 @@ export function createBridgeServer(options: BridgeServerOptions): Server {
       timer = setTimeout(() => reject(new HandlerDeadline()), deadlineMs);
     });
 
-    Promise.race([Promise.resolve().then(() => handler(req)), deadline])
+    Promise.race([Promise.resolve().then(() => handler(req, params)), deadline])
       .then(
         (result) => send(res, result.status, result.body),
         (err: unknown) => {
@@ -178,7 +225,14 @@ export function createBridgeServer(options: BridgeServerOptions): Server {
             return;
           }
           for (const d of mapped.body.degraded) {
-            log({ level: 'warn', event: 'degraded', ds: d.ds, method, path });
+            log({
+              level: 'warn',
+              event: 'degraded',
+              ds: d.ds,
+              method,
+              path,
+              ...(params.pjid !== undefined ? { pjid: params.pjid } : {}),
+            });
           }
           send(res, mapped.status, mapped.body);
         },

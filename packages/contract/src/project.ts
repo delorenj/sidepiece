@@ -15,6 +15,11 @@ export type TicketProvider = {
 /** A Project resolved from the pjangler Registry. */
 export type ProjectRecord = {
   pjid: string;
+  /**
+   * Content-addressed and per pjid: it advances only when the record's hash changes and is
+   * never reused. `0` means not minted (the Turn store is ahead of this build, DS-25), which
+   * is below every minted value; a mutation guard must treat it as "cannot validate".
+   */
   generation: number;
   repo: string;
   clonePath: string;

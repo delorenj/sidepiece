@@ -83,3 +83,23 @@ export function resolveStateDir(
   }
   return dir;
 }
+
+/** The live `pjangler-project-registry.service`. */
+export const DEFAULT_REGISTRY_URL = 'http://127.0.0.1:8764';
+
+/**
+ * `SIDEPIECE_REGISTRY_URL`: unset means {@link DEFAULT_REGISTRY_URL}. Anything that is not an
+ * absolute `http:`/`https:` URL is `undefined` (refuse to start). Trailing slashes are dropped
+ * so `<url>/v1/registry` joins cleanly.
+ */
+export function parseRegistryUrl(raw: string | undefined): string | undefined {
+  if (raw === undefined) return DEFAULT_REGISTRY_URL;
+  if (!/^https?:\/\/[^/]/i.test(raw)) return undefined;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined;
+  } catch {
+    return undefined;
+  }
+  return raw.replace(/\/+$/, '');
+}
