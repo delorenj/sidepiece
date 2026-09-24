@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "tsup",
+    "start": "node dist/bridge.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "tsup && node --test \"test/*.test.ts\""
+    "test": "tsup && node --conditions=source --test \"test/*.test.ts\" \"src/**/*.test.ts\""
   },
   "dependencies": {
     "@sidepiece/contract": "workspace:*"
