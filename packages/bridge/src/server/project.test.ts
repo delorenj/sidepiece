@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,6 +13,7 @@ import {
 } from '../../test/stub-registry.ts';
 import type { LogLine } from '../log.ts';
 import { REGISTRY_TIMEOUT_MS } from '../registry/client.ts';
+import { probePaths } from '../registry/paths.ts';
 import { openStore, type TurnStore } from '../turns/store.ts';
 import { createBridgeServer, HANDLER_DEADLINE_MS } from './http.ts';
 import { type ProjectRoutesOptions, projectRoutes } from './project.ts';
@@ -33,11 +34,21 @@ after(async () => {
   await stub.close();
 });
 
-/** A Bridge on an ephemeral port with only the project routes; `get` fetches a path. */
+/**
+ * A Bridge on an ephemeral port with only the project routes; `get` fetches a path. The
+ * on-disk probe is a no-op unless the test passes one, so record-shape asserts never depend
+ * on `/home/delorenj/code/*` existing on the test host.
+ */
 async function bridge(options: Partial<ProjectRoutesOptions> = {}, handlerDeadlineMs?: number) {
   const lines: LogLine[] = [];
   const log = (l: LogLine) => lines.push(l);
-  const routes = projectRoutes({ registryUrl: stub.url, store, log, ...options });
+  const routes = projectRoutes({
+    registryUrl: stub.url,
+    store,
+    log,
+    probePaths: async () => [],
+    ...options,
+  });
   const server = createBridgeServer({
     startedAt: new Date().toISOString(),
     routes,
@@ -241,3 +252,141 @@ for (const hang of ['no-response', 'stall-body'] as const) {
     }
   });
 }
+
+/** A fresh clone dir under the temp state dir, mirroring this repo: `agents/hermes/pm` present, `scrum-master` absent. */
+function sidepieceClone(): string {
+  const clone = join(stateDir, `clone-${Math.random().toString(36).slice(2)}`);
+  mkdirSync(join(clone, 'agents/hermes/pm'), { recursive: true });
+  return clone;
+}
+
+test('the real probe: a clone mirroring this repo serves the full record plus exactly DS-10', async () => {
+  const clone = sidepieceClone();
+  stub.projects = fixtureProjects();
+  stub.projects.sidepiece = { ...stub.projects.sidepiece, repoPath: clone };
+  const b = await bridge({ probePaths });
+  try {
+    const { status, text, body } = await b.get('/v1/project/sidepiece');
+    assert.equal(status, 200);
+    assert.deepEqual(body, {
+      pjid: 'sidepiece',
+      generation: body.generation,
+      repo: clone.split('/').at(-1),
+      clonePath: clone,
+      boardId: SIDEPIECE_BOARD,
+      agents: [
+        { id: 'sidepiece-pm', role: 'pm', roleDir: 'agents/hermes/pm' },
+        {
+          id: 'sidepiece-scrum-master',
+          role: 'scrum-master',
+          roleDir: 'agents/hermes/scrum-master',
+        },
+      ],
+      ticketProvider: { type: 'plane' },
+      degraded: [
+        {
+          ds: 'DS-10',
+          params: {
+            agent: 'sidepiece-scrum-master',
+            roleDir: `${clone}/agents/hermes/scrum-master`,
+          },
+        },
+      ],
+    });
+    assert.ok(text.includes(`"degraded":[{"ds":"DS-10","params":{"agent":`), 'key order');
+    assert.ok(!text.includes('remedy'));
+    assert.ok(!text.includes('DS-20'));
+    assert.ok(!b.lines.some((l) => l.event === 'degraded'), 'not a warn: the record is served');
+  } finally {
+    await b.close();
+  }
+});
+
+test('the real probe: a missing pm roleDir is DS-20', async () => {
+  const clone = sidepieceClone();
+  mkdirSync(join(clone, 'agents/hermes/scrum-master'), { recursive: true });
+  stub.projects = fixtureProjects();
+  stub.projects.sidepiece = {
+    repoPath: clone,
+    boardId: SIDEPIECE_BOARD,
+    agents: {
+      'sidepiece-pm': { role: 'pm', roleDir: 'agents/hermes/not-here' },
+      'sidepiece-scrum-master': { role: 'scrum-master', roleDir: 'agents/hermes/scrum-master' },
+    },
+  };
+  const b = await bridge({ probePaths });
+  try {
+    const { status, body } = await b.get('/v1/project/sidepiece');
+    assert.equal(status, 200);
+    assert.deepEqual(body.degraded, [
+      { ds: 'DS-20', params: { pm: 'sidepiece-pm', roleDir: `${clone}/agents/hermes/not-here` } },
+    ]);
+  } finally {
+    await b.close();
+  }
+});
+
+test('the real probe: a missing clone is DS-9 with the full path, and is not created', async () => {
+  const clone = join(stateDir, 'no', 'such', 'clone');
+  stub.projects = fixtureProjects();
+  stub.projects.sidepiece = { ...stub.projects.sidepiece, repoPath: clone };
+  const b = await bridge({ probePaths });
+  try {
+    const { status, body } = await b.get('/v1/project/sidepiece');
+    assert.equal(status, 200);
+    assert.equal(body.clonePath, clone);
+    assert.deepEqual(body.degraded, [
+      { ds: 'DS-9', params: { path: clone } },
+      { ds: 'DS-20', params: { pm: 'sidepiece-pm', roleDir: `${clone}/agents/hermes/pm` } },
+      {
+        ds: 'DS-10',
+        params: { agent: 'sidepiece-scrum-master', roleDir: `${clone}/agents/hermes/scrum-master` },
+      },
+    ]);
+    assert.ok(!existsSync(join(stateDir, 'no')), 'the probe never creates anything');
+  } finally {
+    await b.close();
+  }
+});
+
+test('the real probe: Bridge-wide DS-25 comes first, then DS-10; the record is still served', async () => {
+  const clone = sidepieceClone();
+  stub.projects = fixtureProjects();
+  stub.projects.sidepiece = { ...stub.projects.sidepiece, repoPath: clone };
+  const ds25: Degraded = { ds: 'DS-25', params: { storeVersion: '9', bridgeVersion: '1' } };
+  const b = await bridge({ store: undefined, degraded: () => [ds25], probePaths });
+  try {
+    const { status, body } = await b.get('/v1/project/sidepiece');
+    assert.equal(status, 200);
+    assert.equal(body.pjid, 'sidepiece');
+    assert.equal(body.generation, 0);
+    assert.deepEqual(body.degraded, [
+      ds25,
+      {
+        ds: 'DS-10',
+        params: { agent: 'sidepiece-scrum-master', roleDir: `${clone}/agents/hermes/scrum-master` },
+      },
+    ]);
+    assert.ok(!b.lines.some((l) => l.event === 'degraded'), 'no warn line');
+  } finally {
+    await b.close();
+  }
+});
+
+test('an unknown pjid never calls the probe', async () => {
+  stub.projects = fixtureProjects();
+  let calls = 0;
+  const b = await bridge({
+    probePaths: async (r) => {
+      calls++;
+      return probePaths(r);
+    },
+  });
+  try {
+    const { text } = await b.get('/v1/project/nope');
+    assert.equal(text, JSON.stringify({ degraded: [{ ds: 'DS-2', params: { pjid: 'nope' } }] }));
+    assert.equal(calls, 0);
+  } finally {
+    await b.close();
+  }
+});
