@@ -80,14 +80,16 @@ async function bridge(options: Partial<ProjectRoutesOptions> = {}) {
   const store = 'store' in options ? options.store : freshStore();
   const opts: ProjectRoutesOptions = { registryUrl: stub.url, log, ...options, store };
   const invocations: { pjid: string; generation: number }[] = [];
+  const bodies: Readonly<Record<string, unknown>>[] = [];
   const server = createBridgeServer({
     startedAt: new Date().toISOString(),
     log,
     routes: {
       ...projectRoutes(opts),
       '/v1/project/:pjid/fixture': {
-        POST: mutatingRoute(mutationResolver(opts), (_req, { pjid, generation }) => {
+        POST: mutatingRoute(mutationResolver(opts), (_req, { pjid, generation, body }) => {
           invocations.push({ pjid, generation });
+          bodies.push(body);
           return { status: 200, body: { fixture: 'ok', pjid, generation } };
         }),
       },
@@ -102,6 +104,7 @@ async function bridge(options: Partial<ProjectRoutesOptions> = {}) {
   return {
     lines,
     invocations,
+    bodies,
     get: (path: string) => raw(port, 'GET', path),
     post: (path: string, body: string, extra = '') => raw(port, 'POST', path, body, extra),
   };
@@ -205,10 +208,14 @@ test('400s: header-only, bad values and bad bodies never fetch the registry', as
 test('a pjid in the body is ignored: guard and handler see the path pjid', async () => {
   const b = await bridge();
   await walkTo(b, 1);
-  const r = await b.post('/v1/project/sidepiece/fixture', '{"generation":1,"pjid":"vinyl"}');
+  const r = await b.post(
+    '/v1/project/sidepiece/fixture',
+    '{"generation":1,"pjid":"vinyl","title":"t"}',
+  );
   assert.equal(r.statusLine, 'HTTP/1.1 200 OK');
   assert.equal(r.body, '{"fixture":"ok","pjid":"sidepiece","generation":1}');
   assert.deepEqual(b.invocations, [{ pjid: 'sidepiece', generation: 1 }]);
+  assert.deepEqual(b.bodies, [{ title: 't' }], 'ctx.body carries no pjid and no generation');
 });
 
 test('an unknown pjid is 200 DS-2 and the handler never runs', async () => {

@@ -36,6 +36,7 @@ export type MutationContext = {
   pjid: string;
   generation: number;
   record: ProjectRecord;
+  /** The parsed body minus `pjid` and `generation`, whose canonical values are the fields above. */
   body: Readonly<Record<string, unknown>>;
   /** The request's abort signal; a handler with side effects should stop once it aborts. */
   signal: AbortSignal | undefined;
@@ -176,7 +177,9 @@ export function mutatingRoute(resolve: MutationResolver, handler: MutatingHandle
     assertCurrentGeneration(pjid, generation, record.generation);
     // The deadline may have answered 500 while `resolve` was in flight: the mutation must not run.
     if (signal?.aborted) throw new Error('request aborted before the mutation ran');
-    return handler(req, { pjid, generation, record, body, signal });
+    // `pjid` and `generation` have canonical fields on ctx; a body copy must never be read.
+    const { pjid: _bodyPjid, generation: _bodyGeneration, ...rest } = body;
+    return handler(req, { pjid, generation, record, body: rest, signal });
   };
   guarded.add(guard);
   return guard;

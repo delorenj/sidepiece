@@ -376,11 +376,11 @@ async function post(path: string, body: string, headers: Record<string, string> 
   return call(path, { method: 'POST', body, headers });
 }
 
-test('a current generation runs the guarded handler with the path pjid', async () => {
+test('a current generation runs the guarded handler with the path pjid; ctx.body drops pjid', async () => {
   const before = guard.counter.calls;
   const { res, body } = await post('/v1/mut/sidepiece', '{"generation":5,"pjid":"vinyl"}');
   assert.equal(res.status, 200);
-  assert.deepEqual(body, { pjid: 'sidepiece', generation: 5, bodyPjid: 'vinyl' });
+  assert.deepEqual(body, { pjid: 'sidepiece', generation: 5, bodyPjid: null });
   assert.equal(guard.counter.calls, before + 1);
 });
 
