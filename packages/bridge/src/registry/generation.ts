@@ -84,7 +84,7 @@ export class GenerationAheadError extends Error {
 /**
  * The one definition of stale (SM-3): `received < current` throws {@link StaleGenerationError},
  * `received > current` throws {@link GenerationAheadError}, equal returns. No other file
- * compares generations; `current` must come from a fresh resolution, never a stored row.
+ * decides staleness; `current` must come from a fresh resolution, never a stored row.
  */
 export function assertCurrentGeneration(pjid: string, received: number, current: number): void {
   if (received < current) {

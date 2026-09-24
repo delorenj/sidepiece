@@ -246,6 +246,7 @@ test('a registry error is 200 DS-7 and the handler never runs', async () => {
 test('DS-25 (no store, generation 0): 200 with exactly the DS-25 entry; cannot validate', async () => {
   const ds25: Degraded = { ds: 'DS-25', params: { storeVersion: '9', bridgeVersion: '1' } };
   const b = await bridge({ store: undefined, degraded: () => [ds25] });
+  const requests = stub.requests;
   for (const generation of [0, 1]) {
     const r = await b.post('/v1/project/sidepiece/fixture', `{"generation":${generation}}`);
     assert.equal(r.statusLine, 'HTTP/1.1 200 OK');
@@ -253,6 +254,8 @@ test('DS-25 (no store, generation 0): 200 with exactly the DS-25 entry; cannot v
     assert.equal(r.body, JSON.stringify({ degraded: [ds25] }));
   }
   assert.equal(b.invocations.length, 0);
+  assert.equal(stub.requests, requests, 'no registry fetch under DS-25');
+  assert.ok(!b.lines.some((l) => l.event === 'resolved'), 'nothing resolved under DS-25');
 });
 
 test('the GET record is unchanged by the refactor, and a POST to it is still 405', async () => {

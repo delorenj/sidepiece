@@ -45,16 +45,21 @@ export function currentProject(
 }
 
 /**
- * The resolver `mutatingRoute` re-resolves through on every mutation. Generation `0` means
- * "cannot validate" (DS-25), so it is answered with the DS-25 entry and the handler never runs.
+ * The resolver `mutatingRoute` re-resolves through on every mutation. With no store (DS-25)
+ * nothing can be validated, so it answers the DS-25 entry without fetching and the handler
+ * never runs. A store that still yields generation `0` is a Bridge bug (500).
  */
 export function mutationResolver(options: ProjectRoutesOptions): MutationResolver {
   const current = currentProject(options);
   return async (pjid) => {
-    const record = await current(pjid);
-    if (record.generation < 1) {
+    if (options.store === undefined) {
+      // DS-25: nothing can be validated, so nothing is fetched or resolved.
       const ds25 = options.degraded?.().find((d) => d.ds === 'DS-25');
       throw new DegradedError(ds25 ?? { ds: 'DS-25' });
+    }
+    const record = await current(pjid);
+    if (record.generation < 1) {
+      throw new Error(`minted generation ${record.generation} for ${pjid} with a store present`);
     }
     return record;
   };

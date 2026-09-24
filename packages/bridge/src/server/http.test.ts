@@ -37,6 +37,9 @@ function stubResolver(current = 5) {
 
 const guard = stubResolver();
 let guardedRuns = 0;
+/** Well past the 200ms handler deadline below. */
+const SLOW_RESOLVE_MS = 400;
+let slowRuns = 0;
 
 const lines: LogLine[] = [];
 const startedAt = new Date().toISOString();
@@ -65,10 +68,28 @@ const server = createBridgeServer({
         throw new DegradedError({ ds: 'DS-2', params: { pjid: pjid ?? '' } });
       },
     },
-    '/multi': {
+    '/multi/:pjid': {
       GET: () => ({ status: 200, body: {} }),
       PUT: undefined,
       DELETE: mutatingRoute(stubResolver().resolve, () => ({ status: 200, body: {} })),
+    },
+    '/v1/slow/:pjid': {
+      POST: mutatingRoute(
+        async (pjid) => {
+          await new Promise((r) => setTimeout(r, SLOW_RESOLVE_MS));
+          return stubResolver().resolve(pjid);
+        },
+        () => {
+          slowRuns++;
+          return { status: 200, body: {} };
+        },
+      ),
+    },
+    '/v1/unminted/:pjid': {
+      POST: mutatingRoute(stubResolver(0).resolve, () => {
+        guardedRuns++;
+        return { status: 200, body: {} };
+      }),
     },
     '/v1/mut/:pjid': {
       POST: mutatingRoute(guard.resolve, (_req, { pjid, generation, body }) => {
@@ -197,7 +218,7 @@ test('HEAD /v1/health is answered like GET, with no body', async () => {
 });
 
 test('Allow lists only methods with a handler', async () => {
-  const { res } = await call('/multi', { method: 'PATCH', body: '{}' });
+  const { res } = await call('/multi/x', { method: 'PATCH', body: '{}' });
   assert.equal(res.status, 405);
   assert.equal(res.headers.get('allow'), 'GET, DELETE, HEAD');
 });
@@ -423,6 +444,11 @@ test('a missing, invalid or unparseable generation is 400 and never resolves', a
   assert.equal(guard.counter.calls, before, 'a 400 never resolves');
   assert.equal(guardedRuns, runs);
   assert.ok(!lines.some((l) => l.event === 'degraded' && l.pjid === 'sidepiece'));
+  const rejected = await logged((l) => l.event === 'mutation_rejected');
+  assert.deepEqual(
+    { ...rejected },
+    { level: 'info', event: 'mutation_rejected', pjid: 'sidepiece', error: 'invalid_body' },
+  );
 
   function missing() {
     return { error: 'missing_generation', pjid: 'sidepiece', field: 'generation' };
@@ -472,5 +498,31 @@ test('a mutating method not registered through mutatingRoute refuses constructio
         },
       },
     }),
+  );
+});
+
+test('a resolve that outlives the handler deadline is 500, and the mutation never runs', async () => {
+  const { res, body } = await post('/v1/slow/sidepiece', '{"generation":5}');
+  assert.equal(res.status, 500);
+  assert.deepEqual(body, { error: 'internal_error' });
+  // Wait until the resolver has settled and the guard has had its chance to (wrongly) run.
+  await new Promise((r) => setTimeout(r, SLOW_RESOLVE_MS + 100));
+  assert.equal(slowRuns, 0);
+});
+
+test('a resolver returning generation 0 is 500: the guard never runs at "cannot validate"', async () => {
+  const runs = guardedRuns;
+  const { res, body } = await post('/v1/unminted/sidepiece', '{"generation":0}');
+  assert.equal(res.status, 500);
+  assert.deepEqual(body, { error: 'internal_error' });
+  assert.equal(guardedRuns, runs);
+});
+
+test('a mutatingRoute on a pattern without :pjid refuses construction', () => {
+  const handler = mutatingRoute(stubResolver().resolve, () => ({ status: 200, body: {} }));
+  assert.throws(
+    () => createBridgeServer({ startedAt, log: () => {}, routes: { '/v1/x': { POST: handler } } }),
+    (err: unknown) =>
+      err instanceof TypeError && err.message === 'mutating route without :pjid: POST /v1/x',
   );
 });

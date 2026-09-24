@@ -13,9 +13,14 @@ import { HttpRefusal, toErrorResponse } from './errors.ts';
 export type HandlerResult = { status: number; body: unknown };
 /** The `:name` segments a pattern route matched, each `decodeURIComponent`-ed once. */
 export type RouteParams = Readonly<Record<string, string>>;
+/**
+ * `signal` aborts once the request can no longer be answered by this handler: its deadline
+ * fired, or the client went away first.
+ */
 export type Handler = (
   req: IncomingMessage,
   params: RouteParams,
+  signal?: AbortSignal,
 ) => HandlerResult | Promise<HandlerResult>;
 /**
  * pathname -> method -> handler. Routing uses the pathname only; the query is ignored. A key
@@ -32,6 +37,8 @@ export type MutationContext = {
   generation: number;
   record: ProjectRecord;
   body: Readonly<Record<string, unknown>>;
+  /** The request's abort signal; a handler with side effects should stop once it aborts. */
+  signal: AbortSignal | undefined;
 };
 export type MutatingHandler = (
   req: IncomingMessage,
@@ -125,6 +132,10 @@ function readBody(req: IncomingMessage): Promise<Buffer | undefined> {
     });
     req.on('end', () => resolve(size > MAX_BODY_BYTES ? undefined : Buffer.concat(chunks)));
     req.on('error', reject);
+    // After 'end' has resolved, this reject is a no-op.
+    req.on('close', () => {
+      if (!req.complete) reject(new Error('request aborted'));
+    });
   });
 }
 
@@ -136,7 +147,7 @@ function readBody(req: IncomingMessage): Promise<Buffer | undefined> {
  * before the fetch, so a `400` touches no upstream.
  */
 export function mutatingRoute(resolve: MutationResolver, handler: MutatingHandler): Handler {
-  const guard: Handler = async (req, params) => {
+  const guard: Handler = async (req, params, signal) => {
     const { pjid } = params;
     if (pjid === undefined) throw new Error('mutating route matched without a pjid');
     const raw = await readBody(req);
@@ -158,8 +169,14 @@ export function mutatingRoute(resolve: MutationResolver, handler: MutatingHandle
       throw new HttpRefusal(400, { error: 'invalid_generation', pjid, field: 'generation' });
     }
     const record = await resolve(pjid);
+    // Generation 0 is "cannot validate" (DS-25); whatever resolver is injected, never run at it.
+    if (record.generation < 1) {
+      throw new Error(`resolver returned unminted generation ${record.generation} for ${pjid}`);
+    }
     assertCurrentGeneration(pjid, generation, record.generation);
-    return handler(req, { pjid, generation, record, body });
+    // The deadline may have answered 500 while `resolve` was in flight: the mutation must not run.
+    if (signal?.aborted) throw new Error('request aborted before the mutation ran');
+    return handler(req, { pjid, generation, record, body, signal });
   };
   guarded.add(guard);
   return guard;
@@ -169,8 +186,13 @@ export function mutatingRoute(resolve: MutationResolver, handler: MutatingHandle
 function assertGuarded(routes: RouteTable): void {
   for (const [pattern, route] of Object.entries(routes)) {
     for (const [method, handler] of Object.entries(route ?? {})) {
-      if (handler === undefined || SAFE_METHODS.has(method) || guarded.has(handler)) continue;
-      throw new TypeError(`unguarded mutating route: ${method} ${pattern}`);
+      if (handler === undefined || SAFE_METHODS.has(method)) continue;
+      if (!guarded.has(handler)) {
+        throw new TypeError(`unguarded mutating route: ${method} ${pattern}`);
+      }
+      if (!pattern.split('/').includes(':pjid')) {
+        throw new TypeError(`mutating route without :pjid: ${method} ${pattern}`);
+      }
     }
   }
 }
@@ -283,12 +305,19 @@ export function createBridgeServer(options: BridgeServerOptions): Server {
       else res.destroy();
     };
 
+    const controller = new AbortController();
+    res.once('close', () => {
+      if (!res.writableFinished) controller.abort();
+    });
     let timer: NodeJS.Timeout | undefined;
     const deadline = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new HandlerDeadline()), deadlineMs);
+      timer = setTimeout(() => {
+        controller.abort();
+        reject(new HandlerDeadline());
+      }, deadlineMs);
     });
 
-    Promise.race([Promise.resolve().then(() => handler(req, params)), deadline])
+    Promise.race([Promise.resolve().then(() => handler(req, params, controller.signal)), deadline])
       .then(
         (result) => send(res, result.status, result.body),
         (err: unknown) => {
@@ -328,6 +357,12 @@ export function createBridgeServer(options: BridgeServerOptions): Server {
             return;
           }
           if (mapped.status === 400) {
+            log({
+              level: 'info',
+              event: 'mutation_rejected',
+              ...(params.pjid !== undefined ? { pjid: params.pjid } : {}),
+              error: mapped.body.error,
+            });
             send(res, mapped.status, mapped.body);
             return;
           }

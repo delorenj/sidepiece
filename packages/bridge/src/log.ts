@@ -45,6 +45,8 @@ type InfoLine = Scoped &
         received: number;
         current: number;
       }
+    /** A mutation refused before anything was compared: `400` with a typed `error` code. */
+    | { level: 'info'; event: 'mutation_rejected'; pjid?: string; error: string }
   );
 
 type ErrorLine = Scoped &
