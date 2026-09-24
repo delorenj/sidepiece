@@ -2,14 +2,19 @@
 title: 'Story 1.6: Resolve a pjid to a Project Record, stamped with a content-addressed generation'
 type: 'feature'
 created: '2026-09-24'
-status: 'in-progress'
-baseline_revision: '0a39b7d353d0a19ef2a242c21d4082501f5c02f8'
+status: 'awaiting-operator'
+baseline_revision: 'ca628d0ec07d51c75ce7b0a7b8d1c42126899cf7'
 review_loop_iteration: 0
-followup_review_recommended: false
+followup_review_recommended: true
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-1-context.md'
 warnings: [oversized]
 deferred: []
+operator_actions:
+  - "Free 127.0.0.1:8787 for the Bridge (still held by curator-serve.service, python3 pid 6375, as owed by Stories 1.4/1.5), or amend architecture.md's Bridge port"
+  - "With 8787 free, on big-chungus run `node packages/bridge/dist/bridge.mjs &` then `curl -s http://127.0.0.1:8787/v1/project/sidepiece` and `curl -s -D- http://127.0.0.1:8787/v1/project/not-a-real-pjid`, and confirm the unwrapped record with degraded [] and HTTP/1.1 200 OK with exactly {\"degraded\":[{\"ds\":\"DS-2\",\"params\":{\"pjid\":\"not-a-real-pjid\"}}]}"
+  - "Time 50 sequential `curl -s -o /dev/null -w '%{time_total}\\n' http://127.0.0.1:8787/v1/project/sidepiece` runs and confirm p95 under 1s (18787 measured p50 4.99ms, p95 6.83ms)"
+  - "Rename one Project's repo in pjangler (move its repo_path), re-resolve it on 8787, and confirm `sqlite3 ~/.local/state/sidepiece/turns.db \"SELECT generation FROM resolutions WHERE pjid='<pjid>'\"` goes from 1 to 2; then move it back and confirm 3, never 1"
 ---
 
 <intent-contract>
@@ -124,6 +129,20 @@ deferred: []
 
 ## Review Triage Log
 
+### 2026-09-24 — Review pass
+- intent_gap: 0
+- bad_spec: 0
+- patch: 6: (high 0, medium 1, low 5)
+- defer: 0
+- reject: 21: (high 0, medium 2, low 19)
+- addressed_findings:
+  - `[medium]` `[patch]` No test for a registry that accepts the connection and then stalls. The stub gained no-response and stall-body modes, and project.test asserts 200 DS-6 in about 2s under a 4s handler deadline. The test was proven to fail when the fetch signal is removed.
+  - `[low]` `[patch]` parseRegistryUrl accepted a query, fragment or credentials and returned the raw string. It now rejects these and returns origin+path, normalised.
+  - `[low]` `[patch]` A duplicate registry identifier meant last-wins. It is now DS-7 with a verbatim message.
+  - `[low]` `[patch]` A repo_path of `/` gave an empty repo. It is now DS-7.
+  - `[low]` `[patch]` Malformed agents (non-object, or a non-string role/role_dir) were coerced to ''. They are now DS-7.
+  - `[low]` `[patch]` Spawned test Bridges could inherit SIDEPIECE_REGISTRY_URL or reach the live registry. The child env now pins an unroutable URL unless the caller overrides it.
+
 ## Design Notes
 
 - **Why `repo` = basename(repo_path):** the PRD fact-check (`review-fact-check.md` §4.1) says "repo name" is derivable from `repo_path` and is not the display `project_name`. The glossary also forbids `Repo` as a synonym for Project. The AC's "rename that Project's repo in pjangler" therefore moves `repo_path`, and both `repo` and `clonePath` change.
@@ -137,3 +156,59 @@ deferred: []
 - `mise run lint && mise run test && mise run build` -- expected: exit 0.
 - `SIDEPIECE_BRIDGE_PORT=18787 SIDEPIECE_STATE_DIR=$(mktemp -d) node packages/bridge/dist/bridge.mjs & curl -s -D- http://127.0.0.1:18787/v1/project/sidepiece; curl -s -D- http://127.0.0.1:18787/v1/project/not-a-real-pjid` -- expected: 200 record, then 200 DS-2-only body.
 - `sqlite3 $STATE/turns.db 'SELECT * FROM resolutions'` after 20 resolutions -- expected: one row, generation 1.
+
+## Auto Run Result
+
+Status: awaiting-operator
+
+**Summary:** `GET /v1/project/<pjid>` resolves a pjid to an unwrapped `ProjectRecord`.
+- `registry/client.ts` makes one whole-registry fetch per resolution (2s timeout, no cache), indexes every entry and matches the pjid byte for byte. The foreign `project_id` is renamed to `pjid` in the destructuring that reads it.
+- `registry/generation.ts` mints a content-addressed, per-pjid generation. It is sha256 of `{repo, clonePath, boardId, ticketProvider, agents}`, computed in one `BEGIN IMMEDIATE` transaction. An unchanged hash writes nothing.
+- An unknown pjid returns `200 {"degraded":[DS-2]}`. A refused, DNS-failed or stalled registry is DS-6 (`endpoint`). A non-2xx or malformed answer is DS-7 (`error`, verbatim). A store ahead of the Bridge serves the record with `generation: 0` plus DS-25.
+
+**Files changed:**
+- `packages/bridge/src/registry/client.ts`: fetch, index, record derivation, and the DS-6/DS-7 discriminator (`registryFailure`).
+- `packages/bridge/src/registry/generation.ts`: `recordHash`, `sortAgents`, `mintGeneration`.
+- `packages/bridge/src/server/project.ts`: the `/v1/project/:pjid` route.
+- `packages/bridge/src/server/http.ts`: `:param` pattern routes; handlers now receive `(req, params)`; degraded lines carry `pjid`.
+- `packages/bridge/src/turns/store.ts`: `readResolution`, `writeResolution`, `transaction`, and the non-empty pjid guard that closes DW-3's first-writer half.
+- `packages/bridge/src/config.ts`: `DEFAULT_REGISTRY_URL` (`http://127.0.0.1:8764`) and a strict `parseRegistryUrl`.
+- `packages/bridge/src/main.ts`, `log.ts`: registry URL check before the store, route wiring, and the `resolved` log event.
+- `packages/contract/src/project.ts`: a doc comment only (generation 0 means not minted).
+- Tests: `client.test.ts`, `generation.test.ts`, `project.test.ts`, `board-presence.test.ts`, `test/stub-registry.ts`.
+- Extended tests: boundary, config, http, store, bundle, main, spawn-bridge.
+- `_bmad-output/implementation-artifacts/deferred-work.md`: DW-3 marked addressed.
+
+**Review findings:**
+- 6 patches applied (1 medium, 5 low). 0 deferred.
+- 21 rejected. Among them:
+  - Store write failure answered as 500: the Bridge itself failed, and the store's busy timeout is 5s.
+  - HEAD mints like GET.
+  - A 502/503 from the registry is DS-7: the spec and Story 1.9 both say so.
+  - A trailing slash on clonePath moves the generation: this is content-addressed on verbatim data.
+  - The `resolved` line is logged per request: the spec asks for it.
+  - No cache or request coalescing: a cache would hide a rename.
+  - DS-25 is not echoed on DS-2 or DS-6 bodies.
+  - Nested or async `transaction()`: there is one synchronous caller.
+  - Overlapping pattern routes.
+  - Gaps in the board-presence regex: the AC's grep surface is met, and no extension package exists yet.
+  - A body size cap.
+  - A missing identifier with its key still present: pjangler enforces key === identifier.
+
+**Follow-up review recommendation:** true. Patched: high 0, medium 1, low 5. Score is 3×1 + 5 = 8, which is 5 or more.
+
+**Verification:**
+- `mise run lint && mise run test && mise run build`: exit 0. Contract passed 5/5; bridge passed 114/114, with 0 skipped.
+- In-test bundle against the stub: p50 0.95ms, p95 1.99ms (n=50).
+- Live run on 127.0.0.1:18787 against the real registry on 8764, with a temp state dir:
+  - `/v1/project/sidepiece` returned `HTTP/1.1 200 OK` with `{"pjid":"sidepiece","generation":1,"repo":"sidepiece","clonePath":"/home/delorenj/code/sidepiece","boardId":"96725b78-df0b-436a-8b45-c871264fe25d","agents":[{"id":"sidepiece-pm",…},{"id":"sidepiece-scrum-master",…}],"ticketProvider":{"type":"plane"},"degraded":[]}`.
+  - `/v1/project/not-a-real-pjid` returned `HTTP/1.1 200 OK` with `{"degraded":[{"ds":"DS-2","params":{"pjid":"not-a-real-pjid"}}]}`.
+  - `boardId` is `""` for codegraph-voyage, legofirst and vinyl. `momo` has since gained a real board (`94fb34d5-…`), so all four boardless cases are asserted on a fixture.
+  - 50 sequential curls: **p50 4.99ms, p95 6.83ms**.
+  - The `resolutions` rows sit at generation 1 after the repeated resolutions.
+- `grep -rn project_id packages` (excluding node_modules and dist) hits only `packages/bridge/src/registry/client.ts:48`.
+
+**Residual risks:**
+- The live registry now has 23 Projects, not 19, and momo is no longer boardless. The planning docs are stale on both counts.
+- Story 1.7 must treat `generation: 0` (DS-25) as "cannot validate".
+- The literal-port checks on 8787 and a real pjangler rename are owed; see `operator_actions`.
