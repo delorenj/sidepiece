@@ -6,10 +6,12 @@ import { fileURLToPath } from 'node:url';
 
 /**
  * A-P7: every outbound call in `src/` carries an explicit timeout. For each call below, the
- * balanced argument list must mention `timeout` or `signal`.
+ * balanced argument list must mention `timeout` or `signal`. A call on a SQLite handle named
+ * `db` (`db.exec(sql)`, in `turns/store.ts`) is local and synchronous, not outbound, so the
+ * lookbehind exempts exactly that receiver.
  */
 const CALL =
-  /(?:\b(?:fetch|spawn|spawnSync|fork|exec|execSync|execFile|execFileSync|connect|createConnection|request)|\bhttps?\.get|\bnew\s+WebSocket)\s*\(/g;
+  /(?<!\bdb\.)(?:\b(?:fetch|spawn|spawnSync|fork|exec|execSync|execFile|execFileSync|connect|createConnection|request)|\bhttps?\.get|\bnew\s+WebSocket)\s*\(/g;
 
 function stripComments(source: string): string {
   return source
@@ -63,6 +65,9 @@ test('the scanner flags an untimed call and passes a timed one', () => {
   assert.deepEqual(untimedCalls("execFileSync('op', ['read'], { timeout: 2000 });"), []);
   // The balance matters: a `timeout` after the call's closing paren does not count.
   assert.deepEqual(untimedCalls('fetch(u); const timeout = 1;'), ['1: fetch(']);
+  // A SQLite handle's `exec` is not outbound; any other receiver's still is.
+  assert.deepEqual(untimedCalls("db.exec('BEGIN IMMEDIATE');"), []);
+  assert.deepEqual(untimedCalls("cp.exec('op read x');"), ['1: exec(']);
   // Commented-out calls are not calls.
   assert.deepEqual(untimedCalls('// fetch(u)\n/* spawn(x) */'), []);
 });

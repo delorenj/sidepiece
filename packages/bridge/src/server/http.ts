@@ -1,5 +1,10 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { type BridgeError, type BridgeHealth, CONTRACT_VERSION } from '@sidepiece/contract';
+import {
+  type BridgeError,
+  type BridgeHealth,
+  CONTRACT_VERSION,
+  type Degraded,
+} from '@sidepiece/contract';
 import { log as defaultLog, type Logger } from '../log.ts';
 import { toErrorResponse } from './errors.ts';
 
@@ -19,6 +24,8 @@ export type BridgeServerOptions = {
   log?: Logger;
   /** A-P7: a handler that has not settled by then is answered 500 and logged. */
   handlerDeadlineMs?: number;
+  /** Bridge-wide degraded states echoed on `/v1/health` (e.g. DS-25); read per request. */
+  degraded?: () => Degraded[];
 };
 
 export const HANDLER_DEADLINE_MS = 10_000;
@@ -38,7 +45,7 @@ export function pathOf(url: string | undefined): string {
   return raw.split('?')[0] || '/';
 }
 
-function healthHandler(startedAt: string): Handler {
+function healthHandler(startedAt: string, degraded: () => Degraded[]): Handler {
   return () => {
     const body: BridgeHealth = {
       status: 'ok',
@@ -46,7 +53,7 @@ function healthHandler(startedAt: string): Handler {
       node: process.version,
       startedAt,
       checkedAt: new Date().toISOString(),
-      degraded: [],
+      degraded: degraded(),
     };
     return { status: 200, body };
   };
@@ -76,8 +83,11 @@ function send(
 }
 
 /** The Bridge's own routes. Exported so tests can force every one of them to throw. */
-export function builtinRoutes(startedAt: string): RouteTable {
-  return { '/v1/health': { GET: healthHandler(startedAt) } };
+export function builtinRoutes(
+  startedAt: string,
+  degraded: () => Degraded[] = () => [],
+): RouteTable {
+  return { '/v1/health': { GET: healthHandler(startedAt, degraded) } };
 }
 
 /** Methods a route actually answers; a defined GET implies HEAD. */
@@ -92,7 +102,10 @@ function allowOf(route: Partial<Record<string, Handler>>): string[] {
 export function createBridgeServer(options: BridgeServerOptions): Server {
   const log = options.log ?? defaultLog;
   const deadlineMs = options.handlerDeadlineMs ?? HANDLER_DEADLINE_MS;
-  const routes: RouteTable = { ...builtinRoutes(options.startedAt), ...options.routes };
+  const routes: RouteTable = {
+    ...builtinRoutes(options.startedAt, options.degraded),
+    ...options.routes,
+  };
 
   return createServer((req, res) => {
     const started = performance.now();

@@ -28,6 +28,13 @@ type InfoLine = Scoped &
         client: string;
       }
     | { level: 'info'; event: 'shutdown'; signal: string }
+    | {
+        level: 'info';
+        event: 'store_opened';
+        path: string;
+        userVersion: number;
+        migratedFrom: number;
+      }
   );
 
 type ErrorLine = Scoped &
@@ -50,6 +57,7 @@ type ErrorLine = Scoped &
         path: string;
         detail?: string;
       }
+    | { level: 'error'; event: 'store_open_failed'; ds: DsCode; path: string; detail?: string }
     | {
         level: 'error';
         event: 'handler_timed_out';
@@ -60,14 +68,20 @@ type ErrorLine = Scoped &
       }
   );
 
-/** A product-level failure answered as `200 {"degraded":[...]}`: the Bridge worked, the Project did not. */
-type WarnLine = Scoped & {
-  level: 'warn';
-  event: 'degraded';
-  ds: DsCode;
-  method: string;
-  path: string;
-};
+type WarnLine = Scoped &
+  /** A product-level failure answered as `200 {"degraded":[...]}`: the Bridge worked, the Project did not. */
+  (
+    | { level: 'warn'; event: 'degraded'; ds: DsCode; method: string; path: string }
+    /** DS-25: the Turn store is at a `user_version` this build does not recognise; left untouched. */
+    | {
+        level: 'warn';
+        event: 'store_ahead';
+        ds: DsCode;
+        path: string;
+        storeVersion: number;
+        bridgeVersion: number;
+      }
+  );
 
 export type LogLine = InfoLine | WarnLine | ErrorLine;
 export type LogEvent = LogLine['event'];

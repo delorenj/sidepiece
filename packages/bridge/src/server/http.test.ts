@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import type { AddressInfo } from 'node:net';
 import { after, before, test } from 'node:test';
-import { CONTRACT_VERSION } from '@sidepiece/contract';
+import { CONTRACT_VERSION, type Degraded } from '@sidepiece/contract';
 import type { LogLine } from '../log.ts';
 import { DegradedError } from './errors.ts';
 import {
@@ -229,4 +229,41 @@ test('every request logs a request line; the client comes from X-Forwarded-For f
   const plain = await logged((l) => l.event === 'request' && l.path === '/nope');
   assert.ok(plain && plain.event === 'request');
   assert.equal(plain.client, '127.0.0.1');
+});
+
+test('/v1/health echoes the injected degraded[], read per request, and stays 200 ok', async () => {
+  let current: Degraded[] = [];
+  let calls = 0;
+  const srv = createBridgeServer({
+    startedAt,
+    log: () => {},
+    degraded: () => {
+      calls++;
+      return current;
+    },
+  });
+  await new Promise<void>((resolve) => srv.listen(0, '127.0.0.1', resolve));
+  const url = `http://127.0.0.1:${(srv.address() as AddressInfo).port}/v1/health`;
+  const get = async () => {
+    const res = await fetch(url, { signal: AbortSignal.timeout(5_000) });
+    return { status: res.status, body: (await res.json()) as Record<string, unknown> };
+  };
+  try {
+    const empty = await get();
+    assert.equal(empty.status, 200);
+    assert.deepEqual(empty.body.degraded, []);
+    current = [{ ds: 'DS-25', params: { storeVersion: '9', bridgeVersion: '1' } }];
+    for (let i = 0; i < 2; i++) {
+      const { status, body } = await get();
+      assert.equal(status, 200);
+      assert.equal(body.status, 'ok');
+      assert.deepEqual(body.degraded, [
+        { ds: 'DS-25', params: { storeVersion: '9', bridgeVersion: '1' } },
+      ]);
+    }
+    assert.equal(calls, 3);
+  } finally {
+    srv.closeAllConnections();
+    await new Promise((resolve) => srv.close(resolve));
+  }
 });

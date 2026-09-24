@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { DEFAULT_PORT, HOST, parsePort } from './config.ts';
+import { DEFAULT_PORT, DEPLOY_TARGET_DIR, HOST, parsePort, resolveStateDir } from './config.ts';
 
 test('the bind host is loopback and the default port is 8787', () => {
   assert.equal(HOST, '127.0.0.1');
@@ -15,4 +15,44 @@ test('SIDEPIECE_BRIDGE_PORT accepts 0..65535 and refuses anything else', () => {
   for (const bad of ['', 'abc', '-1', '65536', '8787.5', ' 8787', '123456']) {
     assert.equal(parsePort(bad), undefined, bad);
   }
+});
+
+test('SIDEPIECE_STATE_DIR defaults to ~/.local/state/sidepiece', () => {
+  assert.equal(
+    resolveStateDir(undefined, { home: '/home/u', bundleDir: '/home/u/.local/lib/sidepiece' }),
+    '/home/u/.local/state/sidepiece',
+  );
+  assert.equal(DEPLOY_TARGET_DIR, '.local/lib/sidepiece');
+});
+
+test('SIDEPIECE_STATE_DIR accepts an absolute dir outside the deploy tree and the bundle dir', () => {
+  const ctx = { home: '/home/u', bundleDir: '/opt/b' };
+  assert.equal(resolveStateDir('/tmp/s', ctx), '/tmp/s');
+  assert.equal(resolveStateDir('/tmp/s/', ctx), '/tmp/s');
+  assert.equal(
+    resolveStateDir('/home/u/.local/lib/sidepiece-state', ctx),
+    '/home/u/.local/lib/sidepiece-state',
+  );
+  assert.equal(resolveStateDir('/opt/bundle', ctx), '/opt/bundle');
+});
+
+test('SIDEPIECE_STATE_DIR refuses empty, relative, deploy-tree and bundle-dir values', () => {
+  const ctx = { home: '/home/u', bundleDir: '/opt/b' };
+  for (const bad of [
+    '',
+    'rel/dir',
+    './x',
+    '/home/u/.local/lib/sidepiece',
+    '/home/u/.local/lib/sidepiece/x',
+    '/home/u/.local/state/../lib/sidepiece/x',
+    '/opt/b',
+    '/opt/b/state',
+  ]) {
+    assert.equal(resolveStateDir(bad, ctx), undefined, bad);
+  }
+  // The default itself is refused when the bundle is run from inside it.
+  assert.equal(
+    resolveStateDir(undefined, { home: '/home/u', bundleDir: '/home/u/.local/state' }),
+    undefined,
+  );
 });
