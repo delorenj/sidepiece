@@ -13,7 +13,7 @@ export default defineConfig({
   external: [/^node:/],
   // Migrations are inlined as strings, so the bundle stays one file (AR27).
   loader: { '.sql': 'text' },
-  // tsup strips `node:` by default; `node:sqlite` exists only under its prefix.
+  // tsup strips the `node:` prefix by default, but the SQLite builtin exists only under it.
   removeNodeProtocol: false,
   esbuildOptions(options) {
     options.conditions = ['source'];

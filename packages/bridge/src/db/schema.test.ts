@@ -1,26 +1,28 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
-import { openStore, type StoreOpen, type TableInfo } from '../turns/store.ts';
+import { fileURLToPath } from 'node:url';
+import { BRIDGE_STORE_VERSION, openStore, type StoreOpen, type TableInfo } from '../turns/store.ts';
 import schemaSql from './schema.sql';
 
 const root = mkdtempSync(join(tmpdir(), 'sidepiece-schema-'));
 after(() => rmSync(root, { recursive: true, force: true }));
 
-function tablesOf(dir: string, migrations?: readonly string[]): TableInfo[] {
+function inspectOf(dir: string, migrations?: readonly string[]) {
   const opened: StoreOpen = openStore(join(root, dir), migrations ? { migrations } : {});
   assert.equal(opened.kind, 'ready');
   const store = (opened as Extract<StoreOpen, { kind: 'ready' }>).store;
   try {
-    return store.inspect().tables;
+    return store.inspect();
   } finally {
     store.close();
   }
 }
 
-const migrated = tablesOf('migrated');
+const migratedSchema = inspectOf('migrated');
+const migrated: TableInfo[] = migratedSchema.tables;
 
 test('001 creates exactly resolutions, with exactly these columns', () => {
   assert.deepEqual(
@@ -52,10 +54,25 @@ test('no table this story must not create exists', () => {
   }
 });
 
-test('migrating a fresh DB yields the same sqlite_master SQL as schema.sql', () => {
-  const reference = tablesOf('reference', [schemaSql]);
-  assert.deepEqual(
-    migrated.map((t) => ({ name: t.name, sql: t.sql })),
-    reference.map((t) => ({ name: t.name, sql: t.sql })),
+test('migrating a fresh DB yields the same sqlite_master objects as schema.sql', () => {
+  const reference = inspectOf('reference', [schemaSql]);
+  assert.ok(migratedSchema.objects.length > 0);
+  assert.deepEqual(migratedSchema.objects, reference.objects);
+});
+
+test('the migrations on disk are 001..N, contiguous, N = BRIDGE_STORE_VERSION, and are what runs', () => {
+  const dir = fileURLToPath(new URL('./migrations/', import.meta.url));
+  const files = readdirSync(dir)
+    .filter((f) => f.endsWith('.sql'))
+    .sort();
+  assert.equal(files.length, BRIDGE_STORE_VERSION);
+  files.forEach((f, i) => {
+    assert.match(f, new RegExp(`^${String(i + 1).padStart(3, '0')}_[a-z0-9_]+\\.sql$`), f);
+  });
+  // Applying the files as found on disk yields exactly what the built-in list yields.
+  const fromDisk = inspectOf(
+    'from-disk',
+    files.map((f) => readFileSync(join(dir, f), 'utf8')),
   );
+  assert.deepEqual(fromDisk.objects, migratedSchema.objects);
 });

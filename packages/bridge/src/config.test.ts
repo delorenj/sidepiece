@@ -1,6 +1,16 @@
 import assert from 'node:assert/strict';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { test } from 'node:test';
-import { DEFAULT_PORT, DEPLOY_TARGET_DIR, HOST, parsePort, resolveStateDir } from './config.ts';
+import {
+  DEFAULT_PORT,
+  DEPLOY_TARGET_DIR,
+  HOST,
+  parsePort,
+  requestedStateDir,
+  resolveStateDir,
+} from './config.ts';
 
 test('the bind host is loopback and the default port is 8787', () => {
   assert.equal(HOST, '127.0.0.1');
@@ -26,7 +36,7 @@ test('SIDEPIECE_STATE_DIR defaults to ~/.local/state/sidepiece', () => {
 });
 
 test('SIDEPIECE_STATE_DIR accepts an absolute dir outside the deploy tree and the bundle dir', () => {
-  const ctx = { home: '/home/u', bundleDir: '/opt/b' };
+  const ctx = { home: '/home/u', bundleDir: '/opt/b', realpath: () => undefined };
   assert.equal(resolveStateDir('/tmp/s', ctx), '/tmp/s');
   assert.equal(resolveStateDir('/tmp/s/', ctx), '/tmp/s');
   assert.equal(
@@ -37,7 +47,7 @@ test('SIDEPIECE_STATE_DIR accepts an absolute dir outside the deploy tree and th
 });
 
 test('SIDEPIECE_STATE_DIR refuses empty, relative, deploy-tree and bundle-dir values', () => {
-  const ctx = { home: '/home/u', bundleDir: '/opt/b' };
+  const ctx = { home: '/home/u', bundleDir: '/opt/b', realpath: () => undefined };
   for (const bad of [
     '',
     'rel/dir',
@@ -50,9 +60,38 @@ test('SIDEPIECE_STATE_DIR refuses empty, relative, deploy-tree and bundle-dir va
   ]) {
     assert.equal(resolveStateDir(bad, ctx), undefined, bad);
   }
+  // `..state` is a sibling name, not a parent traversal.
+  assert.equal(resolveStateDir('/home/u/.local/lib/sidepiece/..state', ctx), undefined);
+  assert.equal(resolveStateDir('/opt/b/..state', ctx), undefined);
   // The default itself is refused when the bundle is run from inside it.
   assert.equal(
     resolveStateDir(undefined, { home: '/home/u', bundleDir: '/home/u/.local/state' }),
     undefined,
   );
+});
+
+test('SIDEPIECE_STATE_DIR refuses a path that reaches the deploy tree or bundle dir through a symlink', () => {
+  const root = mkdtempSync(join(tmpdir(), 'sidepiece-home-'));
+  try {
+    const home = join(root, 'home');
+    const deploy = join(home, DEPLOY_TARGET_DIR);
+    const bundleDir = join(root, 'bundle');
+    mkdirSync(deploy, { recursive: true });
+    mkdirSync(bundleDir);
+    symlinkSync(deploy, join(root, 'to-deploy'));
+    symlinkSync(bundleDir, join(root, 'to-bundle'));
+    const ctx = { home, bundleDir };
+    assert.equal(resolveStateDir(join(root, 'to-deploy'), ctx), undefined);
+    assert.equal(resolveStateDir(join(root, 'to-deploy', 'state', 'x'), ctx), undefined);
+    assert.equal(resolveStateDir(join(root, 'to-bundle', 'state'), ctx), undefined);
+    assert.equal(resolveStateDir(join(root, 'elsewhere'), ctx), join(root, 'elsewhere'));
+    assert.equal(existsSync(join(root, 'to-deploy', 'state')), false, 'nothing created');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('requestedStateDir names the default when the variable is unset', () => {
+  assert.equal(requestedStateDir(undefined, '/home/u'), '/home/u/.local/state/sidepiece');
+  assert.equal(requestedStateDir('/x', '/home/u'), '/x');
 });

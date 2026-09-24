@@ -1,4 +1,5 @@
-import { isAbsolute, join, relative, resolve } from 'node:path';
+import { realpathSync } from 'node:fs';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 /** Never configurable: the tailnet reaches the Bridge through `tailscale serve`, not a bind. */
 export const HOST = '127.0.0.1';
@@ -21,22 +22,64 @@ export const DEPLOY_TARGET_DIR = '.local/lib/sidepiece';
 export const DEFAULT_STATE_DIR = '.local/state/sidepiece';
 
 function isAtOrUnder(child: string, parent: string): boolean {
-  const rel = relative(resolve(parent), child);
-  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+  const rel = relative(parent, child);
+  return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
+}
+
+/** `realpathSync`, or `undefined` when the path does not exist (or cannot be read). */
+export function realpathOrUndefined(path: string): string | undefined {
+  try {
+    return realpathSync(path);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The canonical form of a path that may not exist yet: the realpath of its longest existing
+ * ancestor, with the missing tail appended. Defeats a symlink into the deploy tree.
+ */
+function canonical(path: string, realpath: (p: string) => string | undefined): string {
+  let head = resolve(path);
+  const tail: string[] = [];
+  for (;;) {
+    const real = realpath(head);
+    if (real !== undefined) return join(real, ...tail);
+    const parent = dirname(head);
+    if (parent === head) return resolve(path);
+    tail.unshift(basename(head));
+    head = parent;
+  }
+}
+
+export type StateDirContext = {
+  home: string;
+  bundleDir: string;
+  /** Injected for tests; defaults to {@link realpathOrUndefined}. Only reads the filesystem. */
+  realpath?: (path: string) => string | undefined;
+};
+
+/** The state dir a raw `SIDEPIECE_STATE_DIR` asks for, before any refusal (for logging). */
+export function requestedStateDir(raw: string | undefined, home: string): string {
+  return raw ?? join(home, DEFAULT_STATE_DIR);
 }
 
 /**
  * `SIDEPIECE_STATE_DIR`: unset means `~/.local/state/sidepiece`. An empty or relative value,
- * or one at or under the deploy target or the running bundle's own directory, is `undefined`
- * (refuse to start): a deploy must never be able to overwrite the Turn store. Pure.
+ * or one at or under the deploy target or the running bundle's own directory (lexically or
+ * through a symlink), is `undefined` (refuse to start): a deploy must never be able to
+ * overwrite the Turn store. Creates nothing.
  */
 export function resolveStateDir(
   raw: string | undefined,
-  { home, bundleDir }: { home: string; bundleDir: string },
+  { home, bundleDir, realpath = realpathOrUndefined }: StateDirContext,
 ): string | undefined {
   if (raw !== undefined && (raw === '' || !isAbsolute(raw))) return undefined;
-  const dir = resolve(raw ?? join(home, DEFAULT_STATE_DIR));
-  if (isAtOrUnder(dir, join(home, DEPLOY_TARGET_DIR))) return undefined;
-  if (isAtOrUnder(dir, bundleDir)) return undefined;
+  const dir = resolve(requestedStateDir(raw, home));
+  const real = canonical(dir, realpath);
+  for (const forbidden of [resolve(home, DEPLOY_TARGET_DIR), resolve(bundleDir)]) {
+    if (isAtOrUnder(dir, forbidden)) return undefined;
+    if (isAtOrUnder(real, canonical(forbidden, realpath))) return undefined;
+  }
   return dir;
 }

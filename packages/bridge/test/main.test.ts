@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import {
   chmodSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -13,6 +14,7 @@ import {
 import { createServer } from 'node:net';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { createInterface } from 'node:readline';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { startBridge, stopBridge, tempStateDir } from './spawn-bridge.ts';
@@ -188,9 +190,80 @@ test('a rolled-back Bridge serves DS-25 from a store ahead of it, and leaves it 
     }
     assert.equal(await stopBridge(running.child), 0);
     assert.deepEqual(readFileSync(file), bytes, 'the store is byte-identical afterwards');
-    assert.deepEqual(readdirSync(stateDir), ['turns.db']);
+    assert.deepEqual(
+      readdirSync(stateDir).filter((f) => !/^turns\.db-(wal|shm)$/.test(f)),
+      ['turns.db'],
+    );
   } finally {
     rmSync(cwd, { recursive: true, force: true });
     rmSync(stateDir, { recursive: true, force: true });
+  }
+});
+
+/** The environment minus `SIDEPIECE_STATE_DIR`, with HOME pointed at a temp home. */
+function envWithoutStateDir(home: string): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env, HOME: home, SIDEPIECE_BRIDGE_PORT: '0' };
+  delete env.SIDEPIECE_STATE_DIR;
+  return env;
+}
+
+test('with SIDEPIECE_STATE_DIR unset, the store opens at ~/.local/state/sidepiece/turns.db', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'sidepiece-home-'));
+  const expected = join(home, '.local/state/sidepiece/turns.db');
+  const child = spawn(process.execPath, [bundle], {
+    cwd: home,
+    env: envWithoutStateDir(home),
+    stdio: ['ignore', 'pipe', 'inherit'],
+    timeout: 30_000,
+  });
+  const lines: Record<string, unknown>[] = [];
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('no listening line within 10s')), 10_000);
+      child.once('exit', (code) => {
+        clearTimeout(timer);
+        reject(new Error(`bridge exited early with ${code}`));
+      });
+      createInterface({ input: child.stdout }).on('line', (line) => {
+        const parsed = JSON.parse(line) as Record<string, unknown>;
+        lines.push(parsed);
+        if (parsed.event === 'listening') {
+          clearTimeout(timer);
+          resolve();
+        }
+      });
+    });
+    const opened = lines.find((l) => l.event === 'store_opened');
+    assert.ok(opened, 'store_opened is logged');
+    assert.equal(opened.path, expected);
+    assert.ok(existsSync(expected));
+  } finally {
+    assert.equal(await stopBridge(child), 0);
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('a refused default state dir logs the default path it refused, not an empty value', () => {
+  // The bundle sits in ~/.local/state, so the default ~/.local/state/sidepiece is under it.
+  const home = mkdtempSync(join(tmpdir(), 'sidepiece-home-'));
+  try {
+    const bundleDir = join(home, '.local/state');
+    mkdirSync(bundleDir, { recursive: true });
+    const copy = join(bundleDir, 'bridge.mjs');
+    copyFileSync(bundle, copy);
+    const r = spawnSync(process.execPath, [copy], {
+      cwd: home,
+      env: envWithoutStateDir(home),
+      encoding: 'utf8',
+      timeout: 10_000,
+    });
+    assert.equal(r.status, 1);
+    const [line] = jsonLines(r.stdout);
+    assert.equal(line?.event, 'config_invalid');
+    assert.equal(line?.key, 'SIDEPIECE_STATE_DIR');
+    assert.equal(line?.value, `(default) ${join(home, '.local/state/sidepiece')}`);
+    assert.ok(!existsSync(join(bundleDir, 'sidepiece')), 'nothing created');
+  } finally {
+    rmSync(home, { recursive: true, force: true });
   }
 });

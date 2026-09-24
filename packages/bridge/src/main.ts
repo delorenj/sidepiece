@@ -2,7 +2,7 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CONTRACT_VERSION, type Degraded } from '@sidepiece/contract';
-import { HOST, parsePort, resolveStateDir } from './config.ts';
+import { HOST, parsePort, requestedStateDir, resolveStateDir } from './config.ts';
 import { log } from './log.ts';
 import { nodeRefusal } from './node-pin.ts';
 import { createBridgeServer } from './server/http.ts';
@@ -32,8 +32,9 @@ if (port === undefined) {
 
 // Startup order: pin -> port -> state dir -> store -> listen.
 const rawStateDir = process.env.SIDEPIECE_STATE_DIR;
+const home = homedir();
 const stateDir = resolveStateDir(rawStateDir, {
-  home: homedir(),
+  home,
   bundleDir: dirname(fileURLToPath(import.meta.url)),
 });
 if (stateDir === undefined) {
@@ -42,7 +43,8 @@ if (stateDir === undefined) {
     event: 'config_invalid',
     ds: 'DS-4',
     key: 'SIDEPIECE_STATE_DIR',
-    value: rawStateDir ?? '',
+    // Unset means the default was refused; name the path that was, not ''.
+    value: rawStateDir ?? `(default) ${requestedStateDir(undefined, home)}`,
   });
   process.exit(1);
 }
@@ -82,6 +84,7 @@ try {
     ];
   }
 } catch (err) {
+  store?.close();
   log({
     level: 'error',
     event: 'store_open_failed',
@@ -107,6 +110,7 @@ server.on('error', (err: NodeJS.ErrnoException) => {
     ...(err.code ? { code: err.code } : {}),
     detail: err.message,
   });
+  store?.close();
   process.exit(1);
 });
 
@@ -129,7 +133,10 @@ function shutdown(signal: NodeJS.Signals) {
     process.exit(0);
   });
   server.closeAllConnections();
-  setTimeout(() => process.exit(0), 5_000).unref();
+  setTimeout(() => {
+    store?.close();
+    process.exit(0);
+  }, 5_000).unref();
 }
 process.once('SIGTERM', shutdown);
 process.once('SIGINT', shutdown);
