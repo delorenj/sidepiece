@@ -3,13 +3,17 @@ title: 'Story 1.9: Answer from the last good copy when the Registry is down — 
 type: 'feature'
 created: '2026-09-24'
 baseline_revision: '6d745d46a226622c61456072d3f6d465b6b5aa24'
-status: 'in-progress'
+status: 'awaiting-operator'
 review_loop_iteration: 0
-followup_review_recommended: false
+followup_review_recommended: true
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-1-context.md'
 warnings: [oversized]
 deferred: []
+operator_actions:
+  - "After Story 1.10 deploys the Bridge on big-chungus, prime the snapshot with `curl -s http://127.0.0.1:8787/v1/project/sidepiece`, then run `systemctl --user stop pjangler-project-registry.service` and repeat the curl; confirm a 200 with the full ProjectRecord and a degraded[] entry {\"ds\":\"DS-23\",\"params\":{\"fetchedAt\",\"ageSeconds\"}} followed by DS-6 carrying the systemctl remedy."
+  - "While the registry is still stopped, run `sqlite3 ~/.local/state/sidepiece/turns.db \"SELECT generation, record_hash FROM resolutions WHERE pjid='sidepiece'\"` and confirm the output is byte-identical to the output from before the outage, then run `sqlite3 ~/.local/state/sidepiece/turns.db '.tables'` and confirm there is no registry_snapshots table."
+  - "Run `systemctl --user start pjangler-project-registry.service` and confirm that the next curl returns the record with no DS-23 or DS-6, and that the mtime of ~/.local/state/sidepiece/registry-snapshot.json advances."
 ---
 
 <intent-contract>
@@ -141,6 +145,20 @@ deferred: []
 
 ## Review Triage Log
 
+### 2026-09-24 — Review pass
+- intent_gap: 0
+- bad_spec: 0
+- patch: 6: (high 0, medium 1, low 5)
+- defer: 0
+- reject: 30: (high 0, medium 3, low 27)
+- addressed_findings:
+  - `[medium]` `[patch]` Nothing tested the `main.ts` wiring: dropping `probes:` or `snapshot` left every test green. A new spawned-bundle test in `test/main.test.ts` does a good GET, closes the stub, then asserts that the GET returns DS-23 followed by DS-6 (endpoint + remedy) and that health equals `[DS-6]`. Removing either wiring line is confirmed to fail it.
+  - `[low]` `[patch]` A snapshot entry that failed `deriveRecord` was logged as `snapshot_unreadable`, which contradicts the spec's "cause alone". `deriveRecord` now runs outside the logging try, and a test covers it.
+  - `[low]` `[patch]` A stale `<path>.<pid>.tmp` kept its old mode. The temp file is now removed before the write, and a test checks the result is 0600.
+  - `[low]` `[patch]` `isLoopback` missed the rest of 127.0.0.0/8. It now matches `127.x.y.z`, tested with 127.0.1.1 and 128.0.0.1.
+  - `[low]` `[patch]` Nothing pinned the health `degraded` order. A test now asserts `[DS-25, DS-6]`.
+  - `[low]` `[patch]` Nothing tested the mutation guard's snapshot write. A POST with the registry up and no prior GET now asserts that the snapshot file appears.
+
 ## Design Notes
 
 - **Why DS-6/DS-7 ride alongside DS-23:** `EXPERIENCE.md`'s DS-6 and DS-7 rows were amended to "partial when it holds one". A partial DS-6 has to be emitted to be rendered, and DS-7's verbatim error is the only place the cause is named. DS-23 carries the age, and the cause entry says why the snapshot is being served. The AC's "contains DS-23" allows both entries.
@@ -157,3 +175,48 @@ deferred: []
 
 **Manual checks (if no CLI):**
 - A live `curl` against `127.0.0.1:8787` with the real `pjangler-project-registry.service` stopped needs a deployed Bridge (Story 1.10) and stopping a live service. The operator runs that transcript; the conformance test proves the same behavior in-process.
+
+## Auto Run Result
+
+Status: awaiting-operator
+
+**Summary:** The Bridge keeps a last good copy of the pjangler registry. `registry/snapshot.ts` rewrites `<state-dir>/registry-snapshot.json` whole and atomically (`{fetchedAt, payload}`, mode 0600) on every successful fetch, whether the fetch came from resolution, the mutation guard or health. When the fetch itself fails, `GET /v1/project/<pjid>` serves the record from the snapshot and marks it with degraded entries in this order:
+1. the Bridge-wide entries;
+2. `DS-23 {fetchedAt, ageSeconds}`;
+3. the DS-6/DS-7 cause;
+4. the on-disk probe.
+
+The generation is never minted from a snapshot. It is the stored generation when the stored hash matches the snapshot record, and `0` otherwise. With no usable snapshot, a missing pjid, or a bad entry, the answer is the cause alone, never DS-2. Mutations never fall back. DS-6 gains `remedy: systemctl --user start pjangler-project-registry.service` for a loopback registry only. Health gains a registry leg through the same `registryFailure` discriminator. The age is surfaced and has no threshold.
+
+**Files changed:**
+- `packages/bridge/src/registry/snapshot.ts` (new): the snapshot file, the atomic write, read, and `snapshotAge`.
+- `packages/bridge/src/registry/client.ts`: the snapshot write in `fetchRegistry`, the fallback split in `resolveProject`/`fromSnapshot`, and the loopback remedy on DS-6.
+- `packages/bridge/src/health/registry.ts` (new): `registryHealth`, the second call site of the discriminator.
+- `packages/bridge/src/server/project.ts`: the GET fallback, `snapshotGeneration`, the degraded ordering, and the `served_from_snapshot` log.
+- `packages/bridge/src/server/http.ts`: the `probes` option and the async health handler.
+- `packages/bridge/src/log.ts`: `served_from_snapshot`, `snapshot_unreadable` and `snapshot_write_failed`.
+- `packages/bridge/src/main.ts`: `openSnapshot(stateDir)` wired into the routes and health.
+- Tests:
+  - new `snapshot.test.ts`, `health/registry.test.ts` and `server/snapshot.conformance.test.ts`;
+  - extended `client.test.ts`, `http.test.ts`, `project.test.ts`, `mutating.conformance.test.ts` and `test/main.test.ts`.
+
+**Review findings:** 6 patches applied (1 medium, 5 low), 0 deferred, 30 rejected. The rejected findings are:
+- Behavior the spec settles: every health request fetches and writes; a snapshot is written even when one entry is bad; a missing pjid logs nothing; DS-6/DS-7 are sent alongside DS-23; generation 0 on a hash mismatch.
+- A 500 when a probe fails with a non-registry Bridge bug. This is the established 5xx-for-Bridge-bugs posture.
+- Durability and race concerns: no fsync; `fetchedAt` stamped at write time; out-of-order concurrent writes.
+- Remaining items: clock skew clamped to 0; the chmod test under root; a snapshot format version; test aliasing and other cosmetic points.
+
+**Follow-up review recommendation:** true. Patched: high 0, medium 1, low 5. Score is 3×1 + 5 = 8, which is 5 or more.
+
+**Verification:**
+- `mise run lint && mise run test && mise run build`: exit 0. Contract passed 5/5; bridge passed 185/185, with 0 skipped.
+- `grep -rn 'registryFailure(' packages/bridge/src --include='*.ts' --exclude='*.test.ts'`: 1 definition (`registry/client.ts`) and 2 call sites (`registry/client.ts` for resolution, `health/registry.ts` for health).
+- `grep -rniE 'MAX_AGE|maxAge|EXPIR|STALE_AFTER|TTL' packages/bridge/src/registry/`: no output.
+- Every I/O matrix row has a passing test in `server/snapshot.conformance.test.ts`, `registry/client.test.ts` and `health/registry.test.ts`.
+
+**Operator actions owed:** the live transcript. The Bridge must be running on 127.0.0.1:8787, which needs Story 1.10, and the real `pjangler-project-registry.service` must be stopped. See `operator_actions` in the frontmatter. The in-process conformance and spawned-bundle tests prove the same behavior.
+
+**Residual risks:**
+- Every `/v1/health` call now does a full registry fetch (up to the 2s timeout) and rewrites the snapshot. Story 1.13 may want a shared in-flight probe.
+- The snapshot write is not fsynced. After a power loss it can be lost, and the reader then treats it as unreadable, answering with the cause alone.
+- The Cockpit (Epic 2) must key partial versus total on DS-23 or on record presence, because DS-6/DS-7 now also appear on a partial answer.
