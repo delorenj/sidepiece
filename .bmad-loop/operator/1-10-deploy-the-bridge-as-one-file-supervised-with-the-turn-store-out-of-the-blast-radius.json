@@ -1,0 +1,11 @@
+{
+  "actions": [
+    "Decide which service owns 127.0.0.1:8787: move curator-serve.service (folder-curator; its n8n node also defaults to 8787) to another port, or re-home the Bridge. Then delete ~/.config/systemd/user/sidepiece-bridge.service.d/port-conflict.conf, run `systemctl --user daemon-reload && mise run deploy`, and confirm `curl -s http://127.0.0.1:8787/v1/health` returns 200 with an x-sidepiece-contract header.",
+    "Reboot big-chungus without logging in interactively, then over ssh confirm that `systemctl --user is-enabled sidepiece-bridge` prints enabled, `systemctl --user is-active sidepiece-bridge` prints active, and `curl -s http://127.0.0.1:8787/v1/health` returns 200.",
+    "Run `mise run deploy` once from the laptop (SIDEPIECE_DEPLOY_HOST=big-chungus over ssh) and confirm it exits 0, since every live deploy so far ran in local mode on big-chungus."
+  ],
+  "parked_at": "2026-09-24",
+  "run_id": "20260924-133837-2ee7",
+  "spec_file": "_bmad-output/implementation-artifacts/spec-1-10-deploy-the-bridge-as-one-file-supervised-with-the-turn-store-out-of-the-blast-radius.md",
+  "story_key": "1-10-deploy-the-bridge-as-one-file-supervised-with-the-turn-store-out-of-the-blast-radius"
+}

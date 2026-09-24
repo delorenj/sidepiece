@@ -54,7 +54,7 @@ development_status:
   1-7-refuse-a-mutation-written-against-a-project-that-has-moved: done
   1-8-say-what-is-missing-on-disk-the-clone-path-and-the-role-directories: awaiting-operator
   1-9-answer-from-the-last-good-copy-when-the-registry-is-down-and-never-silently: awaiting-operator
-  1-10-deploy-the-bridge-as-one-file-supervised-with-the-turn-store-out-of-the-blast-radius: backlog
+  1-10-deploy-the-bridge-as-one-file-supervised-with-the-turn-store-out-of-the-blast-radius: awaiting-operator
   1-11-reach-the-bridge-from-the-laptop-over-the-tailnet-on-https-with-the-lna-headers: backlog
   1-12-every-credential-from-the-vault-and-a-missing-one-degrades-instead-of-killing-the-bridge: backlog
   1-13-health-that-names-the-dependency-that-failed: backlog
