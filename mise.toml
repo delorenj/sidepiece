@@ -76,15 +76,28 @@ run = "sh lint/no-project-id.test.sh"
 description = "Apply Biome formatting and safe fixes"
 run = "pnpm exec biome check --write ."
 
+[tasks."deploy:selftest"]
+description = "Self-test deploy-bridge.sh's refusal and no-touch paths with stub systemctl/loginctl/curl"
+run = "bash .mise/scripts/deploy-bridge.test.sh"
+
 [tasks.test]
 description = "Run package tests where present"
-depends = ["lint:selftest"]
+depends = ["lint:selftest", "deploy:selftest"]
 run = "pnpm -r --if-present run test"
 
 [tasks.build]
 description = "Build every workspace package"
 depends = ["typecheck", "lint"]
 run = "pnpm -r run build"
+
+[tasks."build:bridge"]
+description = "Bundle the Bridge to the single file packages/bridge/dist/bridge.mjs"
+run = "pnpm --filter @sidepiece/bridge run build"
+
+[tasks.deploy]
+description = "Install the Bridge bundle + systemd --user unit on big-chungus, never touching the state dir"
+depends = ["build:bridge"]
+run = "bash .mise/scripts/deploy-bridge.sh"
 
 [tasks."loop:recover"]
 description = "Recover bmad-loop from diverged baselines or paused manual-rollback states and restart"

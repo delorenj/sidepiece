@@ -1,0 +1,20 @@
+# Sidepiece Bridge -- installed verbatim by `mise run deploy` (.mise/scripts/deploy-bridge.sh).
+# Edit this tracked file, never the installed copy. Credentials (LoadCredential=) arrive in Story 1.12.
+[Unit]
+Description=Sidepiece Bridge (project-resolution daemon, loopback only)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+# Absolute, pinned Node 24.15.0 -- never PATH, shims, or the 24 / 24.15 / lts / latest aliases.
+ExecStart=%h/.local/share/mise/installs/node/24.15.0/bin/node %h/.local/lib/sidepiece/bridge.mjs
+WorkingDirectory=%h/.local/state/sidepiece
+StateDirectory=sidepiece
+Restart=always
+RestartSec=2
+SyslogIdentifier=sidepiece-bridge
+
+[Install]
+WantedBy=default.target

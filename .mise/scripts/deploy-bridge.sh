@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+# deploy-bridge.sh -- put the one-file Bridge bundle on its host, supervised by systemd --user,
+# without ever touching the Turn store (Story 1.10).
+#
+# Steps, in order; nothing on the target is written before step 5:
+#   1 bundle check   2 target resolution   3 blast-radius guard   4 node pin check
+#   5 install (one file + the unit, never a directory)   6 supervise   7 post-checks
+#
+# Every failure exits non-zero with exactly one line on stderr: `deploy-bridge: <code>: <detail>`.
+# The state dir is canonicalized for the guard and otherwise never read, written, or rsynced;
+# systemd creates it through StateDirectory=.
+#
+# Env:
+#   SIDEPIECE_DEPLOY_HOST        target host (default big-chungus); `hostname -s` or localhost = local mode
+#   SIDEPIECE_DEPLOY_ROOT        test seam: replaces the target's $HOME
+#   SIDEPIECE_DEPLOY_LIB_DIR     test seam: overrides <home>/.local/lib/sidepiece
+#   SIDEPIECE_DEPLOY_STATE_DIR   test seam: overrides <home>/.local/state/sidepiece
+#   SIDEPIECE_DEPLOY_HEALTH_TIMEOUT  seconds to poll /v1/health (default 10)
+set -euo pipefail
+
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+dist="$repo/packages/bridge/dist"
+unit_src="$repo/packages/bridge/deploy/sidepiece-bridge.service"
+unit_name="sidepiece-bridge"
+
+# Same two relative paths as packages/bridge/src/config.ts (DEPLOY_TARGET_DIR, DEFAULT_STATE_DIR).
+LIB_REL=".local/lib/sidepiece"
+STATE_REL=".local/state/sidepiece"
+
+die() {
+  printf 'deploy-bridge: %s: %s\n' "$1" "$2" >&2
+  exit 1
+}
+say() { printf 'deploy-bridge: %s\n' "$*"; }
+
+# ---- 1. bundle check ------------------------------------------------------------------------
+[[ -d "$dist" ]] || die bundle_not_single_file "$dist does not exist (run mise run build:bridge)"
+listing="$(ls -A "$dist")"
+[[ "$listing" == "bridge.mjs" ]] ||
+  die bundle_not_single_file "$dist must contain exactly bridge.mjs, has: $(echo "$listing" | tr '\n' ' ')"
+inlined="$(grep -c "@sidepiece/contract" "$dist/bridge.mjs" || true)"
+[[ "$inlined" == "0" ]] || die bundle_not_inlined "$dist/bridge.mjs references @sidepiece/contract $inlined time(s)"
+[[ -f "$unit_src" ]] || die unit_missing "$unit_src not found"
+
+# ---- 2. target resolution --------------------------------------------------------------------
+host="${SIDEPIECE_DEPLOY_HOST:-big-chungus}"
+if [[ "$host" == "$(hostname -s)" || "$host" == "localhost" ]]; then
+  local_mode=1
+else
+  local_mode=0
+fi
+
+# run <cmd> [args...]: on the target, locally or over ssh (args quoted for the remote shell).
+run() {
+  if ((local_mode)); then
+    "$@"
+  else
+    ssh -o BatchMode=yes "$host" "$(printf '%q ' "$@")"
+  fi
+}
+# push <local-file> <remote-path>: rsync ONE file; never -r, never --delete, never a directory.
+push() {
+  [[ -f "$1" ]] || die install_failed "refusing to rsync non-file $1"
+  if ((local_mode)); then
+    rsync --times -- "$1" "$2"
+  else
+    rsync --times -- "$1" "$host:$2"
+  fi
+}
+
+if [[ -n "${SIDEPIECE_DEPLOY_ROOT:-}" ]]; then
+  home="$SIDEPIECE_DEPLOY_ROOT"
+elif ((local_mode)); then
+  home="$HOME"
+else
+  home="$(ssh -o BatchMode=yes "$host" 'printf %s "$HOME"')" || die target_unreachable "ssh $host failed"
+fi
+[[ "$home" == /* ]] || die target_unreachable "remote home '$home' is not absolute"
+lib_dir="${SIDEPIECE_DEPLOY_LIB_DIR:-$home/$LIB_REL}"
+state_dir="${SIDEPIECE_DEPLOY_STATE_DIR:-$home/$STATE_REL}"
+unit_dir="$home/.config/systemd/user"
+
+# ---- 3. blast-radius guard -------------------------------------------------------------------
+lib_real="$(run realpath -m -- "$lib_dir")" || die target_unreachable "realpath failed on $host"
+state_real="$(run realpath -m -- "$state_dir")" || die target_unreachable "realpath failed on $host"
+at_or_under() { [[ "$1" == "$2" || "$1" == "$2"/* || "$2" == / ]]; }
+if at_or_under "$lib_real" "$state_real"; then
+  die deploy_target_in_state_dir "$lib_real is at or under $state_real"
+fi
+if at_or_under "$state_real" "$lib_real"; then
+  die deploy_target_in_state_dir "$state_real is at or under $lib_real"
+fi
+
+# ---- 4. node pin check -----------------------------------------------------------------------
+exec_line="$(sed -n 's/^ExecStart=//p' "$unit_src" | head -n 1)"
+node_raw="${exec_line%% *}"
+node_path="${node_raw//%h/$home}"
+[[ -n "$node_raw" ]] || die node_pin_invalid "no ExecStart= in $unit_src"
+[[ "$node_path" == /* ]] || die node_pin_invalid "$node_path is not absolute"
+# Alias checks run on the unit's own token, so a random temp home cannot trip them.
+if [[ "$node_raw" == *lts* || "$node_raw" == *latest* || "$node_raw" == */shims/* ]]; then
+  die node_pin_invalid "$node_raw names an alias or shim, not a pinned install"
+fi
+[[ "$node_path" =~ /24\.15\.[0-9]+/ ]] || die node_pin_invalid "$node_path has no /24.15.<n>/ segment"
+node_version="$(run "$node_path" --version 2>/dev/null)" || die node_pin_invalid "$node_path --version failed on $host"
+[[ "$node_version" =~ ^v24\. ]] || die node_pin_invalid "$node_path prints $node_version, want v24.*"
+say "target $host ($([[ $local_mode == 1 ]] && echo local || echo ssh)), node $node_version, lib $lib_real, state $state_real (untouched)"
+
+# ---- 5. install ------------------------------------------------------------------------------
+run mkdir -p -- "$lib_dir" "$unit_dir" || die install_failed "mkdir on $host"
+push "$dist/bridge.mjs" "$lib_dir/bridge.mjs" || die install_failed "rsync bridge.mjs to $host:$lib_dir"
+push "$unit_src" "$unit_dir/$unit_name.service" || die install_failed "rsync unit to $host:$unit_dir"
+say "installed $lib_dir/bridge.mjs and $unit_dir/$unit_name.service"
+
+# ---- 6. supervise ----------------------------------------------------------------------------
+user="$(run id -un)" || die target_unreachable "id -un failed on $host"
+linger="$(run loginctl show-user "$user" -p Linger 2>/dev/null || true)"
+if [[ "$linger" != "Linger=yes" ]]; then
+  run loginctl enable-linger "$user" >/dev/null 2>&1 || die linger_unavailable "loginctl enable-linger $user failed on $host"
+fi
+run systemctl --user daemon-reload || die supervise_failed "daemon-reload"
+run systemctl --user enable "$unit_name" >/dev/null 2>&1 || die supervise_failed "enable $unit_name"
+run systemctl --user restart "$unit_name" || die supervise_failed "restart $unit_name"
+say "enabled and restarted $unit_name"
+
+# ---- 7. post-checks --------------------------------------------------------------------------
+env_line="$(run systemctl --user show "$unit_name" -p Environment --value 2>/dev/null || true)"
+port=8787
+if [[ "$env_line" =~ (^|[[:space:]])SIDEPIECE_BRIDGE_PORT=([0-9]+) ]]; then
+  port="${BASH_REMATCH[2]}"
+fi
+url="http://127.0.0.1:$port/v1/health"
+deadline=$((SECONDS + ${SIDEPIECE_DEPLOY_HEALTH_TIMEOUT:-10}))
+healthy=0
+last=""
+while :; do
+  headers="$(run curl -s -o /dev/null -D - --max-time 2 "$url" 2>/dev/null || true)"
+  status="$(printf '%s\n' "$headers" | head -n 1 | tr -d '\r')"
+  last="${status:-no answer}"
+  if [[ "$status" =~ ^HTTP/[0-9.]+\ 200 ]] && printf '%s\n' "$headers" | grep -qi '^x-sidepiece-contract:'; then
+    healthy=1
+    break
+  fi
+  ((SECONDS < deadline)) || break
+  sleep 0.5
+done
+if ((!healthy)); then
+  holder="$(run ss -ltnp 2>/dev/null | grep -E "[:.]$port[[:space:]]" | head -n 1 | tr -s ' ' || true)"
+  die health_unanswered "$url gave '$last' without x-sidepiece-contract; port $port holder: ${holder:-none}"
+fi
+say "health ok on $url"
+
+lib_listing="$(run ls -A -- "$lib_dir")"
+[[ "$lib_listing" == "bridge.mjs" ]] ||
+  die lib_dir_not_single_file "$lib_dir holds: $(echo "$lib_listing" | tr '\n' ' ') (reported only; nothing deleted)"
+say "done"

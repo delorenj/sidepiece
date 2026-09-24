@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { builtinModules } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { CONTRACT_VERSION } from '@sidepiece/contract';
@@ -24,6 +24,14 @@ test('bundle imports nothing but node builtins', () => {
   assert.deepEqual(bare, []);
 });
 
+test('dist holds exactly one file: bridge.mjs', () => {
+  assert.deepEqual(readdirSync(new URL('../dist/', import.meta.url)), ['bridge.mjs']);
+});
+
+test('bundle has @sidepiece/contract inlined, never referenced', () => {
+  assert.equal(readFileSync(bundle, 'utf8').includes('@sidepiece/contract'), false);
+});
+
 test('bundle runs outside the workspace and answers /v1/health', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'sidepiece-bridge-'));
   const copy = join(dir, 'bridge.mjs');
@@ -31,7 +39,8 @@ test('bundle runs outside the workspace and answers /v1/health', async () => {
   const stateDir = tempStateDir();
   let running: Awaited<ReturnType<typeof startBridge>> | undefined;
   try {
-    running = await startBridge(copy, dir, stateDir);
+    // PATH is only the running node's own dir: no pnpm, no workspace tooling to lean on.
+    running = await startBridge(copy, dir, stateDir, { PATH: dirname(process.execPath) });
     const { port, host } = running;
     assert.equal(host, '127.0.0.1', 'the Bridge binds loopback only');
     const res = await fetch(`http://127.0.0.1:${port}/v1/health`, {
