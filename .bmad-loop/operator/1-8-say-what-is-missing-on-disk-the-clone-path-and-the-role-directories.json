@@ -1,0 +1,11 @@
+{
+  "actions": [
+    "Free 127.0.0.1:8787 for the Bridge (still held by curator-serve.service, python3 pid 6375, as owed since Stories 1.4-1.6), or amend architecture.md's Bridge port",
+    "With 8787 free, on big-chungus run `node packages/bridge/dist/bridge.mjs &` then `curl -s http://127.0.0.1:8787/v1/project/sidepiece | jq '.degraded'` and confirm it is exactly [{\"ds\":\"DS-10\",\"params\":{\"agent\":\"sidepiece-scrum-master\",\"roleDir\":\"/home/delorenj/code/sidepiece/agents/hermes/scrum-master\"}}] with no DS-20, alongside the full record in a 200",
+    "When re-running Story 1.6's owed 8787 check, expect that DS-10 entry in degraded instead of [] (Story 1.8 now reports the missing scrum-master role dir)"
+  ],
+  "parked_at": "2026-09-24",
+  "run_id": "20260924-133837-2ee7",
+  "spec_file": "_bmad-output/implementation-artifacts/spec-1-8-say-what-is-missing-on-disk-the-clone-path-and-the-role-directories.md",
+  "story_key": "1-8-say-what-is-missing-on-disk-the-clone-path-and-the-role-directories"
+}
