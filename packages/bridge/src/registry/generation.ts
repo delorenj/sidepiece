@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { AgentBinding, ProjectRecord } from '@sidepiece/contract';
+import type { AgentBinding, ProjectRecord, Refusal } from '@sidepiece/contract';
 import type { TurnStore } from '../turns/store.ts';
 
 /**
@@ -55,4 +55,40 @@ export function mintGeneration(
     });
     return { generation, minted: true };
   });
+}
+
+/** A mutation written against an older generation: answered `409` with {@link refusal}. */
+export class StaleGenerationError extends Error {
+  readonly refusal: Refusal;
+  constructor(refusal: Refusal) {
+    super('stale_generation');
+    this.name = 'StaleGenerationError';
+    this.refusal = refusal;
+  }
+}
+
+/** A generation this Bridge never minted (D11: a Bridge bug). Answered `500`, never a refusal. */
+export class GenerationAheadError extends Error {
+  readonly pjid: string;
+  readonly received: number;
+  readonly current: number;
+  constructor(pjid: string, received: number, current: number) {
+    super('generation_ahead_of_bridge');
+    this.name = 'GenerationAheadError';
+    this.pjid = pjid;
+    this.received = received;
+    this.current = current;
+  }
+}
+
+/**
+ * The one definition of stale (SM-3): `received < current` throws {@link StaleGenerationError},
+ * `received > current` throws {@link GenerationAheadError}, equal returns. No other file
+ * compares generations; `current` must come from a fresh resolution, never a stored row.
+ */
+export function assertCurrentGeneration(pjid: string, received: number, current: number): void {
+  if (received < current) {
+    throw new StaleGenerationError({ error: 'stale_generation', pjid, received, current });
+  }
+  if (received > current) throw new GenerationAheadError(pjid, received, current);
 }

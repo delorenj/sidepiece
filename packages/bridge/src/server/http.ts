@@ -4,9 +4,11 @@ import {
   type BridgeHealth,
   CONTRACT_VERSION,
   type Degraded,
+  type ProjectRecord,
 } from '@sidepiece/contract';
 import { log as defaultLog, type Logger } from '../log.ts';
-import { toErrorResponse } from './errors.ts';
+import { assertCurrentGeneration, GenerationAheadError } from '../registry/generation.ts';
+import { HttpRefusal, toErrorResponse } from './errors.ts';
 
 export type HandlerResult = { status: number; body: unknown };
 /** The `:name` segments a pattern route matched, each `decodeURIComponent`-ed once. */
@@ -21,6 +23,27 @@ export type Handler = (
  * exact key wins over a pattern.
  */
 export type RouteTable = Record<string, Partial<Record<string, Handler>>>;
+
+/** A fresh resolution of a pjid, injected into {@link mutatingRoute}; throws `DegradedError`. */
+export type MutationResolver = (pjid: string) => Promise<ProjectRecord>;
+/** What a guarded handler runs with: the path pjid, the checked generation, the fresh record. */
+export type MutationContext = {
+  pjid: string;
+  generation: number;
+  record: ProjectRecord;
+  body: Readonly<Record<string, unknown>>;
+};
+export type MutatingHandler = (
+  req: IncomingMessage,
+  ctx: MutationContext,
+) => HandlerResult | Promise<HandlerResult>;
+
+/** A mutation body larger than this is `400 invalid_body`. */
+export const MAX_BODY_BYTES = 65_536;
+
+/** Handlers produced by {@link mutatingRoute}; `createBridgeServer` refuses any other mutator. */
+const guarded = new WeakSet<Handler>();
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 export type BridgeServerOptions = {
   /**
@@ -91,6 +114,67 @@ function send(
   res.end(payload);
 }
 
+/** The request body, or `undefined` once it passes {@link MAX_BODY_BYTES} (drained, not kept). */
+function readBody(req: IncomingMessage): Promise<Buffer | undefined> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on('data', (chunk: Buffer) => {
+      size += chunk.length;
+      if (size <= MAX_BODY_BYTES) chunks.push(chunk);
+    });
+    req.on('end', () => resolve(size > MAX_BODY_BYTES ? undefined : Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+/**
+ * The only way to register a mutating method (architecture D11). Before `handler` runs, the
+ * body's top-level `generation` is validated, the path pjid is re-resolved through `resolve`
+ * (never a stored row: a rename no GET has seen must still refuse), and the two are compared.
+ * The pjid comes from the path only; a `pjid` key in the body is ignored. Validation runs
+ * before the fetch, so a `400` touches no upstream.
+ */
+export function mutatingRoute(resolve: MutationResolver, handler: MutatingHandler): Handler {
+  const guard: Handler = async (req, params) => {
+    const { pjid } = params;
+    if (pjid === undefined) throw new Error('mutating route matched without a pjid');
+    const raw = await readBody(req);
+    let parsed: unknown;
+    try {
+      parsed = raw === undefined ? undefined : JSON.parse(raw.toString('utf8'));
+    } catch {
+      parsed = undefined;
+    }
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new HttpRefusal(400, { error: 'invalid_body', pjid });
+    }
+    const body = parsed as Record<string, unknown>;
+    if (!Object.hasOwn(body, 'generation')) {
+      throw new HttpRefusal(400, { error: 'missing_generation', pjid, field: 'generation' });
+    }
+    const generation = body.generation;
+    if (typeof generation !== 'number' || !Number.isSafeInteger(generation) || generation < 0) {
+      throw new HttpRefusal(400, { error: 'invalid_generation', pjid, field: 'generation' });
+    }
+    const record = await resolve(pjid);
+    assertCurrentGeneration(pjid, generation, record.generation);
+    return handler(req, { pjid, generation, record, body });
+  };
+  guarded.add(guard);
+  return guard;
+}
+
+/** Throws at construction for a mutating method not produced by {@link mutatingRoute}. */
+function assertGuarded(routes: RouteTable): void {
+  for (const [pattern, route] of Object.entries(routes)) {
+    for (const [method, handler] of Object.entries(route ?? {})) {
+      if (handler === undefined || SAFE_METHODS.has(method) || guarded.has(handler)) continue;
+      throw new TypeError(`unguarded mutating route: ${method} ${pattern}`);
+    }
+  }
+}
+
 /** The Bridge's own routes. Exported so tests can force every one of them to throw. */
 export function builtinRoutes(
   startedAt: string,
@@ -152,6 +236,7 @@ export function createBridgeServer(options: BridgeServerOptions): Server {
     ...builtinRoutes(options.startedAt, options.degraded),
     ...options.routes,
   };
+  assertGuarded(routes);
 
   return createServer((req, res) => {
     const started = performance.now();
@@ -219,9 +304,31 @@ export function createBridgeServer(options: BridgeServerOptions): Server {
             send(res, 500, { error: 'internal_error' } satisfies BridgeError);
             return;
           }
+          if (err instanceof GenerationAheadError) {
+            log({
+              level: 'error',
+              event: 'generation_ahead_of_bridge',
+              ds: 'DS-5',
+              pjid: err.pjid,
+              received: err.received,
+              current: err.current,
+            });
+            send(res, 500, { error: 'internal_error' } satisfies BridgeError);
+            return;
+          }
           const mapped = toErrorResponse(err);
           if (mapped.status === 500) {
             internalError(err instanceof Error ? err.message : undefined);
+            return;
+          }
+          if (mapped.status === 409) {
+            const { pjid, received, current } = mapped.body;
+            log({ level: 'info', event: 'mutation_refused', pjid, received, current });
+            send(res, mapped.status, mapped.body);
+            return;
+          }
+          if (mapped.status === 400) {
+            send(res, mapped.status, mapped.body);
             return;
           }
           for (const d of mapped.body.degraded) {

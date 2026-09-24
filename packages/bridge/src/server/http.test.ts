@@ -1,17 +1,42 @@
 import assert from 'node:assert/strict';
 import type { AddressInfo } from 'node:net';
 import { after, before, test } from 'node:test';
-import { CONTRACT_VERSION, type Degraded } from '@sidepiece/contract';
+import { CONTRACT_VERSION, type Degraded, type ProjectRecord } from '@sidepiece/contract';
 import type { LogLine } from '../log.ts';
 import { DegradedError } from './errors.ts';
 import {
   builtinRoutes,
   createBridgeServer,
   type Handler,
+  MAX_BODY_BYTES,
+  type MutationResolver,
   matchRoute,
+  mutatingRoute,
   pathOf,
   type RouteTable,
 } from './http.ts';
+
+/** A resolver that never fetches: every pjid is at `current`, and every call is counted. */
+function stubResolver(current = 5) {
+  const counter = { calls: 0, current };
+  const resolve: MutationResolver = async (pjid) => {
+    counter.calls++;
+    const record: ProjectRecord = {
+      pjid,
+      generation: counter.current,
+      repo: pjid,
+      clonePath: `/r/${pjid}`,
+      boardId: '',
+      agents: [],
+      ticketProvider: { type: 'plane' },
+    };
+    return record;
+  };
+  return { counter, resolve };
+}
+
+const guard = stubResolver();
+let guardedRuns = 0;
 
 const lines: LogLine[] = [];
 const startedAt = new Date().toISOString();
@@ -43,7 +68,13 @@ const server = createBridgeServer({
     '/multi': {
       GET: () => ({ status: 200, body: {} }),
       PUT: undefined,
-      DELETE: () => ({ status: 200, body: {} }),
+      DELETE: mutatingRoute(stubResolver().resolve, () => ({ status: 200, body: {} })),
+    },
+    '/v1/mut/:pjid': {
+      POST: mutatingRoute(guard.resolve, (_req, { pjid, generation, body }) => {
+        guardedRuns++;
+        return { status: 200, body: { pjid, generation, bodyPjid: body.pjid ?? null } };
+      }),
     },
   },
   handlerDeadlineMs: 200,
@@ -318,4 +349,128 @@ test('a degraded warn line carries the matched pjid top-level', async () => {
   assert.deepEqual(body, { degraded: [{ ds: 'DS-2', params: { pjid: 'nope' } }] });
   const warn = await logged((l) => l.event === 'degraded' && l.ds === 'DS-2');
   assert.equal(warn.pjid, 'nope');
+});
+
+async function post(path: string, body: string, headers: Record<string, string> = {}) {
+  return call(path, { method: 'POST', body, headers });
+}
+
+test('a current generation runs the guarded handler with the path pjid', async () => {
+  const before = guard.counter.calls;
+  const { res, body } = await post('/v1/mut/sidepiece', '{"generation":5,"pjid":"vinyl"}');
+  assert.equal(res.status, 200);
+  assert.deepEqual(body, { pjid: 'sidepiece', generation: 5, bodyPjid: 'vinyl' });
+  assert.equal(guard.counter.calls, before + 1);
+});
+
+test('a stale generation is 409 stale_generation, logged info, and the handler never runs', async () => {
+  const runs = guardedRuns;
+  const { res, text } = await post('/v1/mut/p', '{"generation":4}');
+  assert.equal(res.status, 409);
+  assert.equal(text, '{"error":"stale_generation","pjid":"p","received":4,"current":5}');
+  assert.equal(guardedRuns, runs);
+  const refused = await logged((l) => l.event === 'mutation_refused');
+  assert.deepEqual(
+    { ...refused },
+    { level: 'info', event: 'mutation_refused', pjid: 'p', received: 4, current: 5 },
+  );
+  assert.ok(!lines.some((l) => l.event === 'degraded' && l.pjid === 'p'), 'no degraded warn');
+});
+
+test('an ahead generation is 500 internal_error, logged generation_ahead_of_bridge', async () => {
+  const runs = guardedRuns;
+  const { res, body } = await post('/v1/mut/ahead', '{"generation":9}');
+  assert.equal(res.status, 500);
+  assert.deepEqual(body, { error: 'internal_error' });
+  assert.equal(guardedRuns, runs);
+  const ahead = await logged((l) => l.event === 'generation_ahead_of_bridge');
+  assert.deepEqual(
+    { ...ahead },
+    {
+      level: 'error',
+      event: 'generation_ahead_of_bridge',
+      ds: 'DS-5',
+      pjid: 'ahead',
+      received: 9,
+      current: 5,
+    },
+  );
+});
+
+test('a missing, invalid or unparseable generation is 400 and never resolves', async () => {
+  const cases: [string, Record<string, string>, unknown][] = [
+    ['{}', { 'X-Sidepiece-Generation': '4' }, missing()],
+    ['{"gen":5}', {}, missing()],
+    ['{"generation":"4"}', {}, invalid()],
+    ['{"generation":4.5}', {}, invalid()],
+    ['{"generation":-1}', {}, invalid()],
+    ['{"generation":null}', {}, invalid()],
+    ['{"generation":9007199254740993}', {}, invalid()],
+    ['not json', {}, badBody()],
+    ['[4]', {}, badBody()],
+    ['4', {}, badBody()],
+    ['null', {}, badBody()],
+    ['', {}, badBody()],
+    [' '.repeat(MAX_BODY_BYTES + 1), {}, badBody()],
+  ];
+  const before = guard.counter.calls;
+  const runs = guardedRuns;
+  for (const [payload, headers, expected] of cases) {
+    const { res, text } = await post('/v1/mut/sidepiece', payload, headers);
+    assert.equal(res.status, 400, payload.slice(0, 40));
+    assert.equal(text, JSON.stringify(expected), payload.slice(0, 40));
+  }
+  assert.equal(guard.counter.calls, before, 'a 400 never resolves');
+  assert.equal(guardedRuns, runs);
+  assert.ok(!lines.some((l) => l.event === 'degraded' && l.pjid === 'sidepiece'));
+
+  function missing() {
+    return { error: 'missing_generation', pjid: 'sidepiece', field: 'generation' };
+  }
+  function invalid() {
+    return { error: 'invalid_generation', pjid: 'sidepiece', field: 'generation' };
+  }
+  function badBody() {
+    return { error: 'invalid_body', pjid: 'sidepiece' };
+  }
+});
+
+test('a body at exactly MAX_BODY_BYTES is read, not refused as invalid_body', async () => {
+  const json = '{"generation":5}';
+  const padded = json + ' '.repeat(MAX_BODY_BYTES - json.length);
+  const { res } = await post('/v1/mut/sidepiece', padded);
+  assert.equal(res.status, 200);
+});
+
+test('a mutating method not registered through mutatingRoute refuses construction', () => {
+  const raw: Handler = () => ({ status: 200, body: {} });
+  for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
+    assert.throws(
+      () =>
+        createBridgeServer({
+          startedAt,
+          log: () => {},
+          routes: { '/v1/x/:pjid': { [method]: raw } },
+        }),
+      (err: unknown) =>
+        err instanceof TypeError &&
+        err.message === `unguarded mutating route: ${method} /v1/x/:pjid`,
+    );
+  }
+  for (const method of ['GET', 'HEAD', 'OPTIONS']) {
+    assert.doesNotThrow(() =>
+      createBridgeServer({ startedAt, log: () => {}, routes: { '/v1/x': { [method]: raw } } }),
+    );
+  }
+  assert.doesNotThrow(() =>
+    createBridgeServer({
+      startedAt,
+      log: () => {},
+      routes: {
+        '/v1/x/:pjid': {
+          POST: mutatingRoute(stubResolver().resolve, () => ({ status: 200, body: {} })),
+        },
+      },
+    }),
+  );
 });

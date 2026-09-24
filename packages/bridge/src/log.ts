@@ -37,6 +37,14 @@ type InfoLine = Scoped &
       }
     /** `minted` is false for an unchanged hash and under DS-25 (`generation: 0`). */
     | { level: 'info'; event: 'resolved'; pjid: string; generation: number; minted: boolean }
+    /** A mutation written against an older generation, answered `409 stale_generation`. */
+    | {
+        level: 'info';
+        event: 'mutation_refused';
+        pjid: string;
+        received: number;
+        current: number;
+      }
   );
 
 type ErrorLine = Scoped &
@@ -67,6 +75,15 @@ type ErrorLine = Scoped &
         method: string;
         path: string;
         deadlineMs: number;
+      }
+    /** D11: a received generation this Bridge never minted; a Bridge bug, answered 500. */
+    | {
+        level: 'error';
+        event: 'generation_ahead_of_bridge';
+        ds: DsCode;
+        pjid: string;
+        received: number;
+        current: number;
       }
   );
 
