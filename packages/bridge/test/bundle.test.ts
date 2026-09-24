@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import { copyFileSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { builtinModules } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import { CONTRACT_VERSION } from '@sidepiece/contract';
+import { startBridge, stopBridge } from './spawn-bridge.ts';
 
 const bundle = new URL('../dist/bridge.mjs', import.meta.url);
 
@@ -21,18 +22,21 @@ test('bundle imports nothing but node builtins', () => {
   assert.deepEqual(bare, []);
 });
 
-test('bundle runs outside the workspace', () => {
+test('bundle runs outside the workspace and answers /v1/health', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'sidepiece-bridge-'));
+  const copy = join(dir, 'bridge.mjs');
+  copyFileSync(bundle, copy);
+  const { child, port } = await startBridge(copy, dir);
   try {
-    const copy = join(dir, 'bridge.mjs');
-    copyFileSync(bundle, copy);
-    const out = execFileSync(process.execPath, [copy], {
-      cwd: dir,
-      encoding: 'utf8',
-      timeout: 10_000,
+    const res = await fetch(`http://127.0.0.1:${port}/v1/health`, {
+      signal: AbortSignal.timeout(5_000),
     });
-    assert.match(out, /contract v\d+/);
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('x-sidepiece-contract'), String(CONTRACT_VERSION));
+    const body = (await res.json()) as { contractVersion: number };
+    assert.equal(body.contractVersion, CONTRACT_VERSION);
   } finally {
+    assert.equal(await stopBridge(child), 0);
     rmSync(dir, { recursive: true, force: true });
   }
 });
