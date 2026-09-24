@@ -30,7 +30,8 @@ cat >"$bin/systemctl" <<'SH'
 #!/bin/sh
 echo "systemctl $*" >>"$STUB_LOG"
 case "$*" in
-  *" show "*) [ -n "${STUB_PORT:-}" ] && echo "SIDEPIECE_BRIDGE_PORT=$STUB_PORT" ;;
+  *" show "*) echo "${STUB_ENV:-${STUB_PORT:+SIDEPIECE_BRIDGE_PORT=$STUB_PORT}}" ;;
+  *" is-active "*) echo "${STUB_ACTIVE:-active}" ;;
 esac
 exit 0
 SH
@@ -57,6 +58,30 @@ cat >"$bin/ss" <<'SH'
 echo "LISTEN 0      5      127.0.0.1:${STUB_PORT:-8787}   0.0.0.0:*    users:((\"python3\",pid=4242,fd=4))"
 SH
 chmod +x "$bin"/*
+
+# Remote-mode stubs, on PATH only for the remote case: ssh runs the quoted command locally,
+# rsync strips `fakehost:` and -e, logging the destination it was handed.
+rbin="$tmp/rbin"
+mkdir -p "$rbin"
+cat >"$rbin/ssh" <<'SH'
+#!/bin/sh
+while [ "$1" = -o ]; do shift 2; done
+host="$1"; shift
+echo "ssh $host $*" >>"$STUB_LOG"
+exec bash -c "$*"
+SH
+cat >"$rbin/rsync" <<'SH'
+#!/usr/bin/env bash
+echo "rsync $*" >>"$STUB_LOG"
+out=()
+while (($#)); do
+  if [[ "$1" == -e ]]; then shift 2; continue; fi
+  out+=("${1#fakehost:}")
+  shift
+done
+exec /usr/bin/rsync "${out[@]}"
+SH
+chmod +x "$rbin"/*
 
 # ---- fixtures ------------------------------------------------------------------------------
 # fixture <name> [node-version]: a fresh repo copy + home under $tmp/<name>; sets globals.
@@ -87,6 +112,11 @@ fixture() {
   touch -d '2026-01-01 00:00:00' "$fstate/turns.db" "$fstate/registry-snapshot.json"
   log="$base/calls.log"
   : >"$log"
+  # A fixture whose turns.db never got created would make every "state untouched" check vacuous.
+  [[ -s "$fstate/turns.db" ]] || {
+    echo "deploy-bridge.test.sh: fixture $1 failed to create turns.db (node:sqlite?)" >&2
+    exit 1
+  }
 }
 
 # deploy [VAR=val...]: run the fixture's script; captures rc, stdout, stderr.
@@ -228,6 +258,40 @@ echo old >"$flib/stray.txt"
 deploy
 check "stray lib file: lib_dir_not_single_file, reported only" \
   "[[ $rc -ne 0 ]] && grep -q '^deploy-bridge: lib_dir_not_single_file: ' '$base/err' && [[ -f '$flib/stray.txt' ]]"
+
+# ---- last SIDEPIECE_BRIDGE_PORT wins (unit, then drop-in) ---------------------------------------
+fixture port-last
+deploy STUB_ENV="SIDEPIECE_BRIDGE_PORT=8787 FOO=bar SIDEPIECE_BRIDGE_PORT=8789"
+check "port: last assignment wins" "[[ $rc -eq 0 ]] && grep -q 'http://127.0.0.1:8789/v1/health' '$log' && ! grep -q '127.0.0.1:8787/' '$log'"
+
+# ---- health answered but the unit is not active ---------------------------------------------------
+fixture inactive
+deploy STUB_ACTIVE=activating
+check "inactive unit: health_unanswered even with the header" \
+  "[[ $rc -ne 0 ]] && grep -q '^deploy-bridge: health_unanswered: .*activating' '$base/err'"
+
+# ---- bad health timeout --------------------------------------------------------------------------
+fixture bad-timeout
+deploy SIDEPIECE_DEPLOY_HEALTH_TIMEOUT=abc
+check "bad timeout: named health_timeout_invalid" \
+  "[[ $rc -ne 0 && \$(wc -l <'$base/err') -eq 1 ]] && grep -q '^deploy-bridge: health_timeout_invalid: ' '$base/err'"
+
+# ---- remote (ssh) mode -----------------------------------------------------------------------------
+fixture remote
+before="$(state_sig)"
+env PATH="$rbin:$bin:$PATH" STUB_LOG="$log" SIDEPIECE_DEPLOY_HOST=fakehost \
+  SIDEPIECE_DEPLOY_ROOT="$fhome" SIDEPIECE_DEPLOY_HEALTH_TIMEOUT=1 \
+  bash "$frepo/.mise/scripts/deploy-bridge.sh" >"$base/out" 2>"$base/err"
+rc=$?
+check "remote: exit 0" "[[ $rc -eq 0 ]]"
+[[ $rc -eq 0 ]] || sed 's/^/    /' "$base/err"
+check "remote: bundle rsynced to fakehost:<lib>/bridge.mjs in batch mode" \
+  "grep -qF -- \"-e ssh -o BatchMode=yes --times -- $frepo/packages/bridge/dist/bridge.mjs fakehost:$flib/bridge.mjs\" '$log'"
+check "remote: bundle landed byte-for-byte" "cmp -s '$frepo/packages/bridge/dist/bridge.mjs' '$flib/bridge.mjs'"
+check "remote: systemctl ran over ssh" "grep -q '^ssh fakehost systemctl --user restart sidepiece-bridge' '$log'"
+check "remote: node pin checked over ssh with the remote home" \
+  "grep -qF 'ssh fakehost $fhome/.local/share/mise/installs/node/24.15.0/bin/node --version' '$log'"
+check "remote: state untouched" "[[ \"\$(state_sig)\" == '$before' ]]"
 
 if [[ $fails -gt 0 ]]; then
   echo "deploy-bridge.test.sh: $fails failure(s)" >&2

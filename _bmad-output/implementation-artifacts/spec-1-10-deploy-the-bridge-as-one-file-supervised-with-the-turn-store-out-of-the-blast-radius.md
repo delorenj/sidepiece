@@ -3,13 +3,31 @@ title: 'Story 1.10: Deploy the Bridge as one file, supervised, with the Turn sto
 type: 'feature'
 created: '2026-09-24'
 baseline_revision: 'a1534170ba98b1aa7bad731fbb18fa9c3edc9e07'
-status: 'in-progress'
+status: 'awaiting-operator'
 review_loop_iteration: 0
-followup_review_recommended: false
+followup_review_recommended: true
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-1-context.md'
 warnings: [oversized]
-deferred: []
+deferred:
+  - summary: >-
+      Story 1.10's AC that registry-snapshot.json stays byte-identical across two live deploys conflicts with Story 1.9's rewrite-on-every-successful-fetch snapshot.
+    evidence: |-
+      The deploy never touches the snapshot (the self-test proves sha256, mtime and inode are unchanged under stubs). But each deploy restarts the Bridge, and its first health or resolution fetch rewrites the file with a new fetchedAt. The epic AC is literally unsatisfiable on a live host unless the snapshot write skips unchanged payloads, which would make DS-23's age report time since the last change rather than since the last fetch. Reconcile in planning.
+    location: >-
+      packages/bridge/src/registry/snapshot.ts
+    severity: low
+  - summary: >-
+      mise pins node = "lts" for tests while the unit pins 24.15.0. On 2026-10-28, lts moves to Node 26, and every spawned-bundle test will be refused by the Node pin.
+    evidence: |-
+      mise.toml [tools] node = "lts" resolves to 24.15.0 today. spawn-bridge.ts spawns process.execPath. main.ts refuses anything outside >=24.15.0 <25. Nothing runs the bundle tests under the pinned runtime.
+    location: >-
+      mise.toml
+    severity: medium
+operator_actions:
+  - "Decide which service owns 127.0.0.1:8787: move curator-serve.service (folder-curator; its n8n node also defaults to 8787) to another port, or re-home the Bridge. Then delete ~/.config/systemd/user/sidepiece-bridge.service.d/port-conflict.conf, run `systemctl --user daemon-reload && mise run deploy`, and confirm `curl -s http://127.0.0.1:8787/v1/health` returns 200 with an x-sidepiece-contract header."
+  - "Reboot big-chungus without logging in interactively, then over ssh confirm that `systemctl --user is-enabled sidepiece-bridge` prints enabled, `systemctl --user is-active sidepiece-bridge` prints active, and `curl -s http://127.0.0.1:8787/v1/health` returns 200."
+  - "Run `mise run deploy` once from the laptop (SIDEPIECE_DEPLOY_HOST=big-chungus over ssh) and confirm it exits 0, since every live deploy so far ran in local mode on big-chungus."
 ---
 
 <intent-contract>
@@ -135,13 +153,33 @@ A shell self-test covers the script's refusal and no-touch paths with stub `syst
 
 ## Review Triage Log
 
+### 2026-09-24 — Review pass
+- intent_gap: 0
+- bad_spec: 0
+- patch: 12: (high 0, medium 1, low 11)
+- defer: 2: (high 0, medium 1, low 1)
+- reject: 24: (high 0, medium 2, low 22)
+- addressed_findings:
+  - `[medium]` `[patch]` The ssh (remote) mode was never exercised. Added a `fakehost` self-test case: a stub `ssh` runs the quoted command locally, and a stub `rsync` strips the host. It asserts the `fakehost:<lib>/bridge.mjs` destination with `BatchMode`, the byte-identical landing, systemctl and the node check running over ssh with the remote home, and state untouched.
+  - `[low]` `[patch]` The node `--version` check accepted any v24. It now requires `^v24\.15\.`, matching the path check.
+  - `[low]` `[patch]` The port parse took the first `SIDEPIECE_BRIDGE_PORT=`. The last one now wins, as it does in systemd (a drop-in overrides the unit). Tested.
+  - `[low]` `[patch]` A health answer from a stranger that carried the header passed even when the unit was not active. The deploy now also requires `systemctl --user is-active` to print `active`. Tested.
+  - `[low]` `[patch]` A non-integer `SIDEPIECE_DEPLOY_HEALTH_TIMEOUT` hit a raw bash error. It is now the named `health_timeout_invalid`. Tested.
+  - `[low]` `[patch]` Remote `rsync` had no `BatchMode` and could hang at a prompt. It now passes `-e 'ssh -o BatchMode=yes'`.
+  - `[low]` `[patch]` Local mode matched only `hostname -s` and `localhost`. It now matches case-insensitively, and also accepts `hostname -f` and `127.0.0.1`.
+  - `[low]` `[patch]` `dist/bridge.mjs` as a directory produced a misleading `bundle_not_inlined`. It is now `bundle_not_single_file`.
+  - `[low]` `[patch]` `After=`/`Wants=network-online.target` do nothing in a user unit. Removed.
+  - `[low]` `[patch]` A self-test fixture that failed to create `turns.db` made the "state untouched" checks vacuous. The fixture now aborts the test.
+  - `[low]` `[patch]` The script's `LIB_REL`/`STATE_REL` and the unit's paths were not tied to `config.ts`. Added `packages/bridge/test/deploy-paths.test.ts`.
+  - `[low]` `[patch]` The spec's Design Notes named the drop-in port 8788, but `pdf2md-serve` holds 8788. Corrected to 8789.
+
 ## Design Notes
 
 - **Unit with `%h`, not templated:** one tracked file installed verbatim is diffable against what is live. `%h` expands to an absolute path, so `ExecStart=` still names a concrete `24.15.0` binary. The deploy's check expands `%h` itself and runs that exact path.
 - **Local mode:** the operator runs the deploy on `big-chungus` itself today. Treating the target as local when its name matches `hostname -s` avoids an ssh round-trip to self, while ssh stays the path from the laptop.
 - **Port 8787 conflict:** the AC and architecture fix the Bridge at `127.0.0.1:8787`, but `curator-serve.service` already binds it. Choosing which service moves is the operator's call; moving curator ripples into folder-curator's defaults and its n8n node.
   - The deploy's health post-check names the holder rather than letting `Restart=always` spin silently.
-  - Live verification runs through a clearly named, temporary drop-in `sidepiece-bridge.service.d/port-conflict.conf` setting `SIDEPIECE_BRIDGE_PORT=8788`. It is recorded as an operator action to remove once 8787 is free.
+  - Live verification runs through a clearly named, temporary drop-in `sidepiece-bridge.service.d/port-conflict.conf` setting `SIDEPIECE_BRIDGE_PORT=8789` (8788 turned out to be held by `pdf2md-serve.service`). It is recorded as an operator action to remove once 8787 is free.
 
 ## Verification
 
@@ -149,3 +187,39 @@ A shell self-test covers the script's refusal and no-touch paths with stub `syst
 - `mise run lint && mise run test && mise run build` -- expected: exit 0, including `deploy:selftest`.
 - `mise run deploy` on `big-chungus` -- expected: exit 0, with the health smoke passing (on the drop-in port while 8787 is held).
 - `systemctl --user kill -s SIGKILL sidepiece-bridge; sleep 5; systemctl --user is-active sidepiece-bridge` -- expected: `active`.
+
+## Auto Run Result
+
+Status: awaiting-operator
+
+**Summary:** `mise run deploy` now builds the Bridge to a single file and runs these checks, in order: the bundle is one file with contract inlined; the lib dir and the state dir do not intersect (after `realpath -m`); the unit's `ExecStart=` names a pinned Node 24.15 binary. Then it rsyncs only `bridge.mjs` and the tracked unit, ensures lingering, runs `daemon-reload`, `enable` and `restart`, and requires health 200 with `x-sidepiece-contract` from an `active` unit. It never touches `~/.local/state/sidepiece/`. The Bridge is live on big-chungus under `systemd --user`, on port 8789 through a temporary drop-in, because `curator-serve.service` holds 8787.
+
+**Files changed:**
+- `packages/bridge/deploy/sidepiece-bridge.service`: the unit. It pins Node 24.15.0 by absolute `%h` path and sets `Restart=always`, `RestartSec=2`, `StartLimitIntervalSec=0`, `WorkingDirectory`, `StateDirectory` and `WantedBy=default.target`.
+- `.mise/scripts/deploy-bridge.sh`: the seven-step deploy. Every failure is one line, `deploy-bridge: <code>: <detail>`. It works locally or over ssh.
+- `.mise/scripts/deploy-bridge.test.sh`: the self-test, 70 checks. It covers every I/O matrix row, the remote mode, and linger, port, inactive-unit and timeout cases.
+- `packages/bridge/test/deploy-paths.test.ts`: path parity between the script, the unit and `config.ts`.
+- `packages/bridge/test/bundle.test.ts`: `dist/` holds exactly `bridge.mjs`, contract is inlined, and the bundle runs with `PATH` set to node's dir only.
+- `mise.toml`: the `build:bridge`, `deploy` and `deploy:selftest` tasks; `test` depends on `deploy:selftest`.
+- `packages/bridge/deploy/README.md`: operator notes, including the port-8787 conflict.
+
+**Review findings:** 12 patches applied (1 medium, 11 low), 2 deferred (the snapshot byte-identical AC versus Story 1.9's rewrite-on-fetch; mise `lts` drifting from the unit pin), 24 rejected. The rejected findings include: tool stderr alongside the named line, test seams able to reach a real systemd, TOCTOU symlink swaps, no deploy lock or rollback, GNU-only self-test tooling, the substring `@sidepiece/contract` grep (the AC's own check), XDG_STATE_HOME overrides, and moving the linger check ahead of install (the spec fixes the order).
+
+**Follow-up review recommendation:** true. Patched: high 0, medium 1, low 11. Score is 3×1 + 11 = 14, which is 5 or more.
+
+**Verification:**
+- `mise run lint && mise run test && mise run build`: exit 0. Contract passed 5/5; bridge passed 189/189, with 0 skipped. `deploy-bridge.test.sh` passed all 70 checks. `lint:selftest` passed.
+- Live on big-chungus:
+  - `mise run deploy` exits 0.
+  - `is-enabled` prints `enabled` and `is-active` prints `active`.
+  - The installed unit is `cmp`-identical to the tracked unit.
+  - After `systemctl --user kill -s SIGKILL`, the unit is `active` again within 5s.
+  - `turns.db` has the same size and mtime across the redeploy.
+  - `~/.local/lib/sidepiece` holds only `bridge.mjs`.
+  - `journalctl --user -u sidepiece-bridge -o cat` shows the JSON lines, including `"event":"listening"` with `"node":"v24.15.0"`.
+
+**Residual risks:**
+- Port 8787 is held by `curator-serve.service`, so the Bridge serves on 8789 through an untracked drop-in. Stories 1.4–1.9's live operator checks, and Story 1.11's `tailscale serve`, assume 8787.
+- Reboot survival has not been observed (`Linger=yes` is set). Remote deploy over real ssh has not been exercised live.
+- On a live host, `registry-snapshot.json` changes after a deploy because the restarted Bridge refetches. The deploy itself never writes it. This is deferred.
+

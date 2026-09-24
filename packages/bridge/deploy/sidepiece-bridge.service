@@ -2,8 +2,6 @@
 # Edit this tracked file, never the installed copy. Credentials (LoadCredential=) arrive in Story 1.12.
 [Unit]
 Description=Sidepiece Bridge (project-resolution daemon, loopback only)
-After=network-online.target
-Wants=network-online.target
 StartLimitIntervalSec=0
 
 [Service]

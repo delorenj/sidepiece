@@ -11,7 +11,7 @@
 # systemd creates it through StateDirectory=.
 #
 # Env:
-#   SIDEPIECE_DEPLOY_HOST        target host (default big-chungus); `hostname -s` or localhost = local mode
+#   SIDEPIECE_DEPLOY_HOST        target host (default big-chungus); `hostname -s`/`-f`, localhost or 127.0.0.1 = local mode
 #   SIDEPIECE_DEPLOY_ROOT        test seam: replaces the target's $HOME
 #   SIDEPIECE_DEPLOY_LIB_DIR     test seam: overrides <home>/.local/lib/sidepiece
 #   SIDEPIECE_DEPLOY_STATE_DIR   test seam: overrides <home>/.local/state/sidepiece
@@ -36,6 +36,7 @@ say() { printf 'deploy-bridge: %s\n' "$*"; }
 # ---- 1. bundle check ------------------------------------------------------------------------
 [[ -d "$dist" ]] || die bundle_not_single_file "$dist does not exist (run mise run build:bridge)"
 listing="$(ls -A "$dist")"
+[[ -f "$dist/bridge.mjs" ]] || die bundle_not_single_file "$dist/bridge.mjs is not a regular file"
 [[ "$listing" == "bridge.mjs" ]] ||
   die bundle_not_single_file "$dist must contain exactly bridge.mjs, has: $(echo "$listing" | tr '\n' ' ')"
 inlined="$(grep -c "@sidepiece/contract" "$dist/bridge.mjs" || true)"
@@ -44,7 +45,9 @@ inlined="$(grep -c "@sidepiece/contract" "$dist/bridge.mjs" || true)"
 
 # ---- 2. target resolution --------------------------------------------------------------------
 host="${SIDEPIECE_DEPLOY_HOST:-big-chungus}"
-if [[ "$host" == "$(hostname -s)" || "$host" == "localhost" ]]; then
+host_lc="${host,,}"
+if [[ "$host_lc" == "$(hostname -s | tr '[:upper:]' '[:lower:]')" || "$host_lc" == "$(hostname -f 2>/dev/null | tr '[:upper:]' '[:lower:]')" ||
+  "$host_lc" == "localhost" || "$host_lc" == "127.0.0.1" ]]; then
   local_mode=1
 else
   local_mode=0
@@ -64,7 +67,7 @@ push() {
   if ((local_mode)); then
     rsync --times -- "$1" "$2"
   else
-    rsync --times -- "$1" "$host:$2"
+    rsync -e 'ssh -o BatchMode=yes' --times -- "$1" "$host:$2"
   fi
 }
 
@@ -103,7 +106,7 @@ if [[ "$node_raw" == *lts* || "$node_raw" == *latest* || "$node_raw" == */shims/
 fi
 [[ "$node_path" =~ /24\.15\.[0-9]+/ ]] || die node_pin_invalid "$node_path has no /24.15.<n>/ segment"
 node_version="$(run "$node_path" --version 2>/dev/null)" || die node_pin_invalid "$node_path --version failed on $host"
-[[ "$node_version" =~ ^v24\. ]] || die node_pin_invalid "$node_path prints $node_version, want v24.*"
+[[ "$node_version" =~ ^v24\.15\. ]] || die node_pin_invalid "$node_path prints $node_version, want v24.15.*"
 say "target $host ($([[ $local_mode == 1 ]] && echo local || echo ssh)), node $node_version, lib $lib_real, state $state_real (untouched)"
 
 # ---- 5. install ------------------------------------------------------------------------------
@@ -125,12 +128,17 @@ say "enabled and restarted $unit_name"
 
 # ---- 7. post-checks --------------------------------------------------------------------------
 env_line="$(run systemctl --user show "$unit_name" -p Environment --value 2>/dev/null || true)"
+# systemd applies assignments in order, so the LAST SIDEPIECE_BRIDGE_PORT= (e.g. a drop-in) wins.
 port=8787
-if [[ "$env_line" =~ (^|[[:space:]])SIDEPIECE_BRIDGE_PORT=([0-9]+) ]]; then
-  port="${BASH_REMATCH[2]}"
-fi
+for assignment in $env_line; do
+  if [[ "$assignment" =~ ^SIDEPIECE_BRIDGE_PORT=([0-9]+)$ ]]; then
+    port="${BASH_REMATCH[1]}"
+  fi
+done
 url="http://127.0.0.1:$port/v1/health"
-deadline=$((SECONDS + ${SIDEPIECE_DEPLOY_HEALTH_TIMEOUT:-10}))
+health_timeout="${SIDEPIECE_DEPLOY_HEALTH_TIMEOUT:-10}"
+[[ "$health_timeout" =~ ^[0-9]+$ ]] || die health_timeout_invalid "SIDEPIECE_DEPLOY_HEALTH_TIMEOUT='$health_timeout' is not a whole number of seconds"
+deadline=$((SECONDS + health_timeout))
 healthy=0
 last=""
 while :; do
@@ -148,6 +156,8 @@ if ((!healthy)); then
   holder="$(run ss -ltnp 2>/dev/null | grep -E "[:.]$port[[:space:]]" | head -n 1 | tr -s ' ' || true)"
   die health_unanswered "$url gave '$last' without x-sidepiece-contract; port $port holder: ${holder:-none}"
 fi
+active="$(run systemctl --user is-active "$unit_name" 2>/dev/null || true)"
+[[ "$active" == "active" ]] || die health_unanswered "$url answered, but $unit_name is '$active' -- something else is serving the port"
 say "health ok on $url"
 
 lib_listing="$(run ls -A -- "$lib_dir")"
