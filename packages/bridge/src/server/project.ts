@@ -2,6 +2,7 @@ import type { Degraded, ProjectRecord } from '@sidepiece/contract';
 import { log as defaultLog, type Logger } from '../log.ts';
 import { resolveProject } from '../registry/client.ts';
 import { mintGeneration } from '../registry/generation.ts';
+import { probePaths } from '../registry/paths.ts';
 import type { TurnStore } from '../turns/store.ts';
 import { DegradedError } from './errors.ts';
 import type { MutationResolver, RouteTable } from './http.ts';
@@ -13,6 +14,8 @@ export type ProjectRoutesOptions = {
   store: TurnStore | undefined;
   /** Bridge-wide degraded states (e.g. DS-25), echoed on every record; read per request. */
   degraded?: () => Degraded[];
+  /** The on-disk prober (DS-9/DS-10/DS-20) for GET only; injectable so tests pin `degraded`. */
+  probePaths?: typeof probePaths;
   log?: Logger;
 };
 
@@ -65,9 +68,13 @@ export function mutationResolver(options: ProjectRoutesOptions): MutationResolve
   };
 }
 
-/** `GET /v1/project/<pjid>`: the unwrapped Project Record, or `{"degraded":[DS-2]}`. */
+/**
+ * `GET /v1/project/<pjid>`: the unwrapped Project Record, or `{"degraded":[DS-2]}`. A served
+ * record's `degraded` is the Bridge-wide entries, then the on-disk probe (DS-9/DS-10/DS-20).
+ */
 export function projectRoutes(options: ProjectRoutesOptions): RouteTable {
   const current = currentProject(options);
+  const probe = options.probePaths ?? probePaths;
   return {
     '/v1/project/:pjid': {
       GET: async (_req, { pjid }) => {
@@ -75,7 +82,7 @@ export function projectRoutes(options: ProjectRoutesOptions): RouteTable {
         const record = await current(pjid);
         const body: ProjectRecord & { degraded: Degraded[] } = {
           ...record,
-          degraded: [...(options.degraded?.() ?? [])],
+          degraded: [...(options.degraded?.() ?? []), ...(await probe(record))],
         };
         return { status: 200, body };
       },

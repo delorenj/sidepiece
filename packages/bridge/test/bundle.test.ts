@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { copyFileSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { builtinModules } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { CONTRACT_VERSION } from '@sidepiece/contract';
 import { startBridge, stopBridge, tempStateDir } from './spawn-bridge.ts';
-import { SIDEPIECE_BOARD, startStubRegistry } from './stub-registry.ts';
+import { fixtureProjects, SIDEPIECE_BOARD, startStubRegistry } from './stub-registry.ts';
 
 const bundle = new URL('../dist/bridge.mjs', import.meta.url);
 
@@ -52,7 +52,12 @@ test('bundle runs outside the workspace and answers /v1/health', async () => {
 });
 
 test('bundle resolves against a stub registry: sidepiece, an unknown pjid, then 50 timed', async (t) => {
-  const stub = await startStubRegistry();
+  // A mkdtemp clone mirroring this repo: the pm role dir exists, scrum-master's does not.
+  const clone = mkdtempSync(join(tmpdir(), 'sidepiece-clone-'));
+  mkdirSync(join(clone, 'agents/hermes/pm'), { recursive: true });
+  const projects = fixtureProjects();
+  projects.sidepiece = { ...projects.sidepiece, repoPath: clone };
+  const stub = await startStubRegistry(projects);
   const stateDir = tempStateDir();
   let running: Awaited<ReturnType<typeof startBridge>> | undefined;
   try {
@@ -73,7 +78,13 @@ test('bundle resolves against a stub registry: sidepiece, an unknown pjid, then 
       (known.body.agents as { id: string }[]).map((a) => a.id),
       ['sidepiece-pm', 'sidepiece-scrum-master'],
     );
-    assert.deepEqual(known.body.degraded, []);
+    assert.equal(known.body.clonePath, clone);
+    assert.deepEqual(known.body.degraded, [
+      {
+        ds: 'DS-10',
+        params: { agent: 'sidepiece-scrum-master', roleDir: `${clone}/agents/hermes/scrum-master` },
+      },
+    ]);
 
     const unknown = await get('not-a-real-pjid');
     assert.equal(unknown.status, 200);
@@ -99,6 +110,7 @@ test('bundle resolves against a stub registry: sidepiece, an unknown pjid, then 
     const code = running ? await stopBridge(running.child) : 0;
     await stub.close();
     rmSync(stateDir, { recursive: true, force: true });
+    rmSync(clone, { recursive: true, force: true });
     assert.equal(code, 0);
   }
 });

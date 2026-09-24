@@ -18,7 +18,7 @@ import { createInterface } from 'node:readline';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { startBridge, stopBridge, tempStateDir, UNROUTABLE_REGISTRY_URL } from './spawn-bridge.ts';
-import { startStubRegistry } from './stub-registry.ts';
+import { fixtureProjects, startStubRegistry } from './stub-registry.ts';
 
 const bundle = fileURLToPath(new URL('../dist/bridge.mjs', import.meta.url));
 const installs = join(homedir(), '.local/share/mise/installs/node');
@@ -188,7 +188,14 @@ test('a rolled-back Bridge serves DS-25 from a store ahead of it, and leaves it 
   const cwd = mkdtempSync(join(tmpdir(), 'sidepiece-cwd-'));
   const stateDir = tempStateDir();
   const file = join(stateDir, 'turns.db');
-  const stub = await startStubRegistry();
+  // Hermetic: the sidepiece clone is a temp dir with every role dir present, so the on-disk
+  // probe adds nothing and `degraded` is exactly the Bridge-wide DS-25.
+  const clone = mkdtempSync(join(tmpdir(), 'sidepiece-clone-'));
+  mkdirSync(join(clone, 'agents/hermes/pm'), { recursive: true });
+  mkdirSync(join(clone, 'agents/hermes/scrum-master'), { recursive: true });
+  const projects = fixtureProjects();
+  projects.sidepiece = { ...projects.sidepiece, repoPath: clone };
+  const stub = await startStubRegistry(projects);
   try {
     const first = await startBridge(bundle, cwd, stateDir);
     assert.ok(first.lines.some((l) => l.event === 'store_opened' && l.userVersion === 1));
@@ -240,6 +247,7 @@ test('a rolled-back Bridge serves DS-25 from a store ahead of it, and leaves it 
     );
   } finally {
     await stub.close();
+    rmSync(clone, { recursive: true, force: true });
     rmSync(cwd, { recursive: true, force: true });
     rmSync(stateDir, { recursive: true, force: true });
   }
