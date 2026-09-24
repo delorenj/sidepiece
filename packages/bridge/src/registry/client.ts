@@ -46,7 +46,10 @@ export function indexRegistry(payload: unknown): RegistryIndex {
   for (const entry of Object.values(payload.projects)) {
     if (!isObject(entry)) continue;
     const { project_id: pjid } = entry;
-    if (typeof pjid === 'string') index.set(pjid, entry);
+    if (typeof pjid !== 'string') continue;
+    // Last-wins would silently pick one of two Projects; the answer is not trustworthy.
+    if (index.has(pjid)) throw new RegistryUnparseable(`duplicate pjid in registry: ${pjid}`);
+    index.set(pjid, entry);
   }
   return index;
 }
@@ -73,22 +76,36 @@ export async function fetchRegistry(url: string): Promise<RegistryIndex> {
 
 const str = (value: unknown): string => (typeof value === 'string' ? value : '');
 
-/** The record for one registry entry. A `repo_path` that is not a non-empty string is DS-7. */
+/** The agents object, validated: a malformed binding is DS-7, never coerced to `''`. */
+function agentsOf(pjid: string, rawAgents: unknown): AgentBinding[] {
+  if (rawAgents === undefined) return [];
+  if (!isObject(rawAgents)) throw new RegistryUnparseable(`${pjid}: agents is not an object`);
+  return Object.entries(rawAgents).map(([id, agent]) => {
+    if (!isObject(agent)) throw new RegistryUnparseable(`${pjid}: agent ${id} is not an object`);
+    const { role, role_dir: roleDir } = agent;
+    if (typeof role !== 'string' || typeof roleDir !== 'string') {
+      throw new RegistryUnparseable(`${pjid}: agent ${id} role or role_dir is not a string`);
+    }
+    return { id, role, roleDir };
+  });
+}
+
+/**
+ * The record for one registry entry. DS-7 when `repo_path` is not a non-empty string or has
+ * no basename, or when the agents are malformed. Missing `ticket_provider` fields are `''`.
+ */
 export function deriveRecord(pjid: string, entry: Entry): DerivedRecord {
   const { repo_path: repoPath, agents: rawAgents, ticket_provider: rawProvider } = entry;
   if (typeof repoPath !== 'string' || repoPath === '') {
     throw new RegistryUnparseable(`${pjid}: repo_path is not a non-empty string`);
   }
+  const repo = posix.basename(repoPath);
+  if (repo === '') throw new RegistryUnparseable(`${pjid}: repo_path has no basename`);
   const { type, board_id: rawBoard } = isObject(rawProvider) ? rawProvider : {};
-  const agents: AgentBinding[] = Object.entries(isObject(rawAgents) ? rawAgents : {}).map(
-    ([id, agent]) => {
-      const { role, role_dir: roleDir } = isObject(agent) ? agent : {};
-      return { id, role: str(role), roleDir: str(roleDir) };
-    },
-  );
+  const agents = agentsOf(pjid, rawAgents);
   return {
     pjid,
-    repo: posix.basename(repoPath),
+    repo,
     clonePath: repoPath,
     boardId: str(rawBoard),
     agents: sortAgents(agents),

@@ -63,6 +63,11 @@ export type StubRegistry = {
   projects: Record<string, FixtureProject>;
   /** When set, answers every request with this instead of the registry. */
   override?: { status: number; body: string };
+  /**
+   * When set, accepts the request and then stalls: `no-response` never writes anything,
+   * `stall-body` writes the headers and part of the body, then never ends it.
+   */
+  hang?: 'no-response' | 'stall-body';
   /** `GET /v1/registry` requests served so far. */
   requests: number;
   close(): Promise<void>;
@@ -77,6 +82,12 @@ export async function startStubRegistry(
       return;
     }
     stub.requests++;
+    if (stub.hang === 'no-response') return;
+    if (stub.hang === 'stall-body') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.write('{"projects":{');
+      return;
+    }
     const { status, body } = stub.override ?? {
       status: 200,
       body: JSON.stringify({

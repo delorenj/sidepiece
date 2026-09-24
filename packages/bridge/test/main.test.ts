@@ -17,7 +17,7 @@ import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { startBridge, stopBridge, tempStateDir } from './spawn-bridge.ts';
+import { startBridge, stopBridge, tempStateDir, UNROUTABLE_REGISTRY_URL } from './spawn-bridge.ts';
 import { startStubRegistry } from './stub-registry.ts';
 
 const bundle = fileURLToPath(new URL('../dist/bridge.mjs', import.meta.url));
@@ -31,7 +31,12 @@ function run(node: string, env: Record<string, string>, cwd?: string) {
   const own = 'SIDEPIECE_STATE_DIR' in env ? undefined : tempStateDir();
   try {
     return spawnSync(node, [bundle], {
-      env: { ...process.env, ...(own ? { SIDEPIECE_STATE_DIR: own } : {}), ...env },
+      env: {
+        ...process.env,
+        SIDEPIECE_REGISTRY_URL: UNROUTABLE_REGISTRY_URL,
+        ...(own ? { SIDEPIECE_STATE_DIR: own } : {}),
+        ...env,
+      },
       encoding: 'utf8',
       timeout: 10_000,
       ...(cwd ? { cwd } : {}),
@@ -242,7 +247,12 @@ test('a rolled-back Bridge serves DS-25 from a store ahead of it, and leaves it 
 
 /** The environment minus `SIDEPIECE_STATE_DIR`, with HOME pointed at a temp home. */
 function envWithoutStateDir(home: string): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...process.env, HOME: home, SIDEPIECE_BRIDGE_PORT: '0' };
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    HOME: home,
+    SIDEPIECE_BRIDGE_PORT: '0',
+    SIDEPIECE_REGISTRY_URL: UNROUTABLE_REGISTRY_URL,
+  };
   delete env.SIDEPIECE_STATE_DIR;
   return env;
 }

@@ -4,6 +4,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 
+/**
+ * Nothing listens on port 1: a spawned Bridge that was not handed a registry answers DS-6
+ * rather than reaching the developer's `SIDEPIECE_REGISTRY_URL` or the live default.
+ */
+export const UNROUTABLE_REGISTRY_URL = 'http://127.0.0.1:1';
+
 export type LogRecord = Record<string, unknown>;
 export type Running = {
   child: ChildProcess;
@@ -44,6 +50,7 @@ export function startBridge(
       ...process.env,
       SIDEPIECE_BRIDGE_PORT: '0',
       SIDEPIECE_STATE_DIR: stateDir,
+      SIDEPIECE_REGISTRY_URL: UNROUTABLE_REGISTRY_URL,
       ...extraEnv,
     },
     stdio: ['ignore', 'pipe', 'inherit'],

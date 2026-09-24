@@ -12,8 +12,9 @@ import {
   startStubRegistry,
 } from '../../test/stub-registry.ts';
 import type { LogLine } from '../log.ts';
+import { REGISTRY_TIMEOUT_MS } from '../registry/client.ts';
 import { openStore, type TurnStore } from '../turns/store.ts';
-import { createBridgeServer } from './http.ts';
+import { createBridgeServer, HANDLER_DEADLINE_MS } from './http.ts';
 import { type ProjectRoutesOptions, projectRoutes } from './project.ts';
 
 let stub: StubRegistry;
@@ -33,11 +34,16 @@ after(async () => {
 });
 
 /** A Bridge on an ephemeral port with only the project routes; `get` fetches a path. */
-async function bridge(options: Partial<ProjectRoutesOptions> = {}) {
+async function bridge(options: Partial<ProjectRoutesOptions> = {}, handlerDeadlineMs?: number) {
   const lines: LogLine[] = [];
   const log = (l: LogLine) => lines.push(l);
   const routes = projectRoutes({ registryUrl: stub.url, store, log, ...options });
-  const server = createBridgeServer({ startedAt: new Date().toISOString(), routes, log });
+  const server = createBridgeServer({
+    startedAt: new Date().toISOString(),
+    routes,
+    log,
+    ...(handlerDeadlineMs !== undefined ? { handlerDeadlineMs } : {}),
+  });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   return {
@@ -208,3 +214,30 @@ test('every /v1/project/:pjid… route returns a top-level numeric generation', 
     await b.close();
   }
 });
+
+for (const hang of ['no-response', 'stall-body'] as const) {
+  test(`a registry that accepts and then stalls (${hang}) is DS-6 at the registry timeout`, async () => {
+    stub.projects = fixtureProjects();
+    // Well under the default 10s deadline; a lost registry timeout would answer 500 here.
+    const deadline = 4_000;
+    assert.ok(REGISTRY_TIMEOUT_MS < deadline && deadline < HANDLER_DEADLINE_MS);
+    const b = await bridge({}, deadline);
+    stub.hang = hang;
+    try {
+      const started = performance.now();
+      const { status, text } = await b.get('/v1/project/sidepiece');
+      const elapsed = performance.now() - started;
+      assert.equal(status, 200);
+      assert.equal(
+        text,
+        JSON.stringify({ degraded: [{ ds: 'DS-6', params: { endpoint: stub.url } }] }),
+      );
+      assert.ok(elapsed >= REGISTRY_TIMEOUT_MS - 50, `answered after ${elapsed}ms`);
+      assert.ok(elapsed < deadline - 500, `answered after ${elapsed}ms`);
+      assert.ok(!b.lines.some((l) => l.event === 'handler_timed_out'));
+    } finally {
+      stub.hang = undefined;
+      await b.close();
+    }
+  });
+}

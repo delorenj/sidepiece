@@ -115,3 +115,29 @@ test('SIDEPIECE_REGISTRY_URL defaults to the live registry and refuses non-http 
     assert.equal(parseRegistryUrl(bad), undefined, bad);
   }
 });
+
+test('SIDEPIECE_REGISTRY_URL refuses a query, a fragment or credentials', () => {
+  for (const bad of [
+    'http://127.0.0.1:8764?x=1',
+    'http://127.0.0.1:8764/?',
+    'http://127.0.0.1:8764#frag',
+    'http://127.0.0.1:8764/#',
+    'http://user@127.0.0.1:8764',
+    'http://user:pw@127.0.0.1:8764',
+    'http://:pw@127.0.0.1:8764',
+    'http://@127.0.0.1:8764',
+  ]) {
+    assert.equal(parseRegistryUrl(bad), undefined, bad);
+  }
+});
+
+test('SIDEPIECE_REGISTRY_URL is returned normalised from the parsed URL, not the raw string', () => {
+  assert.equal(parseRegistryUrl('  http://127.0.0.1:8764  '), 'http://127.0.0.1:8764');
+  assert.equal(parseRegistryUrl('\thttp://127.0.0.1:8764/\n'), 'http://127.0.0.1:8764');
+  assert.equal(parseRegistryUrl('HTTP://Registry.Example:80/'), 'http://registry.example');
+  assert.equal(
+    parseRegistryUrl('https://registry.example/base//'),
+    'https://registry.example/base',
+  );
+  assert.equal(parseRegistryUrl('http://127.0.0.1:8764/a/../b'), 'http://127.0.0.1:8764/b');
+});

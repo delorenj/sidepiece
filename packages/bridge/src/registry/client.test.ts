@@ -181,3 +181,80 @@ test('the discriminator: unreachable is DS-6, unparseable is DS-7, anything else
   assert.equal(registryFailure(new Error('bug'), 'http://r'), undefined);
   assert.equal(registryFailure('x', 'http://r'), undefined);
 });
+
+test('two entries carrying the same identifier are DS-7, not last-wins', async () => {
+  const dup = registryEntry('sidepiece', { repoPath: '/r/elsewhere' });
+  assert.throws(
+    () =>
+      indexRegistry({
+        projects: { sidepiece: registryEntry('sidepiece', { repoPath: '/r/a' }), other: dup },
+      }),
+    (err: unknown) =>
+      err instanceof RegistryUnparseable && err.message === 'duplicate pjid in registry: sidepiece',
+  );
+  stub.override = {
+    status: 200,
+    body: JSON.stringify({
+      projects: {
+        a: registryEntry('momo', { repoPath: '/r/a' }),
+        b: registryEntry('momo', { repoPath: '/r/b' }),
+      },
+    }),
+  };
+  try {
+    assert.deepEqual(await degradedOf(resolveProject(stub.url, 'momo')), {
+      ds: 'DS-7',
+      params: { error: 'duplicate pjid in registry: momo' },
+    });
+  } finally {
+    stub.override = undefined;
+  }
+});
+
+test('a repo_path with no basename is DS-7', async () => {
+  for (const repoPath of ['/', '//']) {
+    stub.projects = { root: { repoPath } };
+    assert.deepEqual(
+      await degradedOf(resolveProject(stub.url, 'root')),
+      {
+        ds: 'DS-7',
+        params: { error: 'root: repo_path has no basename' },
+      },
+      repoPath,
+    );
+  }
+});
+
+test('malformed agents are DS-7, never coerced to empty strings', async () => {
+  const base = registryEntry('x', { repoPath: '/r/x' });
+  const cases: [unknown, string][] = [
+    [[], 'x: agents is not an object'],
+    ['pm', 'x: agents is not an object'],
+    [null, 'x: agents is not an object'],
+    [{ pm: 'agents/hermes/pm' }, 'x: agent pm is not an object'],
+    [{ pm: ['pm'] }, 'x: agent pm is not an object'],
+    [{ pm: { role_dir: 'agents/hermes/pm' } }, 'x: agent pm role or role_dir is not a string'],
+    [{ pm: { role: 'pm', role_dir: 7 } }, 'x: agent pm role or role_dir is not a string'],
+    [{ pm: { role: 'pm' } }, 'x: agent pm role or role_dir is not a string'],
+  ];
+  for (const [agents, message] of cases) {
+    assert.throws(
+      () => deriveRecord('x', { ...base, agents }),
+      (err: unknown) => err instanceof RegistryUnparseable && err.message === message,
+      JSON.stringify(agents),
+    );
+  }
+  // Absent agents is no agents, not an error.
+  const { agents: _omit, ...noAgents } = base;
+  assert.deepEqual(deriveRecord('x', noAgents).agents, []);
+  // And end to end, a bad requested entry is DS-7 on the wire.
+  stub.override = {
+    status: 200,
+    body: JSON.stringify({ projects: { x: { ...base, agents: [] } } }),
+  };
+  try {
+    assert.equal((await degradedOf(resolveProject(stub.url, 'x'))).ds, 'DS-7');
+  } finally {
+    stub.override = undefined;
+  }
+});

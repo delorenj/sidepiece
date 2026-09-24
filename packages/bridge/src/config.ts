@@ -89,17 +89,28 @@ export const DEFAULT_REGISTRY_URL = 'http://127.0.0.1:8764';
 
 /**
  * `SIDEPIECE_REGISTRY_URL`: unset means {@link DEFAULT_REGISTRY_URL}. Anything that is not an
- * absolute `http:`/`https:` URL is `undefined` (refuse to start). Trailing slashes are dropped
- * so `<url>/v1/registry` joins cleanly.
+ * absolute `http:`/`https:` URL, or that carries a query, a fragment or credentials, is
+ * `undefined` (refuse to start). The answer is rebuilt from the parsed URL (origin + path,
+ * trailing slashes dropped), so nothing of the raw string leaks into `<url>/v1/registry`.
  */
 export function parseRegistryUrl(raw: string | undefined): string | undefined {
   if (raw === undefined) return DEFAULT_REGISTRY_URL;
-  if (!/^https?:\/\/[^/]/i.test(raw)) return undefined;
+  if (!/^https?:\/\/[^/]/i.test(raw.trim())) return undefined;
+  let url: URL;
   try {
-    const url = new URL(raw);
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined;
+    url = new URL(raw);
   } catch {
     return undefined;
   }
-  return raw.replace(/\/+$/, '');
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined;
+  // An empty `?` or `#` parses to '' in `search`/`hash`, so the raw string is checked too.
+  if (url.search !== '' || url.hash !== '' || /[?#]/.test(raw)) return undefined;
+  // `http://@host` parses to an empty username, so the raw authority is checked too.
+  const authority =
+    raw
+      .trim()
+      .replace(/^https?:\/\//i, '')
+      .split(/[/?#]/)[0] ?? '';
+  if (url.username !== '' || url.password !== '' || authority.includes('@')) return undefined;
+  return `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
 }
