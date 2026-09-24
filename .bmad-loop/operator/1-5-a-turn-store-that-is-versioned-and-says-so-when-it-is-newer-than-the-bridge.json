@@ -1,0 +1,12 @@
+{
+  "actions": [
+    "Free 127.0.0.1:8787 for the Bridge (still held by curator-serve.service, python3 pid 6375, as owed by Story 1.4), or amend architecture.md's Bridge port",
+    "With 8787 free, on big-chungus run `node packages/bridge/dist/bridge.mjs & sleep 1; sqlite3 ~/.local/state/sidepiece/turns.db '.tables' 'PRAGMA user_version'; kill %1` and confirm `resolutions` and `1`",
+    "Then run `sqlite3 ~/.local/state/sidepiece/turns.db 'PRAGMA user_version = 9'`, restart the Bridge, run `curl -s -D- http://127.0.0.1:8787/v1/health` twice, and confirm HTTP/1.1 200 OK with {\"ds\":\"DS-25\",\"params\":{\"storeVersion\":\"9\",\"bridgeVersion\":\"1\"}} both times from the same PID, and that `PRAGMA user_version` still reads 9",
+    "Reset the real store afterwards with `rm ~/.local/state/sidepiece/turns.db*` (it holds no rows yet) so the next start migrates it to 1"
+  ],
+  "parked_at": "2026-09-24",
+  "run_id": "20260924-084403-0040",
+  "spec_file": "_bmad-output/implementation-artifacts/spec-1-5-a-turn-store-that-is-versioned-and-says-so-when-it-is-newer-than-the-bridge.md",
+  "story_key": "1-5-a-turn-store-that-is-versioned-and-says-so-when-it-is-newer-than-the-bridge"
+}
