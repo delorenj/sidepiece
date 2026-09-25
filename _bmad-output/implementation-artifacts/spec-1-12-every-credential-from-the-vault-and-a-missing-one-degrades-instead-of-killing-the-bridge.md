@@ -3,13 +3,20 @@ title: 'Story 1.12: Every credential from the vault — and a missing one degrad
 type: 'feature'
 created: '2026-09-25'
 baseline_revision: '4425642678608956cb32cb2d13499767caa2909f'
-status: 'in-review'
+status: 'done'
 review_loop_iteration: 0
-followup_review_recommended: false
+followup_review_recommended: true
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-1-context.md'
 warnings: [oversized]
-deferred: []
+deferred:
+  - summary: >-
+      An unresolved credential re-spawns op and writes a credential_unresolved warn line on every /v1/health, including the permanent no_bootstrap_token and op_bin_invalid reasons.
+    evidence: |-
+      The spec mandates per-request retry and a warn line on every failed attempt. Once Epic 2's sidebar polls health, a missing credential means one op child (up to about 2s) and one journal line per poll, and could hit service-account rate limits. It needs a retry cooldown and warn-on-change logging, decided at the point the poll cadence exists.
+    location: >-
+      packages/bridge/src/credentials/vault.ts
+    severity: low
 ---
 
 <intent-contract>
@@ -154,6 +161,28 @@ deferred: []
 
 ## Review Triage Log
 
+### 2026-09-25 — Review pass
+- intent_gap: 0
+- bad_spec: 0
+- patch: 14: (high 0, medium 2, low 12)
+- defer: 1: (high 0, medium 0, low 1)
+- reject: 13: (high 0, medium 1, low 12)
+- addressed_findings:
+  - `[medium]` `[patch]` The `/proc/<pid>/environ` token-isolation assertion could not fail (environ is the starting env). A `NODE_OPTIONS=--import` preload now dumps the Bridge's runtime `process.env` on exit, and the test asserts that neither the inherited token nor the op-token is in it. Proven to fail with the delete removed.
+  - `[medium]` `[patch]` Nothing in `test` enforced the references-only rule for `.env.op`. Added `credential-scan.sh --shape-only` (offline), the `secrets:shape` task, and a `test` dependency on it.
+  - `[low]` `[patch]` `childEnv()` also strips `CREDENTIALS_DIRECTORY`.
+  - `[low]` `[patch]` The token file is CRLF-safe, and whitespace-only content counts as no token.
+  - `[low]` `[patch]` Whitespace-only op stdout is reason `empty`, never cached.
+  - `[low]` `[patch]` The logged `op_failed` detail is capped at 1000 chars after redaction.
+  - `[low]` `[patch]` `credential_unresolved.reason` is typed as the closed union.
+  - `[low]` `[patch]` Removed the redundant `credentials:` argument in `main.ts`.
+  - `[low]` `[patch]` Fixed the stale "empty fallback" wording in the unit header and the test title.
+  - `[low]` `[patch]` The scan fails on a missing `.env.op` (`missing`).
+  - `[low]` `[patch]` The scan fails on `not_a_repo` and on `git grep` exit >1 (`grep_failed`), instead of reporting no hits.
+  - `[low]` `[patch]` A no-`=` `.env.op` line is reported by line number and never echoed.
+  - `[low]` `[patch]` Refs are iterated with `while IFS= read -r`.
+  - `[low]` `[patch]` The self-test covers each exclusion pattern on its own, plus the missing, no-`=`, not-a-repo and shape-only cases.
+
 ## Design Notes
 
 - **"Every tracked file … including in files intended to be gitignored"** is read as the tracked-`.bak` failure: a file that should have been ignored but got tracked. So the scan covers `git ls-files` exhaustively. The mode-0600 `.env` that the managed `materialize-env.sh` writes on `mise` enter is the pjangler platform convention (PJAN-84). It is untracked, and the Bridge never reads it; changing it is out of scope.
@@ -167,3 +196,61 @@ deferred: []
 - `mise run secrets:scan`: expected exit 0.
 - `mise run deploy`: expected exit 0. Then `curl -s https://big-chungus.burro-salmon.ts.net/v1/health | jq .degraded`: expected no DS-8.
 - Fault drop-in, then `systemctl --user restart sidepiece-bridge; sleep 3; systemctl --user is-active sidepiece-bridge; curl -s https://big-chungus.burro-salmon.ts.net/v1/health`: expected `active` and a DS-8 entry.
+
+## Auto Run Result
+
+Status: done
+
+**Summary:** The Bridge now resolves every declared credential (today only `op://DeLoSecrets/Plane/apiKey` → `plane`) from 1Password.
+- **Bootstrap token:** read from `$CREDENTIALS_DIRECTORY/op-token` at startup. An inherited `OP_SERVICE_ACCOUNT_TOKEN` is deleted and never used.
+- **Resolution:** `/usr/bin/op read --no-newline` runs in a child whose env is only the token, `HOME` and `XDG_CONFIG_HOME` (when set), with a 2s SIGKILL timeout. Successes are cached in memory; failures are retried on the next call.
+- **Startup:** fires `resolveAll()` without awaiting it, so no credential outcome can exit or delay `listen`.
+- **Health:** runs the registry and vault checks in parallel and reports each unresolved credential as `DS-8 {credential, dependency}`.
+- **Unit:** carries `LoadCredential=op-token:/etc/sidepiece/op-service-token`, a `SetCredential=op-token:\n` fallback (systemd 257 rejects an empty value; see the Spec Change Log) and `Environment=OP_BIN=/usr/bin/op`.
+- **`.env.op`:** holds only references. `PLANE_BASE_URL` and `PLANE_WORKSPACE` moved to `mise.toml [env]`.
+- **Scan:** `mise run secrets:scan` resolves every reference and proves no tracked file holds its value.
+
+**Files changed:**
+- `packages/bridge/src/credentials/vault.ts`: the credential list, token reader, `childEnv`, and `createVault` (`get`, `resolveAll`, `probe`).
+- `packages/bridge/src/credentials/vault.test.ts`: every matrix row, recovery in one process, concurrency, redaction, the detail cap, CRLF and whitespace handling.
+- `packages/bridge/src/main.ts`: vault wiring and the combined health probes.
+- `packages/bridge/src/log.ts`: `credential_resolved` and `credential_unresolved` (closed reason union).
+- `packages/bridge/test/spawn-bridge.ts` and `packages/bridge/test/main.test.ts`: a default stub vault, plus spawned tests for no credentials dir (stays up, exact DS-8), token isolation (op child only; runtime `process.env` dump), and nothing leaked to stdout.
+- `packages/bridge/test/deploy-paths.test.ts`: the three unit lines; no `EnvironmentFile=` and no token.
+- `packages/bridge/deploy/sidepiece-bridge.service`: the credential lines.
+- `packages/bridge/deploy/README.md`: the Credentials section (token file, rotation, fallback, DS-8 reasons).
+- `.env.op` and `mise.toml`: references only; the `secrets:scan`, `secrets:shape` and `secrets:selftest` tasks.
+- `.mise/scripts/credential-scan.sh` and `.mise/scripts/credential-scan.test.sh`: the scan (with `--shape-only`) and its self-test.
+
+**Review findings:** 14 patches applied (2 medium, 12 low), 1 deferred (per-poll retry and warn volume once the sidebar polls health), 13 rejected. The rejected findings include:
+- multi-line or short values
+- the cached `op` wrapper used as the scan's default
+- a rotated key staying cached (accepted in the spec)
+- `get()` throwing on an undeclared ref
+- timing-sensitive tests
+- the exact-list test
+- `.env` consumers outside mise (none found)
+- refs with spaces, sections, or outside `packages/`
+- the ~2.25s worst-case health latency (within the 3s budget)
+- the pre-existing rethrow in `registryHealth`
+- the intent-alignment note that live evidence was absent from the diff (it is recorded below)
+
+**Follow-up review recommendation:** true. Patched: high 0, medium 2, low 12. Score is 3×2 + 12 = 18, which is 5 or more.
+
+**Verification:**
+- `mise run lint && mise run test && mise run build`: exit 0. Bridge passed 227/227, 0 skipped; contract passed 5/5. The `secrets:selftest`, `deploy:selftest` and `lint:selftest` self-tests all passed.
+- `mise run secrets:scan`: `ok (2 reference(s), .env.op clean, no resolved value tracked)`. `mise run secrets:shape`: ok.
+- **Live on big-chungus:**
+  - `/etc/sidepiece/op-service-token` is `root:delorenj 0640` (dir `root:root 0755`), installed with `sudo -n`.
+  - The installed unit has `LoadCredential=op-token:/etc/sidepiece/op-service-token`, `SetCredential=op-token:\n` and `Environment=OP_BIN=/usr/bin/op`.
+  - Healthy: `is-active` prints `active`, and `curl -s https://big-chungus.burro-salmon.ts.net/v1/health | jq .degraded` prints `[]`.
+  - Invalid-token fault (temporary drop-in `LoadCredential=op-token:<file containing ops_invalidtoken>`): `is-active` prints `active`, `NRestarts=0`, `ExecMainStatus=0`, and health returns `200 [{"ds":"DS-8","params":{"credential":"op://DeLoSecrets/Plane/apiKey","dependency":"plane"}}]`. Removing the drop-in and restarting brings back `[]`.
+  - A missing token file (the fallback path) was also shown to stay `active` with DS-8 `no_bootstrap_token`.
+  - The journal has 0 hits for the resolved Plane value, 0 for the service token, and 11 for `op://DeLoSecrets/Plane/apiKey`.
+  - `port-conflict.conf` is untouched; the Bridge is still on 8789 behind the tailnet `/v1` mapping.
+
+**Residual risks:**
+- A rotated key that is already cached needs a Bridge restart.
+- `secrets:scan` needs a working `op` and token in the calling shell.
+- The per-poll retry and log volume is deferred.
+- The port-8787 operator decision from Story 1.10 is still open; it does not affect this story's ACs, which run over the tailnet URL.
