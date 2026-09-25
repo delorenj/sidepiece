@@ -18,7 +18,9 @@ Restart=always
 RestartSec=2
 SyslogIdentifier=sidepiece-bridge
 LoadCredential=op-token:/etc/sidepiece/op-service-token
-SetCredential=op-token:
+# The fallback is one newline, not empty: systemd 257 rejects `SetCredential=op-token:` as
+# "Invalid syntax" and ignores the line. The Bridge strips the trailing newline -> no token.
+SetCredential=op-token:\n
 # The real ELF binary, never ~/.local/bin/op (a shell wrapper with a Redis cache).
 Environment=OP_BIN=/usr/bin/op
 

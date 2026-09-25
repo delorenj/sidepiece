@@ -150,6 +150,8 @@ deferred: []
 
 ## Spec Change Log
 
+- 2026-09-25 (implementation): the unit's fallback is `SetCredential=op-token:\n`, not `SetCredential=op-token:`. Proven live: systemd 257 logs `sidepiece-bridge.service:21: Invalid syntax, ignoring: op-token:`, drops the line, and a missing token file then fails the unit with `243/CREDENTIALS` (the exact DS-4 this story prevents). `\n` is accepted, yields a 1-byte credential, and the Bridge's trailing-newline strip turns it into "no token" (`no_bootstrap_token`). Intent unchanged.
+
 ## Review Triage Log
 
 ## Design Notes

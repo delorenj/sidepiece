@@ -48,7 +48,7 @@ systemctl --user restart sidepiece-bridge
 
 A resolved value is cached in memory for the process lifetime, so rotating a key (or the token) that is already cached needs that restart. A credential that has not resolved yet is retried on the next call that needs it (today: every `/v1/health`), so a vault that comes back is picked up with no restart.
 
-**The fallback.** `SetCredential=op-token:` gives the credential an empty value when the file is missing. Without it systemd refuses to start the unit (`243/CREDENTIALS`) and the operator sees DS-4 for a host that is fine. With it, the Bridge starts, listens, and reports DS-8.
+**The fallback.** `SetCredential=op-token:\n` gives the credential a single newline when the file is missing, which the Bridge strips to empty, so the reason is `no_bootstrap_token`. (An empty `SetCredential=op-token:` is not accepted: systemd 257 logs `Invalid syntax, ignoring` and the fallback silently disappears.) Without it systemd refuses to start the unit (`243/CREDENTIALS`) and the operator sees DS-4 for a host that is fine. With it, the Bridge starts, listens, and reports DS-8.
 
 **What DS-8 means.** A declared credential did not resolve. `/v1/health` carries one entry per unresolved credential, `{"ds":"DS-8","params":{"credential":"op://DeLoSecrets/Plane/apiKey","dependency":"plane"}}`, and the journal carries a `credential_unresolved` warn line with the `reason`:
 

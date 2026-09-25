@@ -27,7 +27,8 @@ test('the unit runs the bundle from the deploy target and works in the state dir
 
 test('the unit loads the op token as a credential, with an empty fallback and an absolute OP_BIN', () => {
   assert.equal(unitKey('LoadCredential'), 'op-token:/etc/sidepiece/op-service-token');
-  assert.match(unit, /^SetCredential=op-token:$/m);
+  // One escaped newline: systemd 257 ignores an empty `op-token:` value as invalid syntax.
+  assert.equal(unitKey('SetCredential'), 'op-token:\\n');
   assert.match(unit, /^Environment=OP_BIN=\/usr\/bin\/op$/m);
   assert.doesNotMatch(unit, /^EnvironmentFile=/m);
   assert.doesNotMatch(unit, /OP_SERVICE_ACCOUNT_TOKEN/);
