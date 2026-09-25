@@ -1,9 +1,9 @@
 # Sidepiece Bridge -- installed verbatim by `mise run deploy` (.mise/scripts/deploy-bridge.sh).
 # Edit this tracked file, never the installed copy.
 # Credentials (Story 1.12): systemd hands the 1Password service-account token to the Bridge as
-# $CREDENTIALS_DIRECTORY/op-token; the Bridge passes it only to the `op` child. The empty
+# $CREDENTIALS_DIRECTORY/op-token; the Bridge passes it only to the `op` child. The one-newline
 # SetCredential= fallback keeps a missing token file from refusing the unit (243/CREDENTIALS,
-# which the operator would read as DS-4): the Bridge starts and reports DS-8 instead.
+# which the operator would read as DS-4): the Bridge strips it to no token and reports DS-8.
 [Unit]
 Description=Sidepiece Bridge (project-resolution daemon, loopback only)
 StartLimitIntervalSec=0

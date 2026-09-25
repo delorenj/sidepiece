@@ -87,13 +87,17 @@ run = "bash .mise/scripts/deploy-bridge.test.sh"
 description = "Prove .env.op holds only op:// references and no tracked file holds a resolved value"
 run = "bash .mise/scripts/credential-scan.sh"
 
+[tasks."secrets:shape"]
+description = "Offline: .env.op holds only op://DeLoSecrets references (no op, no resolution)"
+run = "bash .mise/scripts/credential-scan.sh --shape-only"
+
 [tasks."secrets:selftest"]
 description = "Self-test credential-scan.sh against a temp git repo with a fake op"
 run = "bash .mise/scripts/credential-scan.test.sh"
 
 [tasks.test]
 description = "Run package tests where present"
-depends = ["lint:selftest", "deploy:selftest", "secrets:selftest"]
+depends = ["lint:selftest", "deploy:selftest", "secrets:selftest", "secrets:shape"]
 run = "pnpm -r --if-present run test"
 
 [tasks.build]

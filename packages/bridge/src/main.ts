@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CONTRACT_VERSION, type Degraded } from '@sidepiece/contract';
 import { HOST, parsePort, parseRegistryUrl, requestedStateDir, resolveStateDir } from './config.ts';
-import { CREDENTIALS, createVault, readBootstrapToken } from './credentials/vault.ts';
+import { createVault, readBootstrapToken } from './credentials/vault.ts';
 import { registryHealth } from './health/registry.ts';
 import { log } from './log.ts';
 import { nodeRefusal } from './node-pin.ts';
@@ -120,7 +120,6 @@ const snapshot = openSnapshot(stateDir);
 const vault = createVault({
   token: readBootstrapToken(process.env),
   opBin: process.env.OP_BIN,
-  credentials: CREDENTIALS,
 });
 const registryProbe = registryHealth(registryUrl, snapshot);
 const server = createBridgeServer({

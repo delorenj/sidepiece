@@ -45,8 +45,6 @@ PLANE_API_KEY=op://DeLoSecrets/Plane/apiKey
 OPENROUTER_API_KEY=op://DeLoSecrets/openrouter/OpenCode
 EOF
   printf "export const REF = 'op://DeLoSecrets/Plane/apiKey';\n" >"$r/packages/bridge/src/vault.ts"
-  # Test files are excluded from reference collection: this one would be unresolvable.
-  printf "const x = 'op://DeLoSecrets/Nope/none';\n" >"$r/packages/bridge/test/x.test.ts"
   printf '%s\n' "$r"
 }
 # Throwaway fixture repos with fake values: the machine-wide git guards are not in play here.
@@ -89,8 +87,73 @@ commit "$r"
 if run_scan "$r"; then fail "an unresolvable reference fails"; else pass "an unresolvable reference fails"; fi
 grep -qx 'credential-scan: unresolvable: op://DeLoSecrets/Missing/field' "$tmp/out" &&
   pass "names the unresolvable ref" || fail "names the unresolvable ref: $(cat "$tmp/out")"
-grep -q 'Nope/none' "$tmp/out" && fail "test files are not scanned for references" ||
-  pass "test files are not scanned for references"
+
+# ---- test-file exclusions, one pattern each ----------------------------------------------
+# *.test.* only: a src/ file (no /test/ dir in its path) named x.test.ts.
+r="$(new_repo excl_dot_test)"
+printf "const x = 'op://DeLoSecrets/Nope/dottest';\n" >"$r/packages/bridge/src/x.test.ts"
+commit "$r"
+if run_scan "$r"; then pass "*.test.* files are not scanned for references"; else
+  fail "*.test.* files are not scanned for references: $(cat "$tmp/out")"
+fi
+# */test/* only: a helper under test/ whose name has no .test. in it.
+r="$(new_repo excl_test_dir)"
+printf "const x = 'op://DeLoSecrets/Nope/testdir';\n" >"$r/packages/bridge/test/helper.ts"
+commit "$r"
+if run_scan "$r"; then pass "*/test/* files are not scanned for references"; else
+  fail "*/test/* files are not scanned for references: $(cat "$tmp/out")"
+fi
+
+# ---- missing .env.op -----------------------------------------------------------------------
+r="$(new_repo noenv)"
+rm "$r/.env.op"
+commit "$r"
+if run_scan "$r"; then fail "a missing .env.op fails"; else pass "a missing .env.op fails"; fi
+grep -qx 'credential-scan: missing: .env.op' "$tmp/out" && pass "says missing: .env.op" ||
+  fail "says missing: .env.op: $(cat "$tmp/out")"
+grep -q 'ok' "$tmp/out" && fail "a missing .env.op is never reported clean" ||
+  pass "a missing .env.op is never reported clean"
+
+# ---- a line with no '=' --------------------------------------------------------------------
+r="$(new_repo noeq)"
+printf 'pasted-secret-looking-line-4c2e\n' >>"$r/.env.op"
+commit "$r"
+if run_scan "$r"; then fail "a no-= line fails"; else pass "a no-= line fails"; fi
+grep -qx 'credential-scan: not_a_reference: line 5' "$tmp/out" && pass "names the line number" ||
+  fail "names the line number: $(cat "$tmp/out")"
+grep -q 'pasted-secret-looking-line-4c2e' "$tmp/out" && fail "the line's text is never printed" ||
+  pass "the line's text is never printed"
+
+# ---- not a git work tree -------------------------------------------------------------------
+r="$tmp/norepo"
+mkdir -p "$r"
+cp "$tmp/clean/.env.op" "$r/.env.op"
+# TMPDIR may itself sit inside some repo: stop git's discovery at the temp dir.
+if GIT_CEILING_DIRECTORIES="$tmp" run_scan "$r"; then fail "a non-repo root fails"; else
+  pass "a non-repo root fails"
+fi
+grep -q '^credential-scan: not_a_repo: ' "$tmp/out" && pass "says not_a_repo" ||
+  fail "says not_a_repo: $(cat "$tmp/out")"
+
+# ---- --shape-only --------------------------------------------------------------------------
+# No op anywhere: PATH holds only a dir without op, and OP_BIN points at nothing.
+nobin="$tmp/nobin"
+mkdir -p "$nobin"
+for tool in bash git grep sort tr; do ln -sf "$(command -v "$tool")" "$nobin/$tool"; done
+shape() { PATH="$nobin" OP_BIN=/nonexistent/op "$nobin/bash" "$scan" --shape-only "$1" >"$tmp/out" 2>&1; }
+if shape "$tmp/clean"; then pass "--shape-only passes a clean .env.op with no op"; else
+  fail "--shape-only passes a clean .env.op with no op: $(cat "$tmp/out")"
+fi
+grep -q 'shape only: 2 reference(s)' "$tmp/out" && pass "--shape-only counts references" ||
+  fail "--shape-only counts references: $(cat "$tmp/out")"
+if shape "$tmp/notref"; then fail "--shape-only fails a non-reference"; else
+  pass "--shape-only fails a non-reference"
+fi
+grep -qx 'credential-scan: not_a_reference: PLANE_BASE_URL' "$tmp/out" &&
+  pass "--shape-only names the key" || fail "--shape-only names the key: $(cat "$tmp/out")"
+if shape "$tmp/unresolvable"; then pass "--shape-only never resolves (unresolvable ref passes)"; else
+  fail "--shape-only never resolves: $(cat "$tmp/out")"
+fi
 
 if ((fails > 0)); then
   printf '%d failure(s)\n' "$fails"

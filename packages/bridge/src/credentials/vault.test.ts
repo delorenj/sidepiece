@@ -9,6 +9,7 @@ import {
   childEnv,
   createVault,
   execFileRunner,
+  MAX_DETAIL_CHARS,
   OP_READ_TIMEOUT_MS,
   type Runner,
   type RunOutcome,
@@ -143,6 +144,29 @@ test('readBootstrapToken strips only the trailing newline', () => {
   assert.equal(readBootstrapToken({ CREDENTIALS_DIRECTORY: dir }), TOKEN);
 });
 
+test('readBootstrapToken strips a trailing CRLF, and only one line ending', () => {
+  const dir = tempDir();
+  writeFileSync(join(dir, 'op-token'), `${TOKEN}\r\n`);
+  assert.equal(readBootstrapToken({ CREDENTIALS_DIRECTORY: dir }), TOKEN);
+  writeFileSync(join(dir, 'op-token'), `${TOKEN}\n\n`);
+  assert.equal(readBootstrapToken({ CREDENTIALS_DIRECTORY: dir }), `${TOKEN}\n`);
+});
+
+test('whitespace-only op-token is no token: DS-8 no_bootstrap_token, op never spawned', async () => {
+  const dir = tempDir();
+  for (const content of ['   ', '\r\n', ' \t\n', '\n\n']) {
+    writeFileSync(join(dir, 'op-token'), content);
+    const token = readBootstrapToken({ CREDENTIALS_DIRECTORY: dir });
+    assert.equal(token, undefined, JSON.stringify(content));
+    const { run, calls } = recordingRunner([]);
+    const { logger, lines } = capture();
+    const vault = createVault({ token, opBin: '/usr/bin/op', run, logger });
+    assert.deepEqual(await vault.probe(), [DS8]);
+    assert.equal(calls.length, 0);
+    assert.equal((lines[0] as { reason?: string }).reason, 'no_bootstrap_token');
+  }
+});
+
 test('empty token (0-byte op-token): DS-8 no_bootstrap_token, op never spawned', async () => {
   const dir = tempDir();
   writeFileSync(join(dir, 'op-token'), '');
@@ -204,6 +228,38 @@ test('empty stdout is DS-8 empty', async () => {
   const vault = createVault({ token: TOKEN, opBin: fakeOp('exit 0'), logger });
   assert.deepEqual(await vault.probe(), [DS8]);
   assert.equal((lines[0] as { reason?: string }).reason, 'empty');
+});
+
+test('whitespace-only stdout is DS-8 empty, and is never cached', async () => {
+  const { run, calls } = recordingRunner([
+    { kind: 'exited', code: 0, stdout: ' \n\t', stderr: '' },
+    { kind: 'exited', code: 0, stdout: '\n', stderr: '' },
+    ok,
+  ]);
+  const { logger, lines } = capture();
+  const vault = createVault({ token: TOKEN, opBin: '/usr/bin/op', run, logger });
+  assert.deepEqual(await vault.probe(), [DS8]);
+  assert.deepEqual(await vault.probe(), [DS8]);
+  assert.deepEqual(await vault.probe(), []);
+  assert.equal(calls.length, 3, 'each whitespace answer was retried');
+  assert.deepEqual(
+    lines.map((l) => (l as { reason?: string }).reason ?? l.event),
+    ['empty', 'empty', 'credential_resolved'],
+  );
+});
+
+test('a logged op_failed detail is capped at 1000 chars, after token redaction', async () => {
+  // The token sits past the cap: redaction runs first, so no truncated token prefix survives.
+  const stderr = `${'x'.repeat(MAX_DETAIL_CHARS - 5)}${TOKEN}${'y'.repeat(2_000)}`;
+  const { run } = recordingRunner([{ kind: 'exited', code: 1, stdout: '', stderr }]);
+  const { logger, lines } = capture();
+  const vault = createVault({ token: TOKEN, opBin: '/usr/bin/op', run, logger });
+  assert.deepEqual(await vault.probe(), [DS8]);
+  const detail = (lines[0] as { detail?: string }).detail ?? '';
+  assert.equal(MAX_DETAIL_CHARS, 1_000);
+  assert.equal(detail.length, MAX_DETAIL_CHARS);
+  assert.equal(detail, `${'x'.repeat(MAX_DETAIL_CHARS - 5)}[reda`);
+  assert.ok(!detail.includes(TOKEN.slice(0, 5)));
 });
 
 test('hung op: DS-8 timeout within ~2s, and the child is killed', async () => {
@@ -311,10 +367,16 @@ test('probe keeps declaration order and never throws, even when the runner does'
   await vault.resolveAll();
 });
 
-test('token isolation: childEnv omits the token and copies the rest', () => {
-  const env = { OP_SERVICE_ACCOUNT_TOKEN: TOKEN, PATH: '/bin', HOME: '/h' };
+test('token isolation: childEnv omits the token and CREDENTIALS_DIRECTORY, and copies the rest', () => {
+  const env = {
+    OP_SERVICE_ACCOUNT_TOKEN: TOKEN,
+    CREDENTIALS_DIRECTORY: '/run/user/1000/credentials/sidepiece-bridge.service',
+    PATH: '/bin',
+    HOME: '/h',
+  };
   assert.deepEqual(childEnv(env), { PATH: '/bin', HOME: '/h' });
   assert.equal(env.OP_SERVICE_ACCOUNT_TOKEN, TOKEN, 'a copy; the input is untouched');
+  assert.ok(env.CREDENTIALS_DIRECTORY, 'a copy; the input is untouched');
 });
 
 test('the real runner passes exactly the given env to op', async () => {

@@ -25,7 +25,7 @@ test('the unit runs the bundle from the deploy target and works in the state dir
   assert.equal(`.local/state/${unitKey('StateDirectory')}`, DEFAULT_STATE_DIR);
 });
 
-test('the unit loads the op token as a credential, with an empty fallback and an absolute OP_BIN', () => {
+test('the unit loads the op token as a credential, with a one-newline fallback and an absolute OP_BIN', () => {
   assert.equal(unitKey('LoadCredential'), 'op-token:/etc/sidepiece/op-service-token');
   // One escaped newline: systemd 257 ignores an empty `op-token:` value as invalid syntax.
   assert.equal(unitKey('SetCredential'), 'op-token:\\n');

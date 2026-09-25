@@ -3,7 +3,7 @@ title: 'Story 1.12: Every credential from the vault — and a missing one degrad
 type: 'feature'
 created: '2026-09-25'
 baseline_revision: '4425642678608956cb32cb2d13499767caa2909f'
-status: 'in-progress'
+status: 'in-review'
 review_loop_iteration: 0
 followup_review_recommended: false
 context:

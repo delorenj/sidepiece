@@ -1,4 +1,5 @@
 import type { DsCode } from '@sidepiece/contract';
+import type { UnresolvedReason } from './credentials/vault.ts';
 
 /**
  * Structured logs (A-P8): one JSON object per line on stdout, `{ts, level, event, ...}`.
@@ -125,7 +126,7 @@ type WarnLine = Scoped &
         ds: DsCode;
         credential: string;
         dependency: string;
-        reason: string;
+        reason: UnresolvedReason;
         detail?: string;
       }
   );

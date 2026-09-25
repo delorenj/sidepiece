@@ -16,7 +16,7 @@ import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   defaultVaultEnv,
   FAKE_OP_TOKEN,
@@ -427,18 +427,29 @@ test('with no credentials dir the bundle stays up, health is 200 with exactly DS
   }
 });
 
-test('the token reaches only the op child: its env is exactly token + HOME, and never the Bridge environ', async (t) => {
+test("the token reaches only the op child: its env is exactly token + HOME, and never the Bridge's runtime process.env", async () => {
   const cwd = mkdtempSync(join(tmpdir(), 'sidepiece-cwd-'));
   const dumpDir = mkdtempSync(join(tmpdir(), 'sidepiece-opdump-'));
   const dump = join(dumpDir, 'env');
+  // The Bridge's RUNTIME env (after main.ts ran), not /proc/<pid>/environ, which is only the
+  // env it was started with: a preload writes process.env synchronously on exit.
+  const runtimeDump = join(dumpDir, 'runtime-env.json');
+  const preload = join(dumpDir, 'preload.mjs');
+  writeFileSync(
+    preload,
+    `import { writeFileSync } from 'node:fs';\n` +
+      `process.on('exit', () => writeFileSync(${JSON.stringify(runtimeDump)}, JSON.stringify(process.env)));\n`,
+  );
   const vault = stubVault(`/usr/bin/env > '${dump}'\nprintf '%s' '${FAKE_RESOLVED_VALUE}'`);
   const stub = await startStubRegistry(fixtureProjects());
   const parentToken = 'parent-env-token-must-not-travel';
   let running: Awaited<ReturnType<typeof startBridge>> | undefined;
+  let code: number | null = null;
   try {
     running = await startBridge(bundle, cwd, undefined, {
       SIDEPIECE_REGISTRY_URL: stub.url,
       OP_SERVICE_ACCOUNT_TOKEN: parentToken,
+      NODE_OPTIONS: `--import=${pathToFileURL(preload).href}`,
       ...vault.env,
     });
     const res = await fetch(`http://127.0.0.1:${running.port}/v1/health`, {
@@ -464,26 +475,26 @@ test('the token reaches only the op child: its env is exactly token + HOME, and 
         ...(process.env.XDG_CONFIG_HOME ? ['XDG_CONFIG_HOME'] : []),
       ].sort(),
     );
-    const environ = `/proc/${running.child.pid}/environ`;
-    if (!existsSync(environ)) {
-      t.diagnostic('no /proc; environ check skipped');
-    } else {
-      assert.ok(
-        !readFileSync(environ, 'utf8').includes(FAKE_OP_TOKEN),
-        'not in the Bridge environ',
-      );
-    }
     assert.ok(
       running.lines.some((l) => l.event === 'credential_resolved' && l.dependency === 'plane'),
     );
+    // SIGTERM exits through process.exit, so the preload's exit hook runs.
+    code = await stopBridge(running.child);
+    running = undefined;
+    const runtime = readFileSync(runtimeDump, 'utf8');
+    const parsed = JSON.parse(runtime) as Record<string, string>;
+    assert.equal(parsed.SIDEPIECE_REGISTRY_URL, stub.url, 'the dump is the Bridge env');
+    assert.equal('OP_SERVICE_ACCOUNT_TOKEN' in parsed, false, 'main.ts deleted the env token');
+    assert.ok(!runtime.includes(parentToken), 'the inherited token is gone at runtime');
+    assert.ok(!runtime.includes(FAKE_OP_TOKEN), 'the op-token never enters process.env');
   } finally {
-    const code = running ? await stopBridge(running.child) : 0;
+    if (running) code = await stopBridge(running.child);
     await stub.close();
     vault.remove();
     rmSync(dumpDir, { recursive: true, force: true });
     rmSync(cwd, { recursive: true, force: true });
-    assert.equal(code, 0);
   }
+  assert.equal(code, 0);
 });
 
 test('no stdout line ever carries the resolved value or the token', async () => {

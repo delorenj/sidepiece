@@ -27,6 +27,8 @@ const OP_MAX_BUFFER = 64 * 1024;
 /** The name systemd's `LoadCredential=op-token:...` gives the file in `$CREDENTIALS_DIRECTORY`. */
 export const OP_TOKEN_CREDENTIAL = 'op-token';
 const TOKEN_ENV = 'OP_SERVICE_ACCOUNT_TOKEN';
+/** A logged `op_failed` detail is capped here (after token redaction). */
+export const MAX_DETAIL_CHARS = 1_000;
 
 export type UnresolvedReason =
   | 'no_bootstrap_token'
@@ -53,8 +55,8 @@ export type Runner = (
 
 /**
  * Read the bootstrap token once, at startup: `$CREDENTIALS_DIRECTORY/op-token` with only the
- * trailing newline stripped. An unset dir, a missing or unreadable file, or empty content is
- * "no token" (`undefined`). `OP_SERVICE_ACCOUNT_TOKEN` is deleted from `env` either way and is
+ * trailing newline (`\n` or `\r\n`) stripped. An unset dir, a missing or unreadable file, or
+ * empty or whitespace-only content is "no token" (`undefined`). `OP_SERVICE_ACCOUNT_TOKEN` is deleted from `env` either way and is
  * never a token source.
  */
 export function readBootstrapToken(env: NodeJS.ProcessEnv = process.env): string | undefined {
@@ -67,14 +69,18 @@ export function readBootstrapToken(env: NodeJS.ProcessEnv = process.env): string
   } catch {
     return undefined;
   }
-  const token = raw.endsWith('\n') ? raw.slice(0, -1) : raw;
-  return token === '' ? undefined : token;
+  const token = raw.replace(/\r?\n$/, '');
+  return token.trim() === '' ? undefined : token;
 }
 
-/** A copy of `env` without the token. Every non-`op` child (`bb`, `tailscale`) is spawned with it. */
+/**
+ * A copy of `env` without the token, and without `CREDENTIALS_DIRECTORY` so the child cannot
+ * find `op-token` either. Every non-`op` child (`bb`, `tailscale`) is spawned with it.
+ */
 export function childEnv(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   const copy = { ...env };
   delete copy[TOKEN_ENV];
+  delete copy.CREDENTIALS_DIRECTORY;
   return copy;
 }
 
@@ -163,9 +169,9 @@ export function createVault(options: VaultOptions): Vault {
   const cache = new Map<string, string>();
   const inFlight = new Map<string, Promise<Resolution>>();
 
-  /** Never let op's stderr echo the token into a log line. */
+  /** Never let op's stderr echo the token into a log line; and never log a novel. */
   const scrub = (text: string) =>
-    token === undefined ? text : text.split(token).join('[redacted]');
+    (token === undefined ? text : text.split(token).join('[redacted]')).slice(0, MAX_DETAIL_CHARS);
 
   async function attempt(ref: string): Promise<Resolution> {
     if (token === undefined) return { ok: false, reason: 'no_bootstrap_token' };
@@ -181,7 +187,7 @@ export function createVault(options: VaultOptions): Vault {
           const detail = scrub(outcome.stderr.trim());
           return { ok: false, reason: 'op_failed', ...(detail ? { detail } : {}) };
         }
-        if (outcome.stdout === '') return { ok: false, reason: 'empty' };
+        if (outcome.stdout.trim() === '') return { ok: false, reason: 'empty' };
         return { ok: true, value: outcome.stdout };
     }
   }
