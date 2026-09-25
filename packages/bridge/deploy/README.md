@@ -42,7 +42,7 @@ Install or rotate it (from a shell whose `OP_SERVICE_ACCOUNT_TOKEN` is the new t
 
 ```sh
 sudo -n install -d -o root -g root -m 0755 /etc/sidepiece
-printf '%s' "$OP_SERVICE_ACCOUNT_TOKEN" | sudo -n install -o root -g "$USER" -m 0640 /dev/stdin /etc/sidepiece/op-service-token
+printf '%s' "${OP_SERVICE_ACCOUNT_TOKEN:?unset}" | sudo -n install -o root -g "$USER" -m 0640 /dev/stdin /etc/sidepiece/op-service-token
 systemctl --user restart sidepiece-bridge
 ```
 

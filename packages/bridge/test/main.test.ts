@@ -427,6 +427,64 @@ test('with no credentials dir the bundle stays up, health is 200 with exactly DS
   }
 });
 
+/** Resolves with the first line matching `pred`; rejects after `ms`. `lines` keeps filling. */
+function waitForLine(
+  lines: Record<string, unknown>[],
+  pred: (l: Record<string, unknown>) => boolean,
+  ms: number,
+): Promise<Record<string, unknown>> {
+  return new Promise((resolve, reject) => {
+    const deadline = Date.now() + ms;
+    const timer = setInterval(() => {
+      const hit = lines.find(pred);
+      if (hit !== undefined) {
+        clearInterval(timer);
+        resolve(hit);
+      } else if (Date.now() > deadline) {
+        clearInterval(timer);
+        reject(new Error(`no matching line within ${ms}ms`));
+      }
+    }, 20);
+  });
+}
+
+test('startup resolves every credential on its own, before any request', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'sidepiece-cwd-'));
+  let running: Awaited<ReturnType<typeof startBridge>> | undefined;
+  try {
+    running = await startBridge(bundle, cwd);
+    const line = await waitForLine(running.lines, (l) => l.event === 'credential_resolved', 5_000);
+    assert.equal(line.credential, 'op://DeLoSecrets/Plane/apiKey');
+    assert.equal(line.dependency, 'plane');
+  } finally {
+    if (running) assert.equal(await stopBridge(running.child), 0);
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test('a hung op never delays listening: the startup pass times out after listen, with no request', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'sidepiece-cwd-'));
+  const vault = stubVault('exec sleep 10');
+  let running: Awaited<ReturnType<typeof startBridge>> | undefined;
+  try {
+    running = await startBridge(bundle, cwd, undefined, vault.env);
+    const { lines } = running;
+    const listenAt = lines.findIndex((l) => l.event === 'listening');
+    assert.ok(
+      !lines.slice(0, listenAt).some((l) => String(l.event).startsWith('credential_')),
+      'no credential outcome precedes listening',
+    );
+    const warn = await waitForLine(lines, (l) => l.event === 'credential_unresolved', 5_000);
+    assert.equal(warn.reason, 'timeout');
+    assert.ok(lines.indexOf(warn) > listenAt);
+    assert.equal(running.child.exitCode, null, 'the Bridge never exits on a credential');
+  } finally {
+    if (running) assert.equal(await stopBridge(running.child), 0);
+    vault.remove();
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
 test("the token reaches only the op child: its env is exactly token + HOME, and never the Bridge's runtime process.env", async () => {
   const cwd = mkdtempSync(join(tmpdir(), 'sidepiece-cwd-'));
   const dumpDir = mkdtempSync(join(tmpdir(), 'sidepiece-opdump-'));

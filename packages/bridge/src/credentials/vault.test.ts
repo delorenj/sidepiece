@@ -264,9 +264,8 @@ test('a logged op_failed detail is capped at 1000 chars, after token redaction',
 
 test('hung op: DS-8 timeout within ~2s, and the child is killed', async () => {
   const dir = tempDir();
-  const marker = join(dir, 'survived');
   // A plain `sleep` would be a grandchild still holding stdout; exec keeps it one process.
-  const opBin = fakeOp(`echo $$ > '${join(dir, 'pid')}'\nexec sleep 10\ntouch '${marker}'`);
+  const opBin = fakeOp(`echo $$ > '${join(dir, 'pid')}'\nexec sleep 10`);
   const { logger, lines } = capture();
   const vault = createVault({ token: TOKEN, opBin, logger });
   const started = Date.now();
@@ -364,7 +363,7 @@ test('probe keeps declaration order and never throws, even when the runner does'
     { ds: 'DS-8', params: { credential: 'op://DeLoSecrets/A/x', dependency: 'a' } },
     { ds: 'DS-8', params: { credential: 'op://DeLoSecrets/C/z', dependency: 'c' } },
   ]);
-  await vault.resolveAll();
+  await assert.doesNotReject(vault.resolveAll());
 });
 
 test('token isolation: childEnv omits the token and CREDENTIALS_DIRECTORY, and copies the rest', () => {
