@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { afterEach, test } from 'node:test';
 import type { Degraded } from '@sidepiece/contract';
 import { fixtureProjects, type StubRegistry, startStubRegistry } from '../../test/stub-registry.ts';
+import { createHealth } from '../health/aggregator.ts';
 import { registryHealth } from '../health/registry.ts';
 import type { LogLine } from '../log.ts';
 import { openSnapshot, type RegistrySnapshot } from '../registry/snapshot.ts';
@@ -67,7 +68,7 @@ async function bridge(e: Env, options: Partial<ProjectRoutesOptions> = {}) {
   const server = createBridgeServer({
     startedAt: new Date().toISOString(),
     log,
-    probes: registryHealth(opts.registryUrl, e.snapshot),
+    health: createHealth({ probes: { registry: registryHealth(opts.registryUrl, e.snapshot) } }),
     routes: {
       ...projectRoutes(opts),
       '/v1/project/:pjid/fixture': {
@@ -348,6 +349,11 @@ test('health: a down registry is DS-6 in degraded, status still ok', async () =>
   assert.deepEqual(body.degraded, [
     { ds: 'DS-6', params: { endpoint: e.stub.url }, remedy: REMEDY },
   ]);
+  const [registry] = body.dependencies as Record<string, unknown>[];
+  assert.equal(registry?.name, 'registry');
+  assert.equal(registry?.status, 'failing');
+  assert.equal(registry?.ds, 'DS-6');
+  assert.ok(!('detail' in (registry ?? {})));
 });
 
 test('the mutation guard writes the snapshot too: currentProject passes it', async () => {

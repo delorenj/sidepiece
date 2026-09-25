@@ -23,6 +23,8 @@ LoadCredential=op-token:/etc/sidepiece/op-service-token
 SetCredential=op-token:\n
 # The real ELF binary, never ~/.local/bin/op (a shell wrapper with a Redis cache).
 Environment=OP_BIN=/usr/bin/op
+# Health's `relayed` (Story 1.13) asks this for the caller's path; unset or relative -> false.
+Environment=TAILSCALE_BIN=/usr/bin/tailscale
 
 [Install]
 WantedBy=default.target

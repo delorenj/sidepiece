@@ -33,3 +33,8 @@ test('the unit loads the op token as a credential, with a one-newline fallback a
   assert.doesNotMatch(unit, /^EnvironmentFile=/m);
   assert.doesNotMatch(unit, /OP_SERVICE_ACCOUNT_TOKEN/);
 });
+
+test('the unit names an absolute TAILSCALE_BIN for the relay probe', () => {
+  const envs = [...unit.matchAll(/^Environment=(.+)$/gm)].map((m) => m[1]);
+  assert.ok(envs.includes('TAILSCALE_BIN=/usr/bin/tailscale'), envs.join(' '));
+});

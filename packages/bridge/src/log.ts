@@ -1,5 +1,6 @@
 import type { DsCode } from '@sidepiece/contract';
 import type { UnresolvedReason } from './credentials/vault.ts';
+import type { RelayUnknownReason } from './health/relay.ts';
 
 /**
  * Structured logs (A-P8): one JSON object per line on stdout, `{ts, level, event, ...}`.
@@ -50,6 +51,14 @@ type InfoLine = Scoped &
     | { level: 'info'; event: 'mutation_rejected'; pjid?: string; error: string }
     /** A declared `op://` credential resolved; logged on the first success only. Never the value. */
     | { level: 'info'; event: 'credential_resolved'; credential: string; dependency: string }
+    /** `relayed` could not be read from tailscale and was answered `false`; no DsCode applies. */
+    | {
+        level: 'info';
+        event: 'relay_unknown';
+        client: string;
+        reason: RelayUnknownReason;
+        detail?: string;
+      }
   );
 
 type ErrorLine = Scoped &

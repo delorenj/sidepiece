@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import { type AddressInfo, connect } from 'node:net';
 import { after, before, test } from 'node:test';
-import { CONTRACT_VERSION, type Degraded, type ProjectRecord } from '@sidepiece/contract';
+import {
+  CONTRACT_VERSION,
+  DEPENDENCY_NAMES,
+  type Degraded,
+  type ProjectRecord,
+} from '@sidepiece/contract';
+import { createHealth } from '../health/aggregator.ts';
 import type { LogLine } from '../log.ts';
 import { DegradedError } from './errors.ts';
 import {
@@ -180,9 +186,17 @@ test('GET /v1/health returns the exact body, in key order', async () => {
     'node',
     'startedAt',
     'checkedAt',
+    'relayed',
+    'dependencies',
     'degraded',
   ]);
   assert.equal(health.status, 'ok');
+  assert.equal(health.relayed, false);
+  // The default aggregator has nothing registered: every row unprobed, never ok.
+  assert.deepEqual(
+    (health.dependencies as { name: string; status: string }[]).map((d) => [d.name, d.status]),
+    DEPENDENCY_NAMES.map((n) => [n, 'unprobed']),
+  );
   assert.equal(health.contractVersion, CONTRACT_VERSION);
   assert.equal(health.node, process.version);
   assert.equal(health.startedAt, startedAt);
@@ -413,65 +427,81 @@ test('every non-preflight response carries CORS read headers, errors included', 
   }
 });
 
-test('/v1/health lists the Bridge-wide entries first, then the probes', async () => {
-  const ds25: Degraded = { ds: 'DS-25', params: { storeVersion: '9', bridgeVersion: '1' } };
-  const ds6: Degraded = { ds: 'DS-6', params: { endpoint: 'http://127.0.0.1:1' } };
-  const srv = createBridgeServer({
-    startedAt,
-    log: () => {},
-    degraded: () => [ds25],
-    probes: async () => [ds6],
-  });
+async function healthFrom(options: Parameters<typeof createBridgeServer>[0], headers = {}) {
+  const srv = createBridgeServer(options);
   await new Promise<void>((resolve) => srv.listen(0, '127.0.0.1', resolve));
   try {
     const res = await fetch(`http://127.0.0.1:${(srv.address() as AddressInfo).port}/v1/health`, {
+      headers,
       signal: AbortSignal.timeout(5_000),
     });
-    assert.equal(res.status, 200);
-    const body = (await res.json()) as { status: string; degraded: unknown };
-    assert.equal(body.status, 'ok');
-    assert.deepEqual(body.degraded, [ds25, ds6]);
+    return { status: res.status, body: (await res.json()) as Record<string, unknown> };
   } finally {
     srv.closeAllConnections();
     await new Promise((resolve) => srv.close(resolve));
   }
+}
+
+test('/v1/health rows follow DEPENDENCY_NAMES, and degraded follows the rows', async () => {
+  const ds25: Degraded = { ds: 'DS-25', params: { storeVersion: '9', bridgeVersion: '1' } };
+  const ds6: Degraded = { ds: 'DS-6', params: { endpoint: 'http://127.0.0.1:1' } };
+  const failing = (d: Degraded) => ({
+    run: async () => ({ status: 'failing' as const, degraded: [d] as [Degraded] }),
+    timedOut: () => ({ status: 'failing' as const, degraded: [d] as [Degraded] }),
+  });
+  const { status, body } = await healthFrom({
+    startedAt,
+    log: () => {},
+    // Registered store-first: row order is the name list's, never registration order.
+    health: createHealth({ probes: { store: failing(ds25), registry: failing(ds6) } }),
+  });
+  assert.equal(status, 200);
+  assert.equal(body.status, 'ok');
+  const rows = body.dependencies as Record<string, unknown>[];
+  assert.deepEqual(
+    rows.map((r) => r.name),
+    [...DEPENDENCY_NAMES],
+  );
+  assert.deepEqual(
+    rows.slice(0, 2).map((r) => [r.status, r.ds]),
+    [
+      ['failing', 'DS-6'],
+      ['failing', 'DS-25'],
+    ],
+  );
+  assert.deepEqual(body.degraded, [ds6, ds25]);
 });
 
-test('/v1/health echoes the injected degraded[], read per request, and stays 200 ok', async () => {
-  let current: Degraded[] = [];
+test('/v1/health passes the first X-Forwarded-For entry only, never the socket address', async () => {
+  const seen: (string | undefined)[] = [];
+  const health = createHealth({
+    relay: async (ip) => {
+      seen.push(ip);
+      return ip === '100.81.162.91';
+    },
+  });
+  const opts = { startedAt, log: () => {}, health };
+  const relayed = await healthFrom(opts, { 'X-Forwarded-For': ' 100.81.162.91 , 10.0.0.1' });
+  assert.equal(relayed.body.relayed, true);
+  assert.deepEqual(relayed.body.degraded, [{ ds: 'DS-15' }]);
+  const direct = await healthFrom(opts);
+  assert.equal(direct.body.relayed, false);
+  assert.deepEqual(direct.body.degraded, []);
+  assert.deepEqual(seen, ['100.81.162.91', undefined]);
+});
+
+test('/v1/health does not read the Bridge-wide degraded option', async () => {
   let calls = 0;
-  const srv = createBridgeServer({
+  const { body } = await healthFrom({
     startedAt,
     log: () => {},
     degraded: () => {
       calls++;
-      return current;
+      return [{ ds: 'DS-25' }];
     },
   });
-  await new Promise<void>((resolve) => srv.listen(0, '127.0.0.1', resolve));
-  const url = `http://127.0.0.1:${(srv.address() as AddressInfo).port}/v1/health`;
-  const get = async () => {
-    const res = await fetch(url, { signal: AbortSignal.timeout(5_000) });
-    return { status: res.status, body: (await res.json()) as Record<string, unknown> };
-  };
-  try {
-    const empty = await get();
-    assert.equal(empty.status, 200);
-    assert.deepEqual(empty.body.degraded, []);
-    current = [{ ds: 'DS-25', params: { storeVersion: '9', bridgeVersion: '1' } }];
-    for (let i = 0; i < 2; i++) {
-      const { status, body } = await get();
-      assert.equal(status, 200);
-      assert.equal(body.status, 'ok');
-      assert.deepEqual(body.degraded, [
-        { ds: 'DS-25', params: { storeVersion: '9', bridgeVersion: '1' } },
-      ]);
-    }
-    assert.equal(calls, 3);
-  } finally {
-    srv.closeAllConnections();
-    await new Promise((resolve) => srv.close(resolve));
-  }
+  assert.deepEqual(body.degraded, []);
+  assert.equal(calls, 0);
 });
 
 test('a :name segment matches one non-empty segment, decoded once, and reaches the handler', async () => {

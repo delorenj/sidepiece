@@ -453,6 +453,167 @@ test('health concatenates registry then vault: DS-6 comes before DS-8', async ()
   }
 });
 
+const HEALTH_KEYS = [
+  'status',
+  'contractVersion',
+  'node',
+  'startedAt',
+  'checkedAt',
+  'relayed',
+  'dependencies',
+  'degraded',
+];
+const UNBUILT = ['fleet', 'gateway', 'plane', 'bloodbank', 'candystore'];
+type Row = { name: string; status: string; ds?: string; detail?: string };
+
+/** One spawned Bridge against a stub registry; `fn` gets a health reader. */
+async function withBridge(
+  extraEnv: Record<string, string>,
+  fn: (ctx: {
+    health: (headers?: Record<string, string>) => Promise<Record<string, unknown>>;
+    stub: Awaited<ReturnType<typeof startStubRegistry>>;
+    running: Awaited<ReturnType<typeof startBridge>>;
+  }) => Promise<void>,
+) {
+  const cwd = mkdtempSync(join(tmpdir(), 'sidepiece-cwd-'));
+  const stub = await startStubRegistry(fixtureProjects());
+  let running: Awaited<ReturnType<typeof startBridge>> | undefined;
+  try {
+    running = await startBridge(bundle, cwd, undefined, {
+      SIDEPIECE_REGISTRY_URL: stub.url,
+      ...extraEnv,
+    });
+    const port = running.port;
+    const health = async (headers: Record<string, string> = {}) => {
+      const res = await fetch(`http://127.0.0.1:${port}/v1/health`, {
+        headers,
+        signal: AbortSignal.timeout(5_000),
+      });
+      assert.equal(res.status, 200);
+      return (await res.json()) as Record<string, unknown>;
+    };
+    await fn({ health, stub, running });
+  } finally {
+    const code = running ? await stopBridge(running.child) : 0;
+    await stub.close().catch(() => {});
+    rmSync(cwd, { recursive: true, force: true });
+    assert.equal(code, 0);
+  }
+}
+
+test('healthy: all eight keys, eight rows in order, five unprobed, relayed false', async () => {
+  await withBridge({}, async ({ health }) => {
+    const body = await health();
+    assert.deepEqual(Object.keys(body), HEALTH_KEYS);
+    const rows = body.dependencies as Row[];
+    assert.deepEqual(
+      rows.map((r) => [r.name, r.status]),
+      [
+        ['registry', 'ok'],
+        ['store', 'ok'],
+        ['vault', 'ok'],
+        ...UNBUILT.map((n) => [n, 'unprobed']),
+      ],
+    );
+    assert.equal(body.relayed, false);
+    assert.deepEqual(body.degraded, []);
+  });
+});
+
+test('registry stopped: the registry row is DS-6 with no detail, and top-level carries DS-6', async () => {
+  await withBridge({}, async ({ health, stub }) => {
+    const endpoint = stub.url;
+    await stub.close();
+    const body = await health();
+    const [registry] = body.dependencies as Row[];
+    assert.equal(registry?.name, 'registry');
+    assert.equal(registry?.status, 'failing');
+    assert.equal(registry?.ds, 'DS-6');
+    assert.ok(!('detail' in (registry ?? {})));
+    assert.deepEqual(body.degraded, [
+      {
+        ds: 'DS-6',
+        params: { endpoint },
+        remedy: 'systemctl --user start pjangler-project-registry.service',
+      },
+    ]);
+  });
+});
+
+test('registry answering 500: the registry row is DS-7 with the error verbatim as detail', async () => {
+  await withBridge({}, async ({ health, stub }) => {
+    stub.override = { status: 500, body: 'boom' };
+    const body = await health();
+    const [registry] = body.dependencies as Row[];
+    assert.deepEqual(
+      {
+        name: registry?.name,
+        status: registry?.status,
+        ds: registry?.ds,
+        detail: registry?.detail,
+      },
+      { name: 'registry', status: 'failing', ds: 'DS-7', detail: '500 Internal Server Error' },
+    );
+    assert.deepEqual(body.degraded, [
+      { ds: 'DS-7', params: { error: '500 Internal Server Error' } },
+    ]);
+  });
+});
+
+/** A fake `tailscale` printing a status where the laptop peer has `CurAddr`. */
+function fakeTailscale(curAddr: string): { bin: string; remove(): void } {
+  const dir = mkdtempSync(join(tmpdir(), 'sidepiece-tailscale-'));
+  const json = join(dir, 'status.json');
+  writeFileSync(
+    json,
+    JSON.stringify({
+      Self: { TailscaleIPs: ['100.66.29.76'], CurAddr: '', Relay: 'nyc' },
+      Peer: {
+        'nodekey:laptop': {
+          TailscaleIPs: ['100.81.162.91', 'fd7a:115c:a1e0::2'],
+          CurAddr: curAddr,
+          Relay: 'nyc',
+          PeerRelay: '',
+        },
+      },
+    }),
+  );
+  const bin = join(dir, 'tailscale');
+  writeFileSync(
+    bin,
+    `#!/bin/sh
+cat '${json}'
+`,
+  );
+  chmodSync(bin, 0o755);
+  return { bin, remove: () => rmSync(dir, { recursive: true, force: true }) };
+}
+
+test('a relayed laptop peer is relayed:true with DS-15 last; a direct one is false', async () => {
+  const laptop = { 'X-Forwarded-For': '100.81.162.91' };
+  const relayed = fakeTailscale('');
+  const direct = fakeTailscale('192.168.1.36:41641');
+  try {
+    await withBridge({ TAILSCALE_BIN: relayed.bin }, async ({ health }) => {
+      const body = await health(laptop);
+      assert.equal(body.relayed, true);
+      assert.deepEqual(body.degraded, [{ ds: 'DS-15' }]);
+      // Without XFF there is no client to look up: never the socket's loopback address.
+      const local = await health();
+      assert.equal(local.relayed, false);
+      assert.deepEqual(local.degraded, []);
+    });
+    await withBridge({ TAILSCALE_BIN: direct.bin }, async ({ health }) => {
+      const body = await health(laptop);
+      assert.equal(body.relayed, false);
+      assert.deepEqual(body.degraded, []);
+    });
+  } finally {
+    relayed.remove();
+    direct.remove();
+  }
+});
+
 /** Resolves with the first line matching `pred`; rejects after `ms`. `lines` keeps filling. */
 function waitForLine(
   lines: Record<string, unknown>[],

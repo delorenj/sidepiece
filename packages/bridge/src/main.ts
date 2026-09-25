@@ -4,7 +4,11 @@ import { fileURLToPath } from 'node:url';
 import { CONTRACT_VERSION, type Degraded } from '@sidepiece/contract';
 import { HOST, parsePort, parseRegistryUrl, requestedStateDir, resolveStateDir } from './config.ts';
 import { createVault, readBootstrapToken } from './credentials/vault.ts';
+import { createHealth } from './health/aggregator.ts';
 import { registryHealth } from './health/registry.ts';
+import { relayHealth } from './health/relay.ts';
+import { storeHealth } from './health/store.ts';
+import { vaultHealth } from './health/vault.ts';
 import { log } from './log.ts';
 import { nodeRefusal } from './node-pin.ts';
 import { openSnapshot } from './registry/snapshot.ts';
@@ -121,11 +125,21 @@ const vault = createVault({
   token: readBootstrapToken(process.env),
   opBin: process.env.OP_BIN,
 });
-const registryProbe = registryHealth(registryUrl, snapshot);
+// One registration per upstream that has an adapter. The other five rows stay `unprobed`
+// until their filling story registers here: fleet and gateway (3.1), plane (2.19),
+// bloodbank (3.12), candystore (4.5).
+const health = createHealth({
+  probes: {
+    registry: registryHealth(registryUrl, snapshot),
+    store: storeHealth(() => degraded),
+    vault: vaultHealth(vault),
+  },
+  relay: relayHealth({ tailscaleBin: process.env.TAILSCALE_BIN }),
+});
 const server = createBridgeServer({
   startedAt: new Date().toISOString(),
   degraded: () => degraded,
-  probes: async () => (await Promise.all([registryProbe(), vault.probe()])).flat(),
+  health,
   routes: projectRoutes({ registryUrl, store, degraded: () => degraded, snapshot }),
 });
 void vault.resolveAll();

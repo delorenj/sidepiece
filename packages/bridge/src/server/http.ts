@@ -15,6 +15,7 @@ import {
   type Degraded,
   type ProjectRecord,
 } from '@sidepiece/contract';
+import { createHealth, type Health } from '../health/aggregator.ts';
 import { log as defaultLog, type Logger } from '../log.ts';
 import { assertCurrentGeneration, GenerationAheadError } from '../registry/generation.ts';
 import { HttpRefusal, toErrorResponse } from './errors.ts';
@@ -73,10 +74,13 @@ export type BridgeServerOptions = {
   log?: Logger;
   /** A-P7: a handler that has not settled by then is answered 500 and logged. */
   handlerDeadlineMs?: number;
-  /** Bridge-wide degraded states echoed on `/v1/health` (e.g. DS-25); read per request. */
+  /** Bridge-wide degraded states (e.g. DS-25) for the routes that read them; health does not. */
   degraded?: () => Degraded[];
-  /** Upstream probes run per health request; their entries follow the Bridge-wide ones. */
-  probes?: () => Promise<Degraded[]>;
+  /**
+   * The `/v1/health` aggregator, run per request with the caller's `X-Forwarded-For` address.
+   * Defaults to `createHealth({})`: every row `unprobed`.
+   */
+  health?: Health;
 };
 
 export const HANDLER_DEADLINE_MS = 10_000;
@@ -98,30 +102,35 @@ export function pathOf(url: string | undefined): string {
   return raw.split('?')[0] || '/';
 }
 
-function healthHandler(
-  startedAt: string,
-  degraded: () => Degraded[],
-  probes?: () => Promise<Degraded[]>,
-): Handler {
-  return async () => {
-    const probed = (await probes?.()) ?? [];
+/**
+ * The first `X-Forwarded-For` entry, trimmed, as `tailscale serve` sets it; `undefined` when
+ * absent. Never the socket address: behind `tailscale serve` that is always loopback.
+ */
+function forwardedFor(req: IncomingMessage): string | undefined {
+  const xff = req.headers['x-forwarded-for'];
+  const raw = Array.isArray(xff) ? xff[0] : xff;
+  return raw?.split(',')[0]?.trim() || undefined;
+}
+
+function healthHandler(startedAt: string, health: Health): Handler {
+  return async (req) => {
+    const { relayed, dependencies, degraded } = await health(forwardedFor(req));
     const body: BridgeHealth = {
       status: 'ok',
       contractVersion: CONTRACT_VERSION,
       node: process.version,
       startedAt,
       checkedAt: new Date().toISOString(),
-      degraded: [...degraded(), ...probed],
+      relayed,
+      dependencies,
+      degraded,
     };
     return { status: 200, body };
   };
 }
 
 function clientOf(req: IncomingMessage): string {
-  const xff = req.headers['x-forwarded-for'];
-  const raw = Array.isArray(xff) ? xff[0] : xff;
-  const first = raw?.split(',')[0]?.trim();
-  return first || req.socket.remoteAddress || 'unknown';
+  return forwardedFor(req) || req.socket.remoteAddress || 'unknown';
 }
 
 /** `Access-Control-Allow-Origin`: the request's `Origin` reflected, or `*` when it sent none. */
@@ -232,12 +241,8 @@ function assertGuarded(routes: RouteTable): void {
 }
 
 /** The Bridge's own routes. Exported so tests can force every one of them to throw. */
-export function builtinRoutes(
-  startedAt: string,
-  degraded: () => Degraded[] = () => [],
-  probes?: () => Promise<Degraded[]>,
-): RouteTable {
-  return { '/v1/health': { GET: healthHandler(startedAt, degraded, probes) } };
+export function builtinRoutes(startedAt: string, health: Health = createHealth()): RouteTable {
+  return { '/v1/health': { GET: healthHandler(startedAt, health) } };
 }
 
 type Route = Partial<Record<string, Handler>>;
@@ -290,7 +295,7 @@ export function createBridgeServer(options: BridgeServerOptions): Server {
   const log = options.log ?? defaultLog;
   const deadlineMs = options.handlerDeadlineMs ?? HANDLER_DEADLINE_MS;
   const routes: RouteTable = {
-    ...builtinRoutes(options.startedAt, options.degraded, options.probes),
+    ...builtinRoutes(options.startedAt, options.health),
     ...options.routes,
   };
   assertGuarded(routes);
