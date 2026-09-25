@@ -3,13 +3,15 @@ title: 'Story 1.11: Reach the Bridge from the laptop over the tailnet, on HTTPS,
 type: 'feature'
 created: '2026-09-24'
 baseline_revision: '862468b622b304cc25dfdb64d57db5150498cb9d'
-status: 'in-progress'
+status: 'awaiting-operator'
 review_loop_iteration: 0
 followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-1-context.md'
 warnings: [oversized]
 deferred: []
+operator_actions:
+  - "With 8787 freed (or keeping 8789), confirm `tailscale serve status` exposes /v1 and run `mise run tailnet:check` from carries-macbook-air to confirm TLS, LNA preflight, and p95 under 1000ms."
 ---
 
 <intent-contract>

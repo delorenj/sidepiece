@@ -1,0 +1,9 @@
+{
+  "actions": [
+    "With 8787 freed (or keeping 8789), confirm `tailscale serve status` exposes /v1 and run `mise run tailnet:check` from carries-macbook-air to confirm TLS, LNA preflight, and p95 under 1000ms."
+  ],
+  "parked_at": "2026-09-24",
+  "run_id": "20260924-133837-2ee7",
+  "spec_file": "_bmad-output/implementation-artifacts/spec-1-11-reach-the-bridge-from-the-laptop-over-the-tailnet-on-https-with-the-lna-headers.md",
+  "story_key": "1-11-reach-the-bridge-from-the-laptop-over-the-tailnet-on-https-with-the-lna-headers"
+}

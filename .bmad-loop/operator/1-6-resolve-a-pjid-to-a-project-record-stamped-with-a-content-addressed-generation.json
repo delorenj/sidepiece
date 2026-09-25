@@ -1,0 +1,12 @@
+{
+  "actions": [
+    "Free 127.0.0.1:8787 for the Bridge (still held by curator-serve.service, python3 pid 6375, as owed by Stories 1.4/1.5), or amend architecture.md's Bridge port",
+    "With 8787 free, on big-chungus run `node packages/bridge/dist/bridge.mjs &` then `curl -s http://127.0.0.1:8787/v1/project/sidepiece` and `curl -s -D- http://127.0.0.1:8787/v1/project/not-a-real-pjid`, and confirm the unwrapped record with degraded [] and HTTP/1.1 200 OK with exactly {\"degraded\":[{\"ds\":\"DS-2\",\"params\":{\"pjid\":\"not-a-real-pjid\"}}]}",
+    "Time 50 sequential `curl -s -o /dev/null -w '%{time_total}\\n' http://127.0.0.1:8787/v1/project/sidepiece` runs and confirm p95 under 1s (18787 measured p50 4.99ms, p95 6.83ms)",
+    "Rename one Project's repo in pjangler (move its repo_path), re-resolve it on 8787, and confirm `sqlite3 ~/.local/state/sidepiece/turns.db \"SELECT generation FROM resolutions WHERE pjid='<pjid>'\"` goes from 1 to 2; then move it back and confirm 3, never 1"
+  ],
+  "parked_at": "2026-09-24",
+  "run_id": "20260924-084403-0040",
+  "spec_file": "_bmad-output/implementation-artifacts/spec-1-6-resolve-a-pjid-to-a-project-record-stamped-with-a-content-addressed-generation.md",
+  "story_key": "1-6-resolve-a-pjid-to-a-project-record-stamped-with-a-content-addressed-generation"
+}
