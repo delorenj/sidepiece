@@ -1,5 +1,9 @@
 # Sidepiece Bridge -- installed verbatim by `mise run deploy` (.mise/scripts/deploy-bridge.sh).
-# Edit this tracked file, never the installed copy. Credentials (LoadCredential=) arrive in Story 1.12.
+# Edit this tracked file, never the installed copy.
+# Credentials (Story 1.12): systemd hands the 1Password service-account token to the Bridge as
+# $CREDENTIALS_DIRECTORY/op-token; the Bridge passes it only to the `op` child. The empty
+# SetCredential= fallback keeps a missing token file from refusing the unit (243/CREDENTIALS,
+# which the operator would read as DS-4): the Bridge starts and reports DS-8 instead.
 [Unit]
 Description=Sidepiece Bridge (project-resolution daemon, loopback only)
 StartLimitIntervalSec=0
@@ -13,6 +17,10 @@ StateDirectory=sidepiece
 Restart=always
 RestartSec=2
 SyslogIdentifier=sidepiece-bridge
+LoadCredential=op-token:/etc/sidepiece/op-service-token
+SetCredential=op-token:
+# The real ELF binary, never ~/.local/bin/op (a shell wrapper with a Redis cache).
+Environment=OP_BIN=/usr/bin/op
 
 [Install]
 WantedBy=default.target

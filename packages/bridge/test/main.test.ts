@@ -17,7 +17,16 @@ import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { startBridge, stopBridge, tempStateDir, UNROUTABLE_REGISTRY_URL } from './spawn-bridge.ts';
+import {
+  defaultVaultEnv,
+  FAKE_OP_TOKEN,
+  FAKE_RESOLVED_VALUE,
+  startBridge,
+  stopBridge,
+  stubVault,
+  tempStateDir,
+  UNROUTABLE_REGISTRY_URL,
+} from './spawn-bridge.ts';
 import { fixtureProjects, startStubRegistry } from './stub-registry.ts';
 
 const bundle = fileURLToPath(new URL('../dist/bridge.mjs', import.meta.url));
@@ -34,6 +43,7 @@ function run(node: string, env: Record<string, string>, cwd?: string) {
       env: {
         ...process.env,
         SIDEPIECE_REGISTRY_URL: UNROUTABLE_REGISTRY_URL,
+        ...defaultVaultEnv(),
         ...(own ? { SIDEPIECE_STATE_DIR: own } : {}),
         ...env,
       },
@@ -215,9 +225,10 @@ test('a rolled-back Bridge serves DS-25 from a store ahead of it, and leaves it 
     assert.equal(ahead.ds, 'DS-25');
     assert.equal(ahead.storeVersion, 9);
     assert.equal(ahead.bridgeVersion, 1);
-    const pid = running.child.pid;
+    const { child, port } = running;
+    const pid = child.pid;
     for (let i = 0; i < 2; i++) {
-      const res = await fetch(`http://127.0.0.1:${running.port}/v1/health`, {
+      const res: Response = await fetch(`http://127.0.0.1:${port}/v1/health`, {
         signal: AbortSignal.timeout(5_000),
       });
       assert.equal(res.status, 200);
@@ -374,4 +385,156 @@ test('a refused default state dir logs the default path it refused, not an empty
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
+});
+
+const DS8_PLANE = {
+  ds: 'DS-8',
+  params: { credential: 'op://DeLoSecrets/Plane/apiKey', dependency: 'plane' },
+};
+
+test('with no credentials dir the bundle stays up, health is 200 with exactly DS-8, and SIGTERM exits 0', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'sidepiece-cwd-'));
+  const stub = await startStubRegistry(fixtureProjects());
+  let running: Awaited<ReturnType<typeof startBridge>> | undefined;
+  try {
+    running = await startBridge(bundle, cwd, undefined, {
+      SIDEPIECE_REGISTRY_URL: stub.url,
+      CREDENTIALS_DIRECTORY: '',
+    });
+    const { child, port } = running;
+    const pid = child.pid;
+    for (let i = 0; i < 2; i++) {
+      const res: Response = await fetch(`http://127.0.0.1:${port}/v1/health`, {
+        signal: AbortSignal.timeout(5_000),
+      });
+      assert.equal(res.status, 200);
+      const body = (await res.json()) as { degraded: unknown };
+      assert.deepEqual(body.degraded, [DS8_PLANE]);
+      assert.equal(child.pid, pid);
+      assert.equal(child.exitCode, null, 'the Bridge never exits on a credential');
+    }
+    const warn = running.lines.find((l) => l.event === 'credential_unresolved');
+    assert.ok(warn);
+    assert.equal(warn.level, 'warn');
+    assert.equal(warn.ds, 'DS-8');
+    assert.equal(warn.reason, 'no_bootstrap_token');
+    assert.equal(warn.credential, 'op://DeLoSecrets/Plane/apiKey');
+  } finally {
+    const code = running ? await stopBridge(running.child) : 0;
+    await stub.close();
+    rmSync(cwd, { recursive: true, force: true });
+    assert.equal(code, 0);
+  }
+});
+
+test('the token reaches only the op child: its env is exactly token + HOME, and never the Bridge environ', async (t) => {
+  const cwd = mkdtempSync(join(tmpdir(), 'sidepiece-cwd-'));
+  const dumpDir = mkdtempSync(join(tmpdir(), 'sidepiece-opdump-'));
+  const dump = join(dumpDir, 'env');
+  const vault = stubVault(`/usr/bin/env > '${dump}'\nprintf '%s' '${FAKE_RESOLVED_VALUE}'`);
+  const stub = await startStubRegistry(fixtureProjects());
+  const parentToken = 'parent-env-token-must-not-travel';
+  let running: Awaited<ReturnType<typeof startBridge>> | undefined;
+  try {
+    running = await startBridge(bundle, cwd, undefined, {
+      SIDEPIECE_REGISTRY_URL: stub.url,
+      OP_SERVICE_ACCOUNT_TOKEN: parentToken,
+      ...vault.env,
+    });
+    const res = await fetch(`http://127.0.0.1:${running.port}/v1/health`, {
+      signal: AbortSignal.timeout(5_000),
+    });
+    assert.deepEqual(((await res.json()) as { degraded: unknown }).degraded, []);
+    const env = readFileSync(dump, 'utf8');
+    assert.ok(
+      env.includes(`OP_SERVICE_ACCOUNT_TOKEN=${FAKE_OP_TOKEN}\n`),
+      'the op child has the token',
+    );
+    assert.ok(!env.includes(parentToken), 'the parent env token is never a token source');
+    const keys = env
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => l.split('=')[0])
+      .filter((k) => k !== 'PWD' && k !== 'SHLVL' && k !== '_');
+    assert.deepEqual(
+      keys.sort(),
+      [
+        'HOME',
+        'OP_SERVICE_ACCOUNT_TOKEN',
+        ...(process.env.XDG_CONFIG_HOME ? ['XDG_CONFIG_HOME'] : []),
+      ].sort(),
+    );
+    const environ = `/proc/${running.child.pid}/environ`;
+    if (!existsSync(environ)) {
+      t.diagnostic('no /proc; environ check skipped');
+    } else {
+      assert.ok(
+        !readFileSync(environ, 'utf8').includes(FAKE_OP_TOKEN),
+        'not in the Bridge environ',
+      );
+    }
+    assert.ok(
+      running.lines.some((l) => l.event === 'credential_resolved' && l.dependency === 'plane'),
+    );
+  } finally {
+    const code = running ? await stopBridge(running.child) : 0;
+    await stub.close();
+    vault.remove();
+    rmSync(dumpDir, { recursive: true, force: true });
+    rmSync(cwd, { recursive: true, force: true });
+    assert.equal(code, 0);
+  }
+});
+
+test('no stdout line ever carries the resolved value or the token', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'sidepiece-cwd-'));
+  const stub = await startStubRegistry(fixtureProjects());
+  const child = spawn(process.execPath, [bundle], {
+    cwd,
+    env: {
+      ...process.env,
+      ...defaultVaultEnv(),
+      SIDEPIECE_BRIDGE_PORT: '0',
+      SIDEPIECE_STATE_DIR: cwd,
+      SIDEPIECE_REGISTRY_URL: stub.url,
+    },
+    stdio: ['ignore', 'pipe', 'inherit'],
+    timeout: 30_000,
+  });
+  let raw = '';
+  child.stdout.setEncoding('utf8');
+  child.stdout.on('data', (chunk: string) => {
+    raw += chunk;
+  });
+  try {
+    const port = await new Promise<number>((resolve, reject) => {
+      const timer = setInterval(() => {
+        const m = raw.match(/"event":"listening"[^\n]*"port":(\d+)/);
+        if (m) {
+          clearInterval(timer);
+          resolve(Number(m[1]));
+        }
+      }, 20);
+      child.once('exit', (code) => {
+        clearInterval(timer);
+        reject(new Error(`bridge exited early with ${code}`));
+      });
+    });
+    for (const path of ['/v1/health', '/v1/project/sidepiece', '/v1/health']) {
+      const res = await fetch(`http://127.0.0.1:${port}${path}`, {
+        signal: AbortSignal.timeout(5_000),
+      });
+      const text = await res.text();
+      assert.ok(!text.includes(FAKE_RESOLVED_VALUE), `${path} response`);
+      assert.ok(!text.includes(FAKE_OP_TOKEN), `${path} response`);
+    }
+  } finally {
+    assert.equal(await stopBridge(child), 0);
+    await stub.close();
+    rmSync(cwd, { recursive: true, force: true });
+  }
+  assert.ok(raw.includes('"event":"credential_resolved"'), 'the credential did resolve');
+  assert.ok(raw.includes('op://DeLoSecrets/Plane/apiKey'), 'the reference is logged');
+  assert.ok(!raw.includes(FAKE_RESOLVED_VALUE), 'no line carries the value');
+  assert.ok(!raw.includes(FAKE_OP_TOKEN), 'no line carries the token');
 });

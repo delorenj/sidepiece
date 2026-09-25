@@ -47,6 +47,8 @@ type InfoLine = Scoped &
       }
     /** A mutation refused before anything was compared: `400` with a typed `error` code. */
     | { level: 'info'; event: 'mutation_rejected'; pjid?: string; error: string }
+    /** A declared `op://` credential resolved; logged on the first success only. Never the value. */
+    | { level: 'info'; event: 'credential_resolved'; credential: string; dependency: string }
   );
 
 type ErrorLine = Scoped &
@@ -116,6 +118,16 @@ type WarnLine = Scoped &
       }
     /** The registry did not answer and its last good copy could not be read; `ds` is the cause. */
     | { level: 'warn'; event: 'snapshot_unreadable'; ds: DsCode; path: string; detail: string }
+    /** DS-8: a declared credential did not resolve, on every failed attempt. Never the value or token. */
+    | {
+        level: 'warn';
+        event: 'credential_unresolved';
+        ds: DsCode;
+        credential: string;
+        dependency: string;
+        reason: string;
+        detail?: string;
+      }
   );
 
 export type LogLine = InfoLine | WarnLine | ErrorLine;

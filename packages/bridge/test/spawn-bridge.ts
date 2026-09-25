@@ -1,5 +1,5 @@
 import { type ChildProcess, spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -9,6 +9,56 @@ import { createInterface } from 'node:readline';
  * rather than reaching the developer's `SIDEPIECE_REGISTRY_URL` or the live default.
  */
 export const UNROUTABLE_REGISTRY_URL = 'http://127.0.0.1:1';
+
+/** What the stub vault's fake `op` prints for any reference. Not a secret. */
+export const FAKE_RESOLVED_VALUE = 'stub-resolved-credential-value';
+/** The stub vault's `op-token` content. Not a secret. */
+export const FAKE_OP_TOKEN = 'stub-op-bootstrap-token';
+
+export type StubVault = {
+  /** Pass as `CREDENTIALS_DIRECTORY`: holds `op-token`. */
+  dir: string;
+  /** Pass as `OP_BIN`: an executable `#!/bin/sh` fake `op`. */
+  opBin: string;
+  env: { CREDENTIALS_DIRECTORY: string; OP_BIN: string };
+  remove(): void;
+};
+
+/**
+ * A temp dir holding `op-token` and a fake `op` whose body is `script` (default: print
+ * {@link FAKE_RESOLVED_VALUE}). The shebang is absolute and the default body uses only shell
+ * builtins, so it works with PATH stripped. The caller removes it.
+ */
+export function stubVault(
+  script = `printf '%s' '${FAKE_RESOLVED_VALUE}'`,
+  token = FAKE_OP_TOKEN,
+): StubVault {
+  const dir = mkdtempSync(join(tmpdir(), 'sidepiece-vault-'));
+  writeFileSync(join(dir, 'op-token'), `${token}\n`);
+  const opBin = join(dir, 'op');
+  writeFileSync(opBin, `#!/bin/sh\n${script}\n`);
+  chmodSync(opBin, 0o755);
+  return {
+    dir,
+    opBin,
+    env: { CREDENTIALS_DIRECTORY: dir, OP_BIN: opBin },
+    remove: () => rmSync(dir, { recursive: true, force: true }),
+  };
+}
+
+let shared: StubVault | undefined;
+/**
+ * The default vault every spawned Bridge gets, so existing exact `degraded` assertions do not
+ * gain DS-8. Created once per test process and removed on exit.
+ */
+export function defaultVaultEnv(): StubVault['env'] {
+  if (shared === undefined) {
+    const created = stubVault();
+    shared = created;
+    process.once('exit', () => created.remove());
+  }
+  return shared.env;
+}
 
 export type LogRecord = Record<string, unknown>;
 export type Running = {
@@ -35,7 +85,8 @@ const owned = new WeakMap<ChildProcess, string>();
  * Start a bundle and wait for its `listening` JSON line; rejects on exit or after 10s.
  * Without a state dir, a fresh one from {@link tempStateDir} is used and removed again by
  * {@link stopBridge} (or on a failed start). A caller-passed dir is the caller's to remove.
- * `extraEnv` is layered last, e.g. `SIDEPIECE_REGISTRY_URL` pointing at a stub registry.
+ * `extraEnv` is layered last, e.g. `SIDEPIECE_REGISTRY_URL` pointing at a stub registry. The
+ * default stub vault ({@link defaultVaultEnv}) comes before it, so a test can override either.
  */
 export function startBridge(
   bundle: string,
@@ -51,6 +102,7 @@ export function startBridge(
       SIDEPIECE_BRIDGE_PORT: '0',
       SIDEPIECE_STATE_DIR: stateDir,
       SIDEPIECE_REGISTRY_URL: UNROUTABLE_REGISTRY_URL,
+      ...defaultVaultEnv(),
       ...extraEnv,
     },
     stdio: ['ignore', 'pipe', 'inherit'],

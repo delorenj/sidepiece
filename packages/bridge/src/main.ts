@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CONTRACT_VERSION, type Degraded } from '@sidepiece/contract';
 import { HOST, parsePort, parseRegistryUrl, requestedStateDir, resolveStateDir } from './config.ts';
+import { CREDENTIALS, createVault, readBootstrapToken } from './credentials/vault.ts';
 import { registryHealth } from './health/registry.ts';
 import { log } from './log.ts';
 import { nodeRefusal } from './node-pin.ts';
@@ -33,7 +34,7 @@ if (port === undefined) {
   process.exit(1);
 }
 
-// Startup order: pin -> port -> state dir -> registry URL -> store -> listen.
+// Startup order: pin -> port -> state dir -> registry URL -> store -> snapshot -> vault -> listen.
 const rawStateDir = process.env.SIDEPIECE_STATE_DIR;
 const home = homedir();
 const stateDir = resolveStateDir(rawStateDir, {
@@ -113,12 +114,22 @@ try {
 
 // The registry's last good copy lives beside the store, and is kept under DS-25 too.
 const snapshot = openSnapshot(stateDir);
+
+// Credentials never gate startup: a missing token, a bad OP_BIN or a failing `op` is DS-8 on
+// health, retried on the next call. No vault outcome calls process.exit or delays listen.
+const vault = createVault({
+  token: readBootstrapToken(process.env),
+  opBin: process.env.OP_BIN,
+  credentials: CREDENTIALS,
+});
+const registryProbe = registryHealth(registryUrl, snapshot);
 const server = createBridgeServer({
   startedAt: new Date().toISOString(),
   degraded: () => degraded,
-  probes: registryHealth(registryUrl, snapshot),
+  probes: async () => (await Promise.all([registryProbe(), vault.probe()])).flat(),
   routes: projectRoutes({ registryUrl, store, degraded: () => degraded, snapshot }),
 });
+void vault.resolveAll();
 
 server.on('error', (err: NodeJS.ErrnoException) => {
   log({

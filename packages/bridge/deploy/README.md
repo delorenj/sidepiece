@@ -32,6 +32,41 @@ loginctl show-user "$USER" -p Linger                         # Linger=yes, so it
 
 After a reboot: `systemctl --user is-active sidepiece-bridge` should print `active` before you log in.
 
+## Credentials
+
+Every credential comes from 1Password. The Bridge holds exactly one bootstrap secret, the `DeLoSecrets` service-account token, and resolves each declared `op://` reference (today only `op://DeLoSecrets/Plane/apiKey`, dependency `plane`) with `/usr/bin/op read --no-newline <ref>` in a child that alone receives the token. Nothing in the repo reads or holds the token.
+
+**The token file.** `/etc/sidepiece/op-service-token`, owned `root:delorenj`, mode `0640`, in a `root:root 0755` dir. The unit loads it with `LoadCredential=op-token:/etc/sidepiece/op-service-token`, so the Bridge sees it as `$CREDENTIALS_DIRECTORY/op-token`. It is never in `Environment=` or an `EnvironmentFile=`, and the Bridge deletes any inherited `OP_SERVICE_ACCOUNT_TOKEN` at startup.
+
+Install or rotate it (from a shell whose `OP_SERVICE_ACCOUNT_TOKEN` is the new token; nothing is echoed):
+
+```sh
+sudo -n install -d -o root -g root -m 0755 /etc/sidepiece
+printf '%s' "$OP_SERVICE_ACCOUNT_TOKEN" | sudo -n install -o root -g "$USER" -m 0640 /dev/stdin /etc/sidepiece/op-service-token
+systemctl --user restart sidepiece-bridge
+```
+
+A resolved value is cached in memory for the process lifetime, so rotating a key (or the token) that is already cached needs that restart. A credential that has not resolved yet is retried on the next call that needs it (today: every `/v1/health`), so a vault that comes back is picked up with no restart.
+
+**The fallback.** `SetCredential=op-token:` gives the credential an empty value when the file is missing. Without it systemd refuses to start the unit (`243/CREDENTIALS`) and the operator sees DS-4 for a host that is fine. With it, the Bridge starts, listens, and reports DS-8.
+
+**What DS-8 means.** A declared credential did not resolve. `/v1/health` carries one entry per unresolved credential, `{"ds":"DS-8","params":{"credential":"op://DeLoSecrets/Plane/apiKey","dependency":"plane"}}`, and the journal carries a `credential_unresolved` warn line with the `reason`:
+
+| reason | cause |
+|--------|-------|
+| `no_bootstrap_token` | no `$CREDENTIALS_DIRECTORY`, or `op-token` missing, unreadable or empty (the fallback) |
+| `op_bin_invalid` | `OP_BIN` unset or not absolute; `op` is never spawned |
+| `op_failed` | `op` exited non-zero (its stderr verbatim as `detail`: bad token, vault down) or could not be spawned |
+| `timeout` | `op` took longer than 2s and was killed |
+| `empty` | `op` printed nothing |
+
+The Bridge never exits and never delays `listen` over a credential. No log line, health entry or response carries a resolved value or the token; the `op://` reference does appear.
+
+```sh
+journalctl --user -u sidepiece-bridge -o cat | grep credential_          # resolved / unresolved lines
+mise run secrets:scan                                                    # .env.op is references only; no resolved value tracked
+```
+
 ## Port 8787
 
 `curator-serve.service` (folder-curator) holds `127.0.0.1:8787` today, and `pdf2md-serve.service` holds 8788. Until one moves, a temporary drop-in runs the Bridge on 8789:

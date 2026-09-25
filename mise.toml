@@ -8,6 +8,9 @@ pnpm = "11.5.0"
 [env]
 _.path = [".mise/scripts", "agents/hermes/pm"]
 _.file = [".env"]
+# Non-secret Plane config (moved out of .env.op, which holds only op:// references).
+PLANE_BASE_URL = "https://plane.delo.sh"
+PLANE_WORKSPACE = "33god"
 
 # This block will handle the linking of
 # agent files to the main AGENTS.md file.
@@ -80,9 +83,17 @@ run = "pnpm exec biome check --write ."
 description = "Self-test deploy-bridge.sh's refusal and no-touch paths with stub systemctl/loginctl/curl"
 run = "bash .mise/scripts/deploy-bridge.test.sh"
 
+[tasks."secrets:scan"]
+description = "Prove .env.op holds only op:// references and no tracked file holds a resolved value"
+run = "bash .mise/scripts/credential-scan.sh"
+
+[tasks."secrets:selftest"]
+description = "Self-test credential-scan.sh against a temp git repo with a fake op"
+run = "bash .mise/scripts/credential-scan.test.sh"
+
 [tasks.test]
 description = "Run package tests where present"
-depends = ["lint:selftest", "deploy:selftest"]
+depends = ["lint:selftest", "deploy:selftest", "secrets:selftest"]
 run = "pnpm -r --if-present run test"
 
 [tasks.build]
