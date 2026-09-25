@@ -5,7 +5,7 @@ created: '2026-09-25'
 baseline_revision: '4425642678608956cb32cb2d13499767caa2909f'
 status: 'done'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-1-context.md'
 warnings: [oversized]
@@ -196,6 +196,15 @@ deferred:
   - `[low]` `[patch]` The probe-order test's trailing `resolveAll()` now asserts `doesNotReject`.
   - `[low]` `[patch]` The README token install uses `${OP_SERVICE_ACCOUNT_TOKEN:?unset}`, so an empty shell can't write a 0-byte token file.
 
+### 2026-09-25 — Review pass
+- intent_gap: 0
+- bad_spec: 0
+- patch: 1: (high 0, medium 0, low 1)
+- defer: 0
+- reject: 28: (high 0, medium 1, low 27)
+- addressed_findings:
+  - `[low]` `[patch]` No test combined a registry DS-6 with a vault DS-8, so the Always-rule "registry followed by vault, concatenated in that order" was never exercised. Added a bundle test (stub registry closed, no credentials dir) asserting health `degraded` is exactly `[DS-6, DS-8]`. It fails when the `Promise.all` order in `main.ts` is swapped.
+
 ## Design Notes
 
 - **"Every tracked file … including in files intended to be gitignored"** is read as the tracked-`.bak` failure: a file that should have been ignored but got tracked. So the scan covers `git ls-files` exhaustively. The mode-0600 `.env` that the managed `materialize-env.sh` writes on `mise` enter is the pjangler platform convention (PJAN-84). It is untracked, and the Bridge never reads it; changing it is out of scope.
@@ -214,33 +223,38 @@ deferred:
 
 Status: done
 
-**Summary:** This was a follow-up review of Story 1.12, the vault-backed credentials that degrade to DS-8 instead of stopping the Bridge. It covered the full diff since `4425642678608956cb32cb2d13499767caa2909f`. No runtime code changed. The pass closed two verification gaps on the story's "Never" list: startup resolution now runs with no request, and a hung `op` is proven not to delay `listen`. It also fixed two test nits and hardened one README command.
+**Summary:** A second follow-up review of Story 1.12, the vault-backed credentials that degrade to DS-8 instead of stopping the Bridge. It covered the full diff since `4425642678608956cb32cb2d13499767caa2909f`, across 13 files. No runtime code changed. One verification gap was closed: health's registry-then-vault concatenation order is now tested.
 
 **Files changed:**
-- `packages/bridge/test/main.test.ts`: a `waitForLine` helper and two spawned-bundle tests (startup resolves on its own; a hung `op` never gets ahead of `listening`).
-- `packages/bridge/src/credentials/vault.test.ts`: dropped the dead `marker` from the hung-op test, and asserted `doesNotReject` on the trailing `resolveAll()`.
-- `packages/bridge/deploy/README.md`: the token install guards against an unset or empty `OP_SERVICE_ACCOUNT_TOKEN`.
+- `packages/bridge/test/main.test.ts`: a bundle test in which the registry is down and there is no credentials dir. It asserts health `degraded` is exactly `[DS-6, DS-8]`.
 
-**Review findings:** 5 patches applied (all low), 0 deferred, 31 rejected. The rejected findings include:
-- Repeats of the previous pass's rejections: multi-line or short values, spaces in refs, refs outside `packages/`, `get()` throwing on an undeclared ref, a rotated key staying cached, `.env` consumers outside mise, and timing sensitivity.
-- Per-poll retry and log volume: already the spec's deferred item (DW-6).
-- `childEnv` and `vault.get` not wired to any consumer: no `bb`, `tailscale` or Plane consumer exists yet, and a Plane adapter is out of scope.
-- Four-segment `op://` refs: the spec mandates `<item>/<field>`.
-- `secrets:scan` not in `test`: by design, because it needs a live `op` and token. `secrets:shape` covers the offline part.
-- Health latency waiting on `op` (medium): bounded at about 2.25s, within budget, and handled with DW-6.
-- Cosmetic items: repeated comments, a type-only circular import, and the no-stdout test's own spawn loop.
+**Review findings:** 1 patch applied (low), 0 deferred, 28 rejected. The rejected findings include:
+- Repeats of earlier passes' rejections:
+  - per-poll `op` retry, log volume and health latency (medium; already DW-6)
+  - `childEnv` and `vault.get` not wired to any consumer yet
+  - four-segment refs
+  - `secrets:scan` not in `test`
+  - multi-line or short values
+  - a rotated key staying cached
+  - `.env` consumers outside mise
+  - timing-sensitive tests
+  - `get()` on an undeclared ref
+  - the type-only circular import
+- CRLF, trailing-space or inline-comment `.env.op` lines, and interpolated source refs: the scan still fails closed, just with the code `unresolvable` rather than a shape error.
+- No timeout on `op` in the manual `secrets:scan`: it is an operator-run tool.
+- A wrapper `op` ignoring `--no-newline`, and a lone-`\r` token: the unit pins the real `/usr/bin/op`.
+- The `SetCredential=op-token:\n` deviation: already recorded in the Spec Change Log with live proof.
+- The live-host and systemd surface not being in the diff: re-verified live below.
 
-**Follow-up review recommendation:** true. Patched: high 0, medium 0, low 5. Score is 3×0 + 5 = 5, which is 5 or more. All five are test or doc hardening, so a further pass is expected to find little.
+**Follow-up review recommendation:** false. Patched: high 0, medium 0, low 1. Score is 3×0 + 1 = 1, which is below 5.
 
 **Verification:**
 - `mise run lint && mise run test && mise run build`: exit 0.
-  - Bridge passed 229/229 (the 227 before plus the 2 new), 0 skipped. Contract passed 5/5.
-  - The `secrets:selftest`, `deploy:selftest`, `lint:selftest` and `secrets:shape` checks all passed.
-- Mutation checks on `src/main.ts`, restored afterwards with no diff:
-  - `await vault.resolveAll()` fails the hung-op test.
-  - Deleting the call fails both new tests.
+  - Bridge passed 230/230 (the 229 before plus the 1 new), 0 skipped. Contract passed 5/5.
+  - The `secrets:selftest`, `deploy:selftest`, `lint:selftest` and `secrets:shape` checks passed.
+- Mutation check: swapping `Promise.all([registryProbe(), vault.probe()])` to vault-first fails the new test. `main.ts` was restored with no diff, and the bundle was rebuilt.
 - `mise run secrets:scan`: `ok (2 reference(s), .env.op clean, no resolved value tracked)`.
-- Live: `systemctl --user is-active sidepiece-bridge` printed `active`, and `curl -s https://big-chungus.burro-salmon.ts.net/v1/health | jq .degraded` printed `[]`. There was no redeploy, because no runtime code changed.
+- Live: `systemctl --user is-active sidepiece-bridge` printed `active`, and tailnet `/v1/health | jq .degraded` printed `[]`. There was no redeploy, because no runtime code changed.
 
 **Residual risks:**
 - Per-poll `op` retry and warn volume once the sidebar polls health (DW-6).

@@ -427,6 +427,32 @@ test('with no credentials dir the bundle stays up, health is 200 with exactly DS
   }
 });
 
+test('health concatenates registry then vault: DS-6 comes before DS-8', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'sidepiece-cwd-'));
+  const stub = await startStubRegistry(fixtureProjects());
+  const endpoint = stub.url;
+  const remedy = 'systemctl --user start pjangler-project-registry.service';
+  let running: Awaited<ReturnType<typeof startBridge>> | undefined;
+  try {
+    running = await startBridge(bundle, cwd, undefined, {
+      SIDEPIECE_REGISTRY_URL: stub.url,
+      CREDENTIALS_DIRECTORY: '',
+    });
+    await stub.close();
+    const res = await fetch(`http://127.0.0.1:${running.port}/v1/health`, {
+      signal: AbortSignal.timeout(5_000),
+    });
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as { degraded: unknown };
+    assert.deepEqual(body.degraded, [{ ds: 'DS-6', params: { endpoint }, remedy }, DS8_PLANE]);
+  } finally {
+    const code = running ? await stopBridge(running.child) : 0;
+    await stub.close().catch(() => {});
+    rmSync(cwd, { recursive: true, force: true });
+    assert.equal(code, 0);
+  }
+});
+
 /** Resolves with the first line matching `pred`; rejects after `ms`. `lines` keeps filling. */
 function waitForLine(
   lines: Record<string, unknown>[],
