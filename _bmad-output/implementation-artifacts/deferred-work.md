@@ -38,3 +38,11 @@ source_spec: `spec-1-10-deploy-the-bridge-as-one-file-supervised-with-the-turn-s
 severity: medium
 reason: mise.toml [tools] node = "lts" resolves to 24.15.0 today. spawn-bridge.ts spawns process.execPath. main.ts refuses anything outside >=24.15.0 <25. Nothing runs the bundle tests under the pinned runtime.
 status: open
+
+### DW-6: An unresolved credential re-spawns op and writes a credential_unresolved warn line on every /v1/health, including the permanent no_bootstrap_token and op_bin_invalid reasons.
+origin: spec-deferred 091ee8b45ea4
+location: packages/bridge/src/credentials/vault.ts
+source_spec: `spec-1-12-every-credential-from-the-vault-and-a-missing-one-degrades-instead-of-killing-the-bridge.md`
+severity: low
+reason: The spec mandates per-request retry and a warn line on every failed attempt. Once Epic 2's sidebar polls health, a missing credential means one op child (up to about 2s) and one journal line per poll, and could hit service-account rate limits. It needs a retry cooldown and warn-on-change logging, decided at the point the poll cadence exists.
+status: open

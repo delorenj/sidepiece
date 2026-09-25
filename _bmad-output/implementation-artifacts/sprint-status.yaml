@@ -56,7 +56,7 @@ development_status:
   1-9-answer-from-the-last-good-copy-when-the-registry-is-down-and-never-silently: awaiting-operator
   1-10-deploy-the-bridge-as-one-file-supervised-with-the-turn-store-out-of-the-blast-radius: awaiting-operator
   1-11-reach-the-bridge-from-the-laptop-over-the-tailnet-on-https-with-the-lna-headers: awaiting-operator
-  1-12-every-credential-from-the-vault-and-a-missing-one-degrades-instead-of-killing-the-bridge: backlog
+  1-12-every-credential-from-the-vault-and-a-missing-one-degrades-instead-of-killing-the-bridge: done
   1-13-health-that-names-the-dependency-that-failed: backlog
   1-14-catch-the-silent-credential-degradation-nothing-else-on-this-machine-notices: backlog
   1-15-the-bb-emit-check-gate-as-a-mise-task-and-never-a-workflow: backlog
