@@ -74,6 +74,23 @@ test('explicit replace and undo cannot overwrite intervening edits; selective re
   await b.commit(restored, edit(restored, 'a', 'someone else'));
   await assert.rejects(a.commit(restored, removeAnnotation(restored.document, 'a'), { restore: true }), /Save conflict/);
 });
+test('observed A-B-A navigation permanently blocks store writes in this mounted session', async () => {
+  const { tab, values } = setup(), store = tab();
+  const base = await store.commit(store.read(), addAnnotation(create(), mark('original')));
+  const raw = values.get(store.key);
+  assert.equal(store.observeRoute('https://example.org/review?doc=bob#/one'), false);
+  assert.equal(store.observeRoute(url), false);
+  for (const proposed of [
+    addAnnotation(base.document, mark('new')),
+    edit(base, 'original', 'edited'),
+    removeAnnotation(base.document, 'original'),
+    importDocument(base.document, addAnnotation(create(), mark('imported')), 'merge', url, dims).document,
+    create()
+  ]) await assert.rejects(store.commit(base, proposed, { currentUrl: () => url, restore: true, replace: true }), /URL differs/);
+  assert.equal(values.get(store.key), raw);
+  assert.equal(tab().observeRoute(url), true);
+});
+
 test('no unsafe lock-free fallback; corrupt storage and SPA route changes never get overwritten', async () => {
   const { tab, values } = setup(), a = tab({ locks: undefined });
   await assert.rejects(a.commit(a.read(), addAnnotation(create(), mark('a'))), /Web Locks unavailable/);

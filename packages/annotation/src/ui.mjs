@@ -13,7 +13,7 @@ export function mountSidepiece({ win = window, storage = window.localStorage, sl
   let snapshot, loadError = '';
   try { snapshot = store.read(); } catch (err) { loadError = err.message; snapshot = { document: create(), revision: 0, tombstones: {}, records: { annotations: {}, assets: {} } }; }
   let state = snapshot.document;
-  const issues = () => compatibility(state, win.location.href, size(), versionHint);
+  const issues = () => !store.observeRoute(win.location.href) ? ['URL changed'] : compatibility(state, win.location.href, size(), versionHint);
   let currentAssetId = '';
   const history = [];
   let active = false, visible = true, dragging = null, tool = 'rectangle';
@@ -135,6 +135,7 @@ export function mountSidepiece({ win = window, storage = window.localStorage, sl
   shadow.querySelector('[data-action=import]').onclick = () => file.click();
   file.onchange = async () => {
     try {
+      if (issues().includes('URL changed')) throw new Error('URL differs: reload/reopen annotations on this page before importing.');
       const base = snapshot;
       const raw = await file.files[0].text();
       const proposed = validate(raw); const warnings = compatibility(proposed, win.location.href, size(), versionHint);
@@ -149,15 +150,33 @@ export function mountSidepiece({ win = window, storage = window.localStorage, sl
   win.addEventListener('storage', onStorage);
   const onFocus = () => attempt(async () => refresh());
   win.addEventListener('focus', onFocus);
-  let routeFrame, observedUrl = url, mounted = true;
+  let routeFrame, mounted = true, routeAnnounced = false;
+  const routeChanged = event => {
+    if (event?.newURL) store.observeRoute(event.newURL);
+    if (!store.observeRoute(win.location.href) && !routeAnnounced) {
+      routeAnnounced = true;
+      dragging = null;
+      render();
+      message('URL changed: reload/reopen annotations before editing.');
+    }
+  };
+  const navigationMethods = ['pushState', 'replaceState'].map(name => {
+    const original = win.history[name];
+    const wrapped = function (...args) { const result = original.apply(this, args); routeChanged(); return result; };
+    win.history[name] = wrapped;
+    return [name, original, wrapped];
+  });
+  win.addEventListener('popstate', routeChanged);
+  win.addEventListener('hashchange', routeChanged);
+  win.addEventListener('pageshow', routeChanged);
   function watchRoute() {
     if (!mounted) return;
-    if (observedUrl !== win.location.href) { observedUrl = win.location.href; dragging = null; render(); message('URL changed: reload/reopen annotations before editing.'); }
+    routeChanged();
     routeFrame = win.requestAnimationFrame(watchRoute);
   }
   watchRoute(); render();
   if (loadError) message(loadError);
   else if (!win.navigator.locks?.request) message('Saving disabled: Web Locks unavailable. Read/export only.');
   else if (storage.getItem(`sidepiece:${new URL(url).origin}${new URL(url).pathname}`)) message('Legacy path-only data is untouched. Export it with the old version and explicitly verify its page before migration.');
-  return { getDocument: () => structuredClone(state), unmount: () => { mounted = false; win.cancelAnimationFrame(routeFrame); win.removeEventListener('storage', onStorage); win.removeEventListener('focus', onFocus); host.remove(); dom.removeEventListener('pointerdown', down, true); dom.removeEventListener('pointermove', move, true); dom.removeEventListener('pointerup', up, true); win.removeEventListener('resize', render); win.removeEventListener('scroll', render); } };
+  return { getDocument: () => structuredClone(state), unmount: () => { mounted = false; win.cancelAnimationFrame(routeFrame); for (const [name, original, wrapped] of navigationMethods) if (win.history[name] === wrapped) win.history[name] = original; win.removeEventListener('popstate', routeChanged); win.removeEventListener('hashchange', routeChanged); win.removeEventListener('pageshow', routeChanged); win.removeEventListener('storage', onStorage); win.removeEventListener('focus', onFocus); host.remove(); dom.removeEventListener('pointerdown', down, true); dom.removeEventListener('pointermove', move, true); dom.removeEventListener('pointerup', up, true); win.removeEventListener('resize', render); win.removeEventListener('scroll', render); } };
 }

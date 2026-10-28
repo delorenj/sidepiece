@@ -108,6 +108,11 @@
   var storageKey = (url) => `sidepiece:v2:${pageIdentity(url)}`;
   function createLocalStore({ storage, locks, url, create }) {
     const key = storageKey(url), identity = pageIdentity(url);
+    let routeInvalidated = false;
+    function observeRoute(currentUrl = url) {
+      if (pageIdentity(currentUrl) !== identity) routeInvalidated = true;
+      return !routeInvalidated;
+    }
     function read() {
       const raw = storage.getItem(key);
       if (raw === null) return { document: create(), revision: 0, tombstones: {}, records: { annotations: {}, assets: {} } };
@@ -122,7 +127,7 @@
       const next = validate(proposed);
       if (!locks?.request) throw new Error("Saving disabled: Web Locks unavailable. Use a supported secure-context browser; no unsafe localStorage fallback.");
       return locks.request(key, () => {
-        if (pageIdentity(currentUrl()) !== identity || next.page.identity !== identity) throw new Error("URL differs: reload/reopen annotations on this page before saving.");
+        if (!observeRoute(currentUrl()) || next.page.identity !== identity) throw new Error("URL differs: reload/reopen annotations on this page before saving.");
         const latest = read();
         if (latest.document.page.identity !== base.document.page.identity || JSON.stringify(latest.document.page.documentSize) !== JSON.stringify(base.document.page.documentSize) || latest.document.page.versionHint !== base.document.page.versionHint) conflict();
         if (replace && latest.revision !== base.revision) conflict();
@@ -157,7 +162,7 @@
         return { document: document2, revision, tombstones, records };
       });
     }
-    return { key, read, commit };
+    return { key, read, commit, observeRoute };
   }
 
   // src/ui.mjs
@@ -182,7 +187,7 @@
       snapshot = { document: create(), revision: 0, tombstones: {}, records: { annotations: {}, assets: {} } };
     }
     let state = snapshot.document;
-    const issues = () => compatibility(state, win.location.href, size(), versionHint);
+    const issues = () => !store.observeRoute(win.location.href) ? ["URL changed"] : compatibility(state, win.location.href, size(), versionHint);
     let currentAssetId = "";
     const history = [];
     let active = false, visible = true, dragging = null, tool = "rectangle";
@@ -441,6 +446,7 @@
     shadow.querySelector("[data-action=import]").onclick = () => file.click();
     file.onchange = async () => {
       try {
+        if (issues().includes("URL changed")) throw new Error("URL differs: reload/reopen annotations on this page before importing.");
         const base = snapshot;
         const raw = await file.files[0].text();
         const proposed = validate(raw);
@@ -471,15 +477,32 @@
     win.addEventListener("storage", onStorage);
     const onFocus = () => attempt(async () => refresh());
     win.addEventListener("focus", onFocus);
-    let routeFrame, observedUrl = url, mounted = true;
-    function watchRoute() {
-      if (!mounted) return;
-      if (observedUrl !== win.location.href) {
-        observedUrl = win.location.href;
+    let routeFrame, mounted = true, routeAnnounced = false;
+    const routeChanged = (event) => {
+      if (event?.newURL) store.observeRoute(event.newURL);
+      if (!store.observeRoute(win.location.href) && !routeAnnounced) {
+        routeAnnounced = true;
         dragging = null;
         render();
         message("URL changed: reload/reopen annotations before editing.");
       }
+    };
+    const navigationMethods = ["pushState", "replaceState"].map((name) => {
+      const original = win.history[name];
+      const wrapped = function(...args) {
+        const result = original.apply(this, args);
+        routeChanged();
+        return result;
+      };
+      win.history[name] = wrapped;
+      return [name, original, wrapped];
+    });
+    win.addEventListener("popstate", routeChanged);
+    win.addEventListener("hashchange", routeChanged);
+    win.addEventListener("pageshow", routeChanged);
+    function watchRoute() {
+      if (!mounted) return;
+      routeChanged();
       routeFrame = win.requestAnimationFrame(watchRoute);
     }
     watchRoute();
@@ -490,6 +513,10 @@
     return { getDocument: () => structuredClone(state), unmount: () => {
       mounted = false;
       win.cancelAnimationFrame(routeFrame);
+      for (const [name, original, wrapped] of navigationMethods) if (win.history[name] === wrapped) win.history[name] = original;
+      win.removeEventListener("popstate", routeChanged);
+      win.removeEventListener("hashchange", routeChanged);
+      win.removeEventListener("pageshow", routeChanged);
       win.removeEventListener("storage", onStorage);
       win.removeEventListener("focus", onFocus);
       host.remove();

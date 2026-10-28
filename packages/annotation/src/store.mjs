@@ -8,6 +8,11 @@ export const storageKey = url => `sidepiece:v2:${pageIdentity(url)}`;
 // localStorage has no compare-and-swap. Without Web Locks, writes are refused.
 export function createLocalStore({ storage, locks, url, create }) {
   const key = storageKey(url), identity = pageIdentity(url);
+  let routeInvalidated = false;
+  function observeRoute(currentUrl = url) {
+    if (pageIdentity(currentUrl) !== identity) routeInvalidated = true;
+    return !routeInvalidated;
+  }
   function read() {
     const raw = storage.getItem(key);
     if (raw === null) return { document: create(), revision: 0, tombstones: {}, records: { annotations: {}, assets: {} } };
@@ -22,7 +27,7 @@ export function createLocalStore({ storage, locks, url, create }) {
     const next = validate(proposed);
     if (!locks?.request) throw new Error('Saving disabled: Web Locks unavailable. Use a supported secure-context browser; no unsafe localStorage fallback.');
     return locks.request(key, () => {
-      if (pageIdentity(currentUrl()) !== identity || next.page.identity !== identity) throw new Error('URL differs: reload/reopen annotations on this page before saving.');
+      if (!observeRoute(currentUrl()) || next.page.identity !== identity) throw new Error('URL differs: reload/reopen annotations on this page before saving.');
       const latest = read();
       if (latest.document.page.identity !== base.document.page.identity || JSON.stringify(latest.document.page.documentSize) !== JSON.stringify(base.document.page.documentSize) || latest.document.page.versionHint !== base.document.page.versionHint) conflict();
       if (replace && latest.revision !== base.revision) conflict();
@@ -55,5 +60,5 @@ export function createLocalStore({ storage, locks, url, create }) {
       return { document, revision, tombstones, records };
     });
   }
-  return { key, read, commit };
+  return { key, read, commit, observeRoute };
 }

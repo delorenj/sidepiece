@@ -93,12 +93,40 @@ try {
   const imported = JSON.parse(exported); const newMark = structuredClone(imported.annotations[0]); newMark.id = 'external'; newMark.author = { id: 'reviewer-17', display: 'Outside reviewer' }; imported.annotations = [newMark];
   await importFile(a, JSON.stringify(imported)); await panel(a).getByRole('status').getByText('Imported (merge).', { exact: true }).waitFor();
   assert.equal((await saved(a)).annotations.at(-1).author.id, 'reviewer-17');
+  const visiblePixels = await a.evaluate(() => { const canvas = document.getElementById('sidepiece-root').shadowRoot.querySelector('canvas'); return canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some((value, index) => index % 4 === 3 && value > 0); });
+  assert.equal(visiblePixels, true);
   // pushState changes have no browser event: our route watcher hides marks and
   // store's final URL guard refuses writes even before the next animation frame.
   await a.evaluate(() => history.pushState({}, '', '?doc=bob#/one'));
   await panel(a).getByRole('status').getByText(/URL changed/).waitFor();
   await rows(a).first().getByRole('button', { name: /^Delete/ }).click();
   await panel(a).getByRole('status').getByText(/URL differs/).waitFor();
+  await a.evaluate(() => { document.querySelector('#hero').textContent = 'Different content'; history.replaceState({}, '', '?doc=alice#/one'); });
+  const beforeRoundtrip = JSON.stringify(await saved(a));
+  await panel(a).getByRole('textbox', { name: 'Annotation note' }).fill('round-trip must fail');
+  await a.mouse.move(450, 160); await a.mouse.down(); await a.mouse.move(500, 210); await a.mouse.up();
+  await rows(a).first().getByRole('button', { name: 'Edit note' }).click();
+  await rows(a).first().getByRole('button', { name: /^Delete/ }).click();
+  await panel(a).getByRole('button', { name: 'Undo', exact: true }).click();
+  await importFile(a, exported);
+  assert.match(await panel(a).getByRole('status').textContent(), /URL differs/);
+  assert.equal(JSON.stringify(await saved(a)), beforeRoundtrip);
+  assert.equal(await a.evaluate(() => { const canvas = document.getElementById('sidepiece-root').shadowRoot.querySelector('canvas'); return canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some((value, index) => index % 4 === 3 && value > 0); }), false);
+  const fast = await context.newPage(); await open(fast, alice);
+  const fastBefore = JSON.stringify(await saved(fast));
+  await fast.evaluate(() => { history.pushState({}, '', '?doc=bob#/one'); history.replaceState({}, '', '?doc=alice#/one'); document.querySelector('#hero').textContent = 'Different content'; });
+  await rows(fast).first().getByRole('button', { name: /^Delete/ }).click();
+  await panel(fast).getByRole('status').getByText(/URL differs/).waitFor();
+  assert.equal(JSON.stringify(await saved(fast)), fastBefore);
+  const hashTab = await context.newPage(); await open(hashTab, alice);
+  await hashTab.evaluate(() => { location.hash = '#/two'; location.hash = '#/one'; });
+  await rows(hashTab).first().getByRole('button', { name: /^Delete/ }).click();
+  await panel(hashTab).getByRole('status').getByText(/URL differs/).waitFor();
+  const popTab = await context.newPage(); await open(popTab, alice);
+  await popTab.evaluate(() => history.pushState({}, '', '?doc=bob#/one'));
+  await popTab.goBack();
+  await rows(popTab).first().getByRole('button', { name: /^Delete/ }).click();
+  await panel(popTab).getByRole('status').getByText(/URL differs/).waitFor();
   await context.close(); context = null;
   // Actual browser process restart with the isolated on-disk profile.
   context = await chromium.launchPersistentContext(profile, options); await inject(context);
@@ -113,5 +141,5 @@ try {
   assert.equal(await saved(readonly), null);
   assert.equal(await panel(readonly).getByRole('textbox', { name: 'Annotation note' }).inputValue(), 'Keep this draft');
   assert.deepEqual(errors, []);
-  console.log('browser review PASS: stale two-tab Jarad/Damian adds; native storage refresh; edit/edit and delete/edit refusal; tombstones; selective undo; separate query/hash keys and import refusal; same-page replace/merge author preservation; pushState guard; browser-process restart; no-lock write refusal; no page errors');
+  console.log('browser review PASS: stale two-tab Jarad/Damian adds; native storage refresh; edit/edit and delete/edit refusal; tombstones; selective undo; separate query/hash keys and import refusal; same-page replace/merge author preservation; sticky A-B-A guard (marks and writes, rapid push/replace, hash, popstate); browser-process restart; no-lock write refusal; no page errors');
 } finally { await context?.close(); await new Promise(ok => server.close(ok)); await rm(profile, { recursive: true, force: true }); }
