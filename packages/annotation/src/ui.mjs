@@ -1,17 +1,19 @@
 import { addAnnotation, compatibility, importDocument, markdown, newDocument, removeAnnotation, sendSlack, validate } from './core.mjs';
+import { createLocalStore } from './store.mjs';
 
 export function mountSidepiece({ win = window, storage = window.localStorage, slackAdapter = null } = {}) {
   const { document: dom } = win;
   if (dom.getElementById('sidepiece-root')) return;
   const url = win.location.href;
-  const identity = new URL(url).origin + new URL(url).pathname;
   const viewport = () => ({ width: win.innerWidth, height: win.innerHeight });
   const size = () => ({ width: Math.max(dom.documentElement.scrollWidth, win.innerWidth), height: Math.max(dom.documentElement.scrollHeight, win.innerHeight) });
   const versionHint = dom.querySelector('meta[name="sidepiece-version"]')?.content || '';
-  const key = `sidepiece:${identity}`;
-  let state;
-  try { state = validate(JSON.parse(storage.getItem(key) || 'null')); } catch { state = newDocument(url, viewport(), size()); }
-  if (!state.page.versionHint && !state.annotations.length) state.page.versionHint = versionHint;
+  const create = () => { const doc = newDocument(url, viewport(), size()); doc.page.versionHint = versionHint; return doc; };
+  const store = createLocalStore({ storage, locks: win.navigator.locks, url, create });
+  let snapshot, loadError = '';
+  try { snapshot = store.read(); } catch (err) { loadError = err.message; snapshot = { document: create(), revision: 0, tombstones: {}, records: { annotations: {}, assets: {} } }; }
+  let state = snapshot.document;
+  const issues = () => compatibility(state, win.location.href, size(), versionHint);
   let currentAssetId = '';
   const history = [];
   let active = false, visible = true, dragging = null, tool = 'rectangle';
@@ -32,7 +34,30 @@ export function mountSidepiece({ win = window, storage = window.localStorage, sl
   if (authorId === 'damian') author.value = authorId;
   else { authorId = 'jarad'; author.value = 'jarad'; }
   const message = s => { status.textContent = s; };
-  function persist(next) { history.push(state); state = next; storage.setItem(key, JSON.stringify(state)); render(); }
+  function refresh() { snapshot = store.read(); state = snapshot.document; render(); }
+  async function persist(next, base = snapshot, options = {}) {
+    try {
+      const saved = await store.commit(base, next, { ...options, currentUrl: () => win.location.href });
+      if (!options.undo) {
+        // Invert only this operation, never the whole stale document.
+        const inverse = structuredClone(saved.document);
+        for (const field of ['annotations', 'assets']) {
+          const before = new Map(base.document[field].map(a => [a.id, a]));
+          const after = new Map(next[field].map(a => [a.id, a]));
+          const records = new Map(inverse[field].map(a => [a.id, a]));
+          for (const id of new Set([...before.keys(), ...after.keys()])) {
+            if (JSON.stringify(before.get(id)) === JSON.stringify(after.get(id))) continue;
+            if (before.has(id)) records.set(id, before.get(id)); else records.delete(id);
+          }
+          inverse[field] = [...records.values()];
+        }
+        if (JSON.stringify(base.document.page) !== JSON.stringify(next.page)) inverse.page = base.document.page;
+        history.push({ saved, inverse });
+      }
+      snapshot = saved; state = saved.document; render();
+    } catch (err) { try { refresh(); } catch {} throw err; }
+  }
+  const attempt = async action => { try { await action(); } catch (err) { message(err.message); } };
   function draw(a) {
     const pts = a.points.map(p => ({ x: p.x - win.scrollX, y: p.y - win.scrollY }));
     if (!pts.length) return;
@@ -47,30 +72,38 @@ export function mountSidepiece({ win = window, storage = window.localStorage, sl
   function render() {
     canvas.width = win.innerWidth * win.devicePixelRatio; canvas.height = win.innerHeight * win.devicePixelRatio;
     canvas.style.width = `${win.innerWidth}px`; canvas.style.height = `${win.innerHeight}px`; ctx.setTransform(win.devicePixelRatio,0,0,win.devicePixelRatio,0,0);
-    if (visible && !compatibility(state, url, size(), versionHint).length) { state.annotations.forEach(draw); if (dragging) draw({ shape: tool, author: { id: authorId }, points: dragging.points }); }
-    else if (state.annotations.length && visible) message(`Saved marks hidden: ${compatibility(state, url, size(), versionHint).join(', ')}.`);
+    if (visible && !issues().length) { state.annotations.forEach(draw); if (dragging) draw({ shape: tool, author: { id: authorId }, points: dragging.points }); }
+    else if (state.annotations.length && visible) message(`Saved marks hidden: ${issues().join(', ')}. Reload after URL changes.`);
     items.replaceChildren();
     for (const a of state.annotations) {
       const row = dom.createElement('div'); row.className = 'item';
       const label = dom.createElement('span'); label.textContent = `${a.author.display} · ${a.shape} · ${a.note || '(no note)'}`;
-      const del = dom.createElement('button'); del.textContent = 'Delete'; del.setAttribute('aria-label', `Delete ${a.id}`); del.onclick = () => persist(removeAnnotation(state, a.id)); row.append(label, del); items.append(row);
+      const base = snapshot;
+      const edit = dom.createElement('button'); edit.textContent = 'Edit note'; edit.onclick = () => attempt(async () => {
+        const value = win.prompt('Edit annotation note (author stays unchanged)', a.note);
+        if (value !== null) {
+          try { await persist({ ...base.document, annotations: base.document.annotations.map(mark => mark.id === a.id ? { ...mark, note: value } : mark) }, base); message('Note saved locally.'); }
+          catch (err) { note.value = value; throw new Error(`${err.message} Unsaved edit kept in the note field.`); }
+        }
+      });
+      const del = dom.createElement('button'); del.textContent = 'Delete'; del.setAttribute('aria-label', `Delete ${a.id}`); del.onclick = () => attempt(async () => { await persist(removeAnnotation(base.document, a.id), base); message('Deleted locally.'); }); row.append(label, edit, del); items.append(row);
     }
   }
   function position(e) { return { x: Math.round(e.clientX + win.scrollX), y: Math.round(e.clientY + win.scrollY) }; }
   function down(e) {
-    if (!active || compatibility(state, url, size(), versionHint).length || panel.contains(e.composedPath()[0]) || e.button !== 0) return;
+    if (!active || issues().length || panel.contains(e.composedPath()[0]) || e.button !== 0) return;
     e.preventDefault();
     const anchorElement = dom.elementFromPoint(e.clientX, e.clientY);
     const anchor = anchorElement && !host.contains(anchorElement) ? `${anchorElement.tagName.toLowerCase()}${anchorElement.id ? `#${anchorElement.id}` : ''}` : '';
-    dragging = { points: [position(e)], anchor, text: anchorElement?.textContent?.trim().slice(0, 120) || '' };
+    dragging = { base: snapshot, points: [position(e)], anchor, text: anchorElement?.textContent?.trim().slice(0, 120) || '' };
   }
   function move(e) { if (!dragging) return; const p = position(e); if (tool === 'freehand') dragging.points.push(p); else dragging.points[1] = p; render(); }
-  function up(e) {
+  async function up(e) {
     if (!dragging) return; move(e);
-    const { points, anchor, text } = dragging; dragging = null;
+    const { points, anchor, text, base } = dragging; dragging = null;
     if (points.length < 2) { render(); return; }
     const a = { id: win.crypto.randomUUID(), shape: tool, points, note: note.value, author: { id: authorId, display: names[authorId] }, createdAt: new Date().toISOString(), target: { url, anchor, text }, assetId: currentAssetId };
-    try { persist(addAnnotation(state, a)); note.value = ''; message('Saved locally.'); } catch (err) { message(err.message); render(); }
+    try { await persist(addAnnotation(base.document, a), base); if (note.value === a.note) note.value = ''; message('Saved locally.'); } catch (err) { message(err.message); render(); }
   }
   dom.addEventListener('pointerdown', down, true); dom.addEventListener('pointermove', move, true); dom.addEventListener('pointerup', up, true);
   dom.addEventListener('keydown', e => { if (e.key === 'Escape') { active = false; dragging = null; shadow.querySelector('[data-action=active]').setAttribute('aria-pressed', 'false'); shadow.querySelector('[data-action=active]').textContent = 'Start drawing'; render(); } });
@@ -80,13 +113,17 @@ export function mountSidepiece({ win = window, storage = window.localStorage, sl
   shadow.querySelector('[data-tool=rectangle]').setAttribute('aria-pressed','true');
   shadow.querySelector('[data-action=active]').onclick = e => { active = !active; e.target.setAttribute('aria-pressed', String(active)); e.target.textContent = active ? 'Stop drawing' : 'Start drawing'; };
   shadow.querySelector('[data-action=visible]').onclick = e => { visible = !visible; e.target.textContent = visible ? 'Hide marks' : 'Show marks'; render(); };
-  shadow.querySelector('[data-action=undo]').onclick = () => { if (history.length) { state = history.pop(); storage.setItem(key, JSON.stringify(state)); render(); } };
+  shadow.querySelector('[data-action=undo]').onclick = () => attempt(async () => {
+    const entry = history.at(-1); if (!entry) return;
+    await persist(entry.inverse, entry.saved, { undo: true, restore: true });
+    history.pop(); message('Undid this tab’s last change.');
+  });
   const assetFile = shadow.querySelector('input[data-asset]');
   shadow.querySelector('[data-action=asset]').onclick = () => assetFile.click();
-  assetFile.onchange = () => {
+  assetFile.onchange = async () => {
     const chosen = assetFile.files?.[0]; if (!chosen) return;
     const asset = { id: win.crypto.randomUUID(), name: chosen.name, type: chosen.type, ref: `manual:${chosen.name}` };
-    try { persist(validate({ ...state, assets: [...state.assets, asset] })); currentAssetId = asset.id; message(`Reference only: keep ${chosen.name} alongside the JSON. No upload or image bytes saved.`); }
+    try { await persist(validate({ ...state, assets: [...state.assets, asset] })); currentAssetId = asset.id; message(`Reference only: keep ${chosen.name} alongside the JSON. No upload or image bytes saved.`); }
     catch (err) { message(err.message); } finally { assetFile.value = ''; }
   };
   function download(contents, type, name) { const blob = new Blob([contents], { type }); const link = dom.createElement('a'); link.href = URL.createObjectURL(blob); link.download = name; link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 1000); }
@@ -98,15 +135,29 @@ export function mountSidepiece({ win = window, storage = window.localStorage, sl
   shadow.querySelector('[data-action=import]').onclick = () => file.click();
   file.onchange = async () => {
     try {
+      const base = snapshot;
       const raw = await file.files[0].text();
-      const proposed = validate(raw); const warnings = compatibility(proposed, url, size(), versionHint);
+      const proposed = validate(raw); const warnings = compatibility(proposed, win.location.href, size(), versionHint);
       if (warnings.length) { message(`Not imported: ${warnings.join(', ')}. Open the matching page.`); return; }
       const mode = win.prompt('Import mode: type merge or replace (Cancel makes no change)', 'merge');
       if (!mode) return;
-      const result = importDocument(state, proposed, mode, url, size(), versionHint);
-      if (result.applied) { persist(result.document); message(`Imported (${mode}).`); }
+      const result = importDocument(base.document, proposed, mode, win.location.href, size(), versionHint);
+      if (result.applied) { await persist(result.document, base, { replace: mode === 'replace' }); message(`Imported (${mode}).`); }
     } catch (err) { message(err.message); } finally { file.value = ''; }
   };
-  render();
-  return { getDocument: () => structuredClone(state), unmount: () => { host.remove(); dom.removeEventListener('pointerdown', down, true); dom.removeEventListener('pointermove', move, true); dom.removeEventListener('pointerup', up, true); win.removeEventListener('resize', render); win.removeEventListener('scroll', render); } };
+  const onStorage = event => { if (event.key === store.key || event.key === null) attempt(async () => { refresh(); message('Updated from another tab.'); }); };
+  win.addEventListener('storage', onStorage);
+  const onFocus = () => attempt(async () => refresh());
+  win.addEventListener('focus', onFocus);
+  let routeFrame, observedUrl = url, mounted = true;
+  function watchRoute() {
+    if (!mounted) return;
+    if (observedUrl !== win.location.href) { observedUrl = win.location.href; dragging = null; render(); message('URL changed: reload/reopen annotations before editing.'); }
+    routeFrame = win.requestAnimationFrame(watchRoute);
+  }
+  watchRoute(); render();
+  if (loadError) message(loadError);
+  else if (!win.navigator.locks?.request) message('Saving disabled: Web Locks unavailable. Read/export only.');
+  else if (storage.getItem(`sidepiece:${new URL(url).origin}${new URL(url).pathname}`)) message('Legacy path-only data is untouched. Export it with the old version and explicitly verify its page before migration.');
+  return { getDocument: () => structuredClone(state), unmount: () => { mounted = false; win.cancelAnimationFrame(routeFrame); win.removeEventListener('storage', onStorage); win.removeEventListener('focus', onFocus); host.remove(); dom.removeEventListener('pointerdown', down, true); dom.removeEventListener('pointermove', move, true); dom.removeEventListener('pointerup', up, true); win.removeEventListener('resize', render); win.removeEventListener('scroll', render); } };
 }

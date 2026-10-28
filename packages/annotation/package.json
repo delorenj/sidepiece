@@ -1,11 +1,11 @@
 {
   "name": "@sidepiece/annotation",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "typecheck": "node --check src/core.mjs && node --check src/ui.mjs && node --check src/userscript.mjs && node --check scripts/build.mjs",
+    "typecheck": "node --check src/core.mjs && node --check src/store.mjs && node --check src/ui.mjs && node --check src/userscript.mjs && node --check scripts/build.mjs",
     "test": "node --test test/*.test.mjs"
   },
   "devDependencies": {

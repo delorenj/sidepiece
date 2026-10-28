@@ -11,7 +11,9 @@ const fail = reason => { throw new Error(`Invalid .sidepiece.json: ${reason}`); 
 export function pageIdentity(url) {
   const u = new URL(url);
   if (!['http:', 'https:'].includes(u.protocol)) throw new Error('Only HTTP(S) pages are supported');
-  return `${u.origin}${u.pathname}`;
+  // Conservative document identity: retain query order/values and every fragment.
+  // Even a plain #fragment may be an SPA document; never guess it is decoration.
+  return u.href;
 }
 export function newDocument(url, viewport, documentSize) {
   if (!dimensions(viewport) || !dimensions(documentSize)) fail('dimensions');
@@ -60,12 +62,20 @@ export function importDocument(current, raw, mode, url, documentSize, versionHin
 }
 export function addAnnotation(doc, annotation) { return validate({ ...doc, annotations: [...doc.annotations, annotation] }); }
 export function removeAnnotation(doc, id) { return validate({ ...doc, annotations: doc.annotations.filter(a => a.id !== id) }); }
-const escape = value => value.replaceAll('\\', '\\\\').replaceAll('`', '\\`').replaceAll('\n', ' ').replaceAll('|', '\\|');
+const normalizeLines = value => value.replace(/\r\n|[\r\n\u0085\u2028\u2029]/g, '\n');
+// Entities render the literal characters AFTER Markdown parsing: no links, HTML,
+// fences, headings or attribution can be created by any untrusted field.
+const literal = value => value.replace(/[\x00-\x1f!-/:-@\[-`{-~]/g, c => `&#${c.codePointAt(0)};`);
+const inline = value => literal(normalizeLines(value).replaceAll('\n', ' ↵ '));
 export function markdown(doc, authorId = '') {
   validate(doc);
   const list = doc.annotations.filter(a => !authorId || a.author.id === authorId).sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
-  const lines = [`# Sidepiece feedback`, '', `Page: ${doc.page.url}`, `Version hint: ${doc.page.versionHint || '(none)'}`, ''];
-  for (const a of list) lines.push(`- **${escape(a.author.display)}** (${escape(a.author.id)}) · ${escape(a.createdAt)} · ${a.shape} · ${escape(a.target.anchor || 'page')} · ${escape(a.target.text || '')}`, `  - ${escape(a.note || '(no note)')}`, `  - Target: ${escape(a.target.url)}; geometry: ${a.points.map(p => `${p.x},${p.y}`).join(' → ')}${a.assetId ? `; asset: ${escape(a.assetId)}` : ''}`);
+  const lines = [`# Sidepiece feedback`, '', `Page: ${inline(doc.page.url)}`, `Version hint: ${inline(doc.page.versionHint || '(none)')}`, ''];
+  for (const a of list) {
+    lines.push(`- **${inline(a.author.display)}** (${inline(a.author.id)}) · ${inline(a.createdAt)} · ${a.shape} · ${inline(a.target.anchor || 'page')} · ${inline(a.target.text || '')}`);
+    for (const line of normalizeLines(a.note || '(no note)').split('\n')) lines.push(`  > ${literal(line).replace(/^ +/, spaces => '&#32;'.repeat(spaces.length))}`);
+    lines.push(`  - Target: ${inline(a.target.url)}; geometry: ${a.points.map(p => `${p.x},${p.y}`).join(' → ')}${a.assetId ? `; asset: ${inline(a.assetId)}` : ''}`);
+  }
   return `${lines.join('\n').trimEnd()}\n`;
 }
 // No browser credential or network implementation. Supply a trusted server-side adapter later.

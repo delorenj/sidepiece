@@ -27,7 +27,7 @@ try {
   await panel.locator('input[data-asset]').setInputFiles({name:'manual.png',mimeType:'image/png',buffer:Buffer.from('manual screenshot placeholder')});
   await panel.getByRole('status').getByText(/Reference only/).waitFor();
   assert.equal(await panel.locator('.item').count(),2);
-  const saved = JSON.parse(await page.evaluate(() => localStorage.getItem(`sidepiece:${location.origin}${location.pathname}`)));
+  const saved = JSON.parse(await page.evaluate(() => localStorage.getItem(`sidepiece:v2:${location.href}`)));
   assert.deepEqual(saved.annotations.map(a => a.author.display),['Jarad','Damian']);
   assert.equal(saved.assets[0].ref,'manual:manual.png');
   await page.keyboard.press('Escape'); assert.equal(await panel.getByRole('button',{name:'Start drawing'}).getAttribute('aria-pressed'),'false');

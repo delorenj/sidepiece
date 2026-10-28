@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Sidepiece Annotation Review
 // @namespace    https://github.com/delorenj/sidepiece
-// @version      0.1.0
+// @version      0.1.1
 // @description  Opt-in, local-first attributed page review
 // @match        http://*/*
 // @match        https://*/*
@@ -23,7 +23,7 @@
   function pageIdentity(url) {
     const u = new URL(url);
     if (!["http:", "https:"].includes(u.protocol)) throw new Error("Only HTTP(S) pages are supported");
-    return `${u.origin}${u.pathname}`;
+    return u.href;
   }
   function newDocument(url, viewport, documentSize) {
     if (!dimensions(viewport) || !dimensions(documentSize)) fail("dimensions");
@@ -80,12 +80,18 @@
   function removeAnnotation(doc, id) {
     return validate({ ...doc, annotations: doc.annotations.filter((a) => a.id !== id) });
   }
-  var escape = (value) => value.replaceAll("\\", "\\\\").replaceAll("`", "\\`").replaceAll("\n", " ").replaceAll("|", "\\|");
+  var normalizeLines = (value) => value.replace(/\r\n|[\r\n\u0085\u2028\u2029]/g, "\n");
+  var literal = (value) => value.replace(/[\x00-\x1f!-/:-@\[-`{-~]/g, (c) => `&#${c.codePointAt(0)};`);
+  var inline = (value) => literal(normalizeLines(value).replaceAll("\n", " \u21B5 "));
   function markdown(doc, authorId = "") {
     validate(doc);
     const list = doc.annotations.filter((a) => !authorId || a.author.id === authorId).sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
-    const lines = [`# Sidepiece feedback`, "", `Page: ${doc.page.url}`, `Version hint: ${doc.page.versionHint || "(none)"}`, ""];
-    for (const a of list) lines.push(`- **${escape(a.author.display)}** (${escape(a.author.id)}) \xB7 ${escape(a.createdAt)} \xB7 ${a.shape} \xB7 ${escape(a.target.anchor || "page")} \xB7 ${escape(a.target.text || "")}`, `  - ${escape(a.note || "(no note)")}`, `  - Target: ${escape(a.target.url)}; geometry: ${a.points.map((p) => `${p.x},${p.y}`).join(" \u2192 ")}${a.assetId ? `; asset: ${escape(a.assetId)}` : ""}`);
+    const lines = [`# Sidepiece feedback`, "", `Page: ${inline(doc.page.url)}`, `Version hint: ${inline(doc.page.versionHint || "(none)")}`, ""];
+    for (const a of list) {
+      lines.push(`- **${inline(a.author.display)}** (${inline(a.author.id)}) \xB7 ${inline(a.createdAt)} \xB7 ${a.shape} \xB7 ${inline(a.target.anchor || "page")} \xB7 ${inline(a.target.text || "")}`);
+      for (const line of normalizeLines(a.note || "(no note)").split("\n")) lines.push(`  > ${literal(line).replace(/^ +/, (spaces) => "&#32;".repeat(spaces.length))}`);
+      lines.push(`  - Target: ${inline(a.target.url)}; geometry: ${a.points.map((p) => `${p.x},${p.y}`).join(" \u2192 ")}${a.assetId ? `; asset: ${inline(a.assetId)}` : ""}`);
+    }
     return `${lines.join("\n").trimEnd()}
 `;
   }
@@ -94,23 +100,89 @@
     return adapter.send(markdownText);
   }
 
+  // src/store.mjs
+  var equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  var conflict = () => {
+    throw new Error("Save conflict: another tab changed this mark/document. Review the latest state and retry; your draft was not saved.");
+  };
+  var storageKey = (url) => `sidepiece:v2:${pageIdentity(url)}`;
+  function createLocalStore({ storage, locks, url, create }) {
+    const key = storageKey(url), identity = pageIdentity(url);
+    function read() {
+      const raw = storage.getItem(key);
+      if (raw === null) return { document: create(), revision: 0, tombstones: {}, records: { annotations: {}, assets: {} } };
+      const { localState, ...document2 } = JSON.parse(raw);
+      if (!localState || !Number.isSafeInteger(localState.revision) || localState.revision < 1 || !localState.tombstones || Array.isArray(localState.tombstones) || typeof localState.tombstones !== "object" || Object.values(localState.tombstones).some((r) => !Number.isSafeInteger(r) || r < 1 || r > localState.revision)) throw new Error("Invalid local annotation state; export/recover storage before saving.");
+      if (!localState.records || ["annotations", "assets"].some((field) => !localState.records[field] || typeof localState.records[field] !== "object" || Array.isArray(localState.records[field]) || Object.values(localState.records[field]).some((r) => !Number.isSafeInteger(r) || r < 1 || r > localState.revision))) throw new Error("Invalid local record revisions; refusing to overwrite.");
+      const doc = validate(document2);
+      if (doc.page.identity !== identity || ["annotations", "assets"].some((field) => doc[field].some((a) => !Object.hasOwn(localState.records[field], a.id))) || doc.annotations.some((a) => Object.hasOwn(localState.tombstones, a.id))) throw new Error("Invalid local page identity/tombstones; refusing to overwrite.");
+      return { document: doc, revision: localState.revision, tombstones: localState.tombstones, records: localState.records };
+    }
+    async function commit(base, proposed, { replace = false, restore = false, currentUrl = () => url } = {}) {
+      const next = validate(proposed);
+      if (!locks?.request) throw new Error("Saving disabled: Web Locks unavailable. Use a supported secure-context browser; no unsafe localStorage fallback.");
+      return locks.request(key, () => {
+        if (pageIdentity(currentUrl()) !== identity || next.page.identity !== identity) throw new Error("URL differs: reload/reopen annotations on this page before saving.");
+        const latest = read();
+        if (latest.document.page.identity !== base.document.page.identity || JSON.stringify(latest.document.page.documentSize) !== JSON.stringify(base.document.page.documentSize) || latest.document.page.versionHint !== base.document.page.versionHint) conflict();
+        if (replace && latest.revision !== base.revision) conflict();
+        const tombstones = { ...latest.tombstones };
+        const revision = latest.revision + 1;
+        const records = structuredClone(latest.records);
+        const reconcile = (field, trackDeletes) => {
+          const before = new Map(base.document[field].map((a) => [a.id, a]));
+          const wanted = new Map(next[field].map((a) => [a.id, a]));
+          const live = new Map(latest.document[field].map((a) => [a.id, a]));
+          for (const id of /* @__PURE__ */ new Set([...before.keys(), ...wanted.keys()])) {
+            const old = before.get(id), value = wanted.get(id);
+            if (equal(old, value)) continue;
+            if (!equal(live.get(id), old) || latest.records[field][id] !== base.records[field][id]) conflict();
+            if (trackDeletes && value && old && (!equal(value.author, old.author) || value.createdAt !== old.createdAt)) throw new Error("Annotation attribution is immutable.");
+            if (trackDeletes && value && Object.hasOwn(tombstones, id)) {
+              if (!restore || base.tombstones[id] !== tombstones[id]) conflict();
+              delete tombstones[id];
+            }
+            Object.defineProperty(records[field], id, { value: revision, enumerable: true, writable: true, configurable: true });
+            if (value) live.set(id, value);
+            else {
+              live.delete(id);
+              if (trackDeletes) Object.defineProperty(tombstones, id, { value: revision, enumerable: true, writable: true, configurable: true });
+            }
+          }
+          return [...live.values()];
+        };
+        if (!equal(base.document.page, next.page) && !equal(base.document.page, latest.document.page)) conflict();
+        const document2 = validate({ ...latest.document, page: equal(base.document.page, next.page) ? latest.document.page : next.page, annotations: reconcile("annotations", true), assets: reconcile("assets", false) });
+        storage.setItem(key, JSON.stringify({ ...document2, localState: { revision, tombstones, records } }));
+        return { document: document2, revision, tombstones, records };
+      });
+    }
+    return { key, read, commit };
+  }
+
   // src/ui.mjs
   function mountSidepiece({ win = window, storage = window.localStorage, slackAdapter = null } = {}) {
     const { document: dom } = win;
     if (dom.getElementById("sidepiece-root")) return;
     const url = win.location.href;
-    const identity = new URL(url).origin + new URL(url).pathname;
     const viewport = () => ({ width: win.innerWidth, height: win.innerHeight });
     const size = () => ({ width: Math.max(dom.documentElement.scrollWidth, win.innerWidth), height: Math.max(dom.documentElement.scrollHeight, win.innerHeight) });
     const versionHint = dom.querySelector('meta[name="sidepiece-version"]')?.content || "";
-    const key = `sidepiece:${identity}`;
-    let state;
+    const create = () => {
+      const doc = newDocument(url, viewport(), size());
+      doc.page.versionHint = versionHint;
+      return doc;
+    };
+    const store = createLocalStore({ storage, locks: win.navigator.locks, url, create });
+    let snapshot, loadError = "";
     try {
-      state = validate(JSON.parse(storage.getItem(key) || "null"));
-    } catch {
-      state = newDocument(url, viewport(), size());
+      snapshot = store.read();
+    } catch (err) {
+      loadError = err.message;
+      snapshot = { document: create(), revision: 0, tombstones: {}, records: { annotations: {}, assets: {} } };
     }
-    if (!state.page.versionHint && !state.annotations.length) state.page.versionHint = versionHint;
+    let state = snapshot.document;
+    const issues = () => compatibility(state, win.location.href, size(), versionHint);
     let currentAssetId = "";
     const history = [];
     let active = false, visible = true, dragging = null, tool = "rectangle";
@@ -137,12 +209,48 @@
     const message = (s) => {
       status.textContent = s;
     };
-    function persist(next) {
-      history.push(state);
-      state = next;
-      storage.setItem(key, JSON.stringify(state));
+    function refresh() {
+      snapshot = store.read();
+      state = snapshot.document;
       render();
     }
+    async function persist(next, base = snapshot, options = {}) {
+      try {
+        const saved = await store.commit(base, next, { ...options, currentUrl: () => win.location.href });
+        if (!options.undo) {
+          const inverse = structuredClone(saved.document);
+          for (const field of ["annotations", "assets"]) {
+            const before = new Map(base.document[field].map((a) => [a.id, a]));
+            const after = new Map(next[field].map((a) => [a.id, a]));
+            const records = new Map(inverse[field].map((a) => [a.id, a]));
+            for (const id of /* @__PURE__ */ new Set([...before.keys(), ...after.keys()])) {
+              if (JSON.stringify(before.get(id)) === JSON.stringify(after.get(id))) continue;
+              if (before.has(id)) records.set(id, before.get(id));
+              else records.delete(id);
+            }
+            inverse[field] = [...records.values()];
+          }
+          if (JSON.stringify(base.document.page) !== JSON.stringify(next.page)) inverse.page = base.document.page;
+          history.push({ saved, inverse });
+        }
+        snapshot = saved;
+        state = saved.document;
+        render();
+      } catch (err) {
+        try {
+          refresh();
+        } catch {
+        }
+        throw err;
+      }
+    }
+    const attempt = async (action) => {
+      try {
+        await action();
+      } catch (err) {
+        message(err.message);
+      }
+    };
     function draw(a) {
       const pts = a.points.map((p) => ({ x: p.x - win.scrollX, y: p.y - win.scrollY }));
       if (!pts.length) return;
@@ -175,21 +283,39 @@
       canvas.style.width = `${win.innerWidth}px`;
       canvas.style.height = `${win.innerHeight}px`;
       ctx.setTransform(win.devicePixelRatio, 0, 0, win.devicePixelRatio, 0, 0);
-      if (visible && !compatibility(state, url, size(), versionHint).length) {
+      if (visible && !issues().length) {
         state.annotations.forEach(draw);
         if (dragging) draw({ shape: tool, author: { id: authorId }, points: dragging.points });
-      } else if (state.annotations.length && visible) message(`Saved marks hidden: ${compatibility(state, url, size(), versionHint).join(", ")}.`);
+      } else if (state.annotations.length && visible) message(`Saved marks hidden: ${issues().join(", ")}. Reload after URL changes.`);
       items.replaceChildren();
       for (const a of state.annotations) {
         const row = dom.createElement("div");
         row.className = "item";
         const label = dom.createElement("span");
         label.textContent = `${a.author.display} \xB7 ${a.shape} \xB7 ${a.note || "(no note)"}`;
+        const base = snapshot;
+        const edit = dom.createElement("button");
+        edit.textContent = "Edit note";
+        edit.onclick = () => attempt(async () => {
+          const value = win.prompt("Edit annotation note (author stays unchanged)", a.note);
+          if (value !== null) {
+            try {
+              await persist({ ...base.document, annotations: base.document.annotations.map((mark) => mark.id === a.id ? { ...mark, note: value } : mark) }, base);
+              message("Note saved locally.");
+            } catch (err) {
+              note.value = value;
+              throw new Error(`${err.message} Unsaved edit kept in the note field.`);
+            }
+          }
+        });
         const del = dom.createElement("button");
         del.textContent = "Delete";
         del.setAttribute("aria-label", `Delete ${a.id}`);
-        del.onclick = () => persist(removeAnnotation(state, a.id));
-        row.append(label, del);
+        del.onclick = () => attempt(async () => {
+          await persist(removeAnnotation(base.document, a.id), base);
+          message("Deleted locally.");
+        });
+        row.append(label, edit, del);
         items.append(row);
       }
     }
@@ -197,11 +323,11 @@
       return { x: Math.round(e.clientX + win.scrollX), y: Math.round(e.clientY + win.scrollY) };
     }
     function down(e) {
-      if (!active || compatibility(state, url, size(), versionHint).length || panel.contains(e.composedPath()[0]) || e.button !== 0) return;
+      if (!active || issues().length || panel.contains(e.composedPath()[0]) || e.button !== 0) return;
       e.preventDefault();
       const anchorElement = dom.elementFromPoint(e.clientX, e.clientY);
       const anchor = anchorElement && !host.contains(anchorElement) ? `${anchorElement.tagName.toLowerCase()}${anchorElement.id ? `#${anchorElement.id}` : ""}` : "";
-      dragging = { points: [position(e)], anchor, text: anchorElement?.textContent?.trim().slice(0, 120) || "" };
+      dragging = { base: snapshot, points: [position(e)], anchor, text: anchorElement?.textContent?.trim().slice(0, 120) || "" };
     }
     function move(e) {
       if (!dragging) return;
@@ -210,10 +336,10 @@
       else dragging.points[1] = p;
       render();
     }
-    function up(e) {
+    async function up(e) {
       if (!dragging) return;
       move(e);
-      const { points, anchor, text: text2 } = dragging;
+      const { points, anchor, text: text2, base } = dragging;
       dragging = null;
       if (points.length < 2) {
         render();
@@ -221,8 +347,8 @@
       }
       const a = { id: win.crypto.randomUUID(), shape: tool, points, note: note.value, author: { id: authorId, display: names[authorId] }, createdAt: (/* @__PURE__ */ new Date()).toISOString(), target: { url, anchor, text: text2 }, assetId: currentAssetId };
       try {
-        persist(addAnnotation(state, a));
-        note.value = "";
+        await persist(addAnnotation(base.document, a), base);
+        if (note.value === a.note) note.value = "";
         message("Saved locally.");
       } catch (err) {
         message(err.message);
@@ -262,21 +388,21 @@
       e.target.textContent = visible ? "Hide marks" : "Show marks";
       render();
     };
-    shadow.querySelector("[data-action=undo]").onclick = () => {
-      if (history.length) {
-        state = history.pop();
-        storage.setItem(key, JSON.stringify(state));
-        render();
-      }
-    };
+    shadow.querySelector("[data-action=undo]").onclick = () => attempt(async () => {
+      const entry = history.at(-1);
+      if (!entry) return;
+      await persist(entry.inverse, entry.saved, { undo: true, restore: true });
+      history.pop();
+      message("Undid this tab\u2019s last change.");
+    });
     const assetFile = shadow.querySelector("input[data-asset]");
     shadow.querySelector("[data-action=asset]").onclick = () => assetFile.click();
-    assetFile.onchange = () => {
+    assetFile.onchange = async () => {
       const chosen = assetFile.files?.[0];
       if (!chosen) return;
       const asset = { id: win.crypto.randomUUID(), name: chosen.name, type: chosen.type, ref: `manual:${chosen.name}` };
       try {
-        persist(validate({ ...state, assets: [...state.assets, asset] }));
+        await persist(validate({ ...state, assets: [...state.assets, asset] }));
         currentAssetId = asset.id;
         message(`Reference only: keep ${chosen.name} alongside the JSON. No upload or image bytes saved.`);
       } catch (err) {
@@ -315,18 +441,19 @@
     shadow.querySelector("[data-action=import]").onclick = () => file.click();
     file.onchange = async () => {
       try {
+        const base = snapshot;
         const raw = await file.files[0].text();
         const proposed = validate(raw);
-        const warnings = compatibility(proposed, url, size(), versionHint);
+        const warnings = compatibility(proposed, win.location.href, size(), versionHint);
         if (warnings.length) {
           message(`Not imported: ${warnings.join(", ")}. Open the matching page.`);
           return;
         }
         const mode = win.prompt("Import mode: type merge or replace (Cancel makes no change)", "merge");
         if (!mode) return;
-        const result = importDocument(state, proposed, mode, url, size(), versionHint);
+        const result = importDocument(base.document, proposed, mode, win.location.href, size(), versionHint);
         if (result.applied) {
-          persist(result.document);
+          await persist(result.document, base, { replace: mode === "replace" });
           message(`Imported (${mode}).`);
         }
       } catch (err) {
@@ -335,8 +462,36 @@
         file.value = "";
       }
     };
+    const onStorage = (event) => {
+      if (event.key === store.key || event.key === null) attempt(async () => {
+        refresh();
+        message("Updated from another tab.");
+      });
+    };
+    win.addEventListener("storage", onStorage);
+    const onFocus = () => attempt(async () => refresh());
+    win.addEventListener("focus", onFocus);
+    let routeFrame, observedUrl = url, mounted = true;
+    function watchRoute() {
+      if (!mounted) return;
+      if (observedUrl !== win.location.href) {
+        observedUrl = win.location.href;
+        dragging = null;
+        render();
+        message("URL changed: reload/reopen annotations before editing.");
+      }
+      routeFrame = win.requestAnimationFrame(watchRoute);
+    }
+    watchRoute();
     render();
+    if (loadError) message(loadError);
+    else if (!win.navigator.locks?.request) message("Saving disabled: Web Locks unavailable. Read/export only.");
+    else if (storage.getItem(`sidepiece:${new URL(url).origin}${new URL(url).pathname}`)) message("Legacy path-only data is untouched. Export it with the old version and explicitly verify its page before migration.");
     return { getDocument: () => structuredClone(state), unmount: () => {
+      mounted = false;
+      win.cancelAnimationFrame(routeFrame);
+      win.removeEventListener("storage", onStorage);
+      win.removeEventListener("focus", onFocus);
       host.remove();
       dom.removeEventListener("pointerdown", down, true);
       dom.removeEventListener("pointermove", move, true);
