@@ -26,7 +26,7 @@ export function mountSidepiece({ win = window, storage = window.localStorage, sl
     *{box-sizing:border-box} .panel{position:fixed;right:12px;top:12px;width:300px;max-height:calc(100vh - 24px);overflow:auto;background:#182232;color:#e8edf6;border:1px solid #8095af;border-radius:10px;padding:12px;box-shadow:0 8px 30px #0008;pointer-events:auto;font:13px system-ui}
     button,select,input,textarea{font:inherit;border-radius:5px;padding:4px;background:#2d4057;color:white;border:1px solid #758ca5;margin:2px}button{cursor:pointer}button:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #ffca69}button[aria-pressed=true]{background:#97651a}
     .bar{display:flex;flex-wrap:wrap;gap:2px}.item{border-top:1px solid #58677b;padding:6px 0;overflow-wrap:anywhere}.muted{color:#bccbdc}.error{color:#ffbd9c;min-height:18px}textarea{width:100%;height:48px}canvas{position:fixed;inset:0;pointer-events:none}
-  </style><canvas></canvas><section class="panel" aria-label="Sidepiece annotations"><strong>Sidepiece · review</strong><div class="bar"><select aria-label="Author"><option value="jarad">Jarad</option><option value="damian">Damian</option></select><button data-action="active" aria-pressed="false">Start drawing</button><button data-action="visible">Hide marks</button></div><div class="bar">${['circle','rectangle','arrow','freehand'].map(x => `<button data-tool="${x}">${x}</button>`).join('')}</div><textarea aria-label="Annotation note" placeholder="Note for next mark"></textarea><div class="bar"><button data-action="undo">Undo</button><button data-action="asset">Reference screenshot</button><input type="file" accept="image/png,image/jpeg,image/webp" data-asset hidden><button data-action="export">Export JSON</button><button data-action="import">Import JSON</button><input type="file" accept=".json,application/json" hidden><button data-action="markdown">Copy Markdown</button><button data-action="markdown-export">Export Markdown</button><button data-action="slack">Send Slack</button></div><div class="error" role="status" aria-live="polite"></div><div class="items"></div></section>`;
+  </style><canvas></canvas><section class="panel" aria-label="Sidepiece annotations"><strong>Sidepiece · review</strong><div class="bar"><select aria-label="Author"><option value="jarad">Jarad</option><option value="damian">Damian</option></select><button data-action="active" aria-pressed="false">Start drawing</button><button data-action="visible">Hide marks</button></div><div class="bar">${['circle','rectangle','arrow','freehand','text'].map(x => `<button data-tool="${x}">${x}</button>`).join('')}</div><textarea aria-label="Annotation note" placeholder="Note for next mark"></textarea><div class="bar"><button data-action="undo">Undo</button><button data-action="asset">Reference screenshot</button><input type="file" accept="image/png,image/jpeg,image/webp" data-asset hidden><button data-action="export">Export JSON</button><button data-action="import">Import JSON</button><input type="file" accept=".json,application/json" hidden><button data-action="markdown">Copy Markdown</button><button data-action="markdown-export">Export Markdown</button><button data-action="slack">Send Slack</button></div><div class="error" role="status" aria-live="polite"></div><div class="items"></div></section>`;
   dom.documentElement.append(host);
   const canvas = shadow.querySelector('canvas'), ctx = canvas.getContext('2d');
   const panel = shadow.querySelector('.panel'), status = shadow.querySelector('.error'), items = shadow.querySelector('.items');
@@ -61,6 +61,13 @@ export function mountSidepiece({ win = window, storage = window.localStorage, sl
   function draw(a) {
     const pts = a.points.map(p => ({ x: p.x - win.scrollX, y: p.y - win.scrollY }));
     if (!pts.length) return;
+    if (a.shape === 'text') {
+      const lines = (a.note ?? note.value).split(/\r\n|[\r\n\u0085\u2028\u2029]/).slice(0, 20);
+      ctx.fillStyle = a.author.id === 'damian' ? '#7adbbf' : '#ffbc5b';
+      ctx.font = '16px system-ui'; ctx.textBaseline = 'top';
+      lines.forEach((line, index) => ctx.fillText(line, pts[0].x, pts[0].y + index * 20, Math.max(1, win.innerWidth - pts[0].x)));
+      return;
+    }
     ctx.strokeStyle = a.author.id === 'damian' ? '#7adbbf' : '#ffbc5b'; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
     const end = pts.at(-1);
     if (a.shape === 'circle') { const r = Math.hypot(end.x - pts[0].x, end.y - pts[0].y); ctx.arc(pts[0].x, pts[0].y, r, 0, Math.PI * 2); }
@@ -103,6 +110,7 @@ export function mountSidepiece({ win = window, storage = window.localStorage, sl
     const { points, anchor, text, base } = dragging; dragging = null;
     if (points.length < 2) { render(); return; }
     const a = { id: win.crypto.randomUUID(), shape: tool, points, note: note.value, author: { id: authorId, display: names[authorId] }, createdAt: new Date().toISOString(), target: { url, anchor, text }, assetId: currentAssetId };
+    if (tool === 'text' && !a.note.trim()) { message('Enter text in the note field before placing a text mark.'); render(); return; }
     try { await persist(addAnnotation(base.document, a), base); if (note.value === a.note) note.value = ''; message('Saved locally.'); } catch (err) { message(err.message); render(); }
   }
   dom.addEventListener('pointerdown', down, true); dom.addEventListener('pointermove', move, true); dom.addEventListener('pointerup', up, true);

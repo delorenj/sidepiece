@@ -1,7 +1,7 @@
 // Sidepiece portable annotation document. No DOM or host dependencies.
 export const FORMAT = 'sidepiece.annotations';
 export const VERSION = 1;
-const shapes = new Set(['circle', 'rectangle', 'arrow', 'freehand']);
+const shapes = new Set(['circle', 'rectangle', 'arrow', 'freehand', 'text']);
 const finite = n => typeof n === 'number' && Number.isFinite(n);
 const text = (s, max = 4096) => typeof s === 'string' && s.length <= max;
 const dimensions = d => d && finite(d.width) && finite(d.height) && d.width > 0 && d.height > 0;

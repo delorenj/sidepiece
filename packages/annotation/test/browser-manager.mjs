@@ -67,11 +67,13 @@ try {
   await draw('rectangle', 'jarad', 'Jarad rectangle', 80, 130);
   await draw('arrow', 'damian', 'Damian arrow', 180, 220);
   await draw('freehand', 'jarad', 'Jarad freehand', 280, 300);
+  await draw('text', 'damian', 'Damian text', 80, 400);
   const before = await page.evaluate(() => JSON.parse(localStorage.getItem(`sidepiece:v2:${location.href}`)));
   assert.deepEqual(before.annotations.map(a => [a.shape, a.author.id, a.author.display, a.note]), [
     ['rectangle', 'jarad', 'Jarad', 'Jarad rectangle'],
     ['arrow', 'damian', 'Damian', 'Damian arrow'],
     ['freehand', 'jarad', 'Jarad', 'Jarad freehand'],
+    ['text', 'damian', 'Damian', 'Damian text'],
   ]);
   assert.ok(before.annotations.every(a => Number.isFinite(Date.parse(a.createdAt))));
   await page.keyboard.press('Escape');
@@ -79,10 +81,20 @@ try {
   const jsonDownload = page.waitForEvent('download');
   await panel(page).getByRole('button', { name: 'Export JSON' }).click();
   const exported = await readFile(await (await jsonDownload).path(), 'utf8');
-  assert.deepEqual(JSON.parse(exported).annotations.map(a => a.author.id), ['jarad', 'damian', 'jarad']);
+  assert.deepEqual(JSON.parse(exported).annotations.map(a => a.author.id), ['jarad', 'damian', 'jarad', 'damian']);
+  const markdownDownload = page.waitForEvent('download');
+  await panel(page).getByRole('button', { name: 'Export Markdown' }).click();
+  const markdown = await readFile(await (await markdownDownload).path(), 'utf8');
+  for (const phrase of ['Jarad rectangle', 'Damian arrow', 'Jarad freehand', 'Damian text', 'Page:']) assert.ok(markdown.includes(phrase));
+  assert.match(markdown, /\*\*Jarad\*\* \(jarad\)/);
+  assert.match(markdown, /\*\*Damian\*\* \(damian\)/);
+  page.once('dialog', dialog => dialog.accept('replace'));
+  await panel(page).locator('input[accept=".json,application/json"]').setInputFiles({ name: 'review.sidepiece.json', mimeType: 'application/json', buffer: Buffer.from(exported) });
+  await panel(page).getByRole('status').getByText('Imported (replace).').waitFor();
+  assert.deepEqual((await page.evaluate(() => JSON.parse(localStorage.getItem(`sidepiece:v2:${location.href}`)))).annotations, JSON.parse(exported).annotations);
   await page.reload();
   await page.getByRole('button', { name: 'Open Sidepiece annotations' }).click();
-  assert.equal(await panel(page).locator('.item').count(), 3);
+  assert.equal(await panel(page).locator('.item').count(), 4);
   const second = await context.newPage();
   second.on('pageerror', error => errors.push(error.message));
   await second.goto(`${origin}/two`);
@@ -94,7 +106,7 @@ try {
   await panel(second).getByRole('button', { name: 'Send Slack' }).click();
   await panel(second).getByRole('status').getByText(/not configured/).waitFor();
   assert.deepEqual(errors, []);
-  console.log('manager execution PASS: default off, explicit origin activation, Jarad/Damian rectangle/arrow/freehand and notes, immutable attribution/time, Escape, reload, JSON export, second-page import refusal, Slack unconfigured; no direct eval/addInitScript of bundle');
+  console.log('manager execution PASS: default off, explicit origin activation, Jarad/Damian rectangle/arrow/freehand/text and notes, immutable attribution/time, Escape, reload, JSON round-trip, attributed Markdown export, second-page import refusal, Slack unconfigured; no direct eval/addInitScript of bundle');
 } finally {
   await context?.close();
   await new Promise(resolve => server.close(resolve));

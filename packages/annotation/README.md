@@ -2,7 +2,7 @@
 
 Build: `pnpm --filter @sidepiece/annotation build`; install `demo/sidepiece.user.js` in Tampermonkey. Host `demo/` over HTTP (`python3 -m http.server 8765 -d packages/annotation/demo`) or open the preliminary published demo. Click **Enable on this origin** and reload, then click **Sidepiece**. On other sites explicitly add the exact origin: `localStorage.setItem('sidepiece:allowed-origins', JSON.stringify([location.origin]))`, reload, and click the launcher. The `@match` wildcard is portable; the origin allowlist is empty by default and nothing appears without opt-in.
 
-Choose Jarad or Damian, enter a note, start drawing, and drag a mark. Escape leaves drawing mode. Each mark preserves its author ID/display/time independently of the currently selected persona; imports retain the original author. Edit note changes only the note. Hide, delete and undo are local. Export versioned `.sidepiece.json` or deterministic attributed `.md`; the core supports `markdown(doc, authorId)` to filter by author. Copy uses the clipboard.
+Choose Jarad or Damian, enter a note, start drawing, and drag a rectangle, arrow or freehand mark. The text tool places the note visibly on the page; it refuses empty text. Escape leaves drawing mode. Each mark preserves its author ID/display/time independently of the currently selected persona; imports retain the original author. Edit note changes only the note. Hide, delete and undo are local. Export versioned `.sidepiece.json` or deterministic attributed `.md`; the core supports `markdown(doc, authorId)` to filter by author. Copy uses the clipboard.
 
 ## Page identity
 

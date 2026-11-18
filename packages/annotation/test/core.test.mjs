@@ -8,7 +8,7 @@ const entry = (id, shape, who, points = [{x:10,y:20},{x:60,y:80}]) => ({ id, sha
 const jarad = {id:'jarad',display:'Jarad'}, damian = {id:'damian',display:'Damian'};
 test('versioned round trip preserves two authors, all shapes, notes, references and attribution', () => {
   let d = create(); d.page.versionHint = 'abc123'; d.assets.push({id:'capture1',name:'manual.png',type:'image/png',ref:'manual:manual.png'});
-  for (const [i, shape] of ['circle','rectangle','arrow','freehand'].entries()) d = addAnnotation(d, { ...entry(String(i),shape,i % 2 ? damian : jarad), assetId:'capture1' });
+  for (const [i, shape] of ['circle','rectangle','arrow','freehand','text'].entries()) d = addAnnotation(d, { ...entry(String(i),shape,i % 2 ? damian : jarad), assetId:'capture1' });
   const imported = importDocument(create(), JSON.stringify(d), 'replace', url, dims, 'abc123');
   assert.equal(imported.applied,true); assert.deepEqual(imported.document,d);
   assert.deepEqual(importDocument(d, JSON.stringify(d),'merge',url,dims).document,d);
