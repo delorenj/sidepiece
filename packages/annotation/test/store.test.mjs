@@ -74,6 +74,40 @@ test('explicit replace and undo cannot overwrite intervening edits; selective re
   await b.commit(restored, edit(restored, 'a', 'someone else'));
   await assert.rejects(a.commit(restored, removeAnnotation(restored.document, 'a'), { restore: true }), /Save conflict/);
 });
+test('incompatible version and dimensions refuse every mutation without touching the envelope', async () => {
+  for (const mismatch of ['version', 'dimensions']) {
+    const { tab, values } = setup();
+    let live = create(); live.page.versionHint = 'v1';
+    const store = tab({ create: () => structuredClone(live) });
+    const initial = store.read();
+    const saved = await store.commit(initial, addAnnotation(initial.document, mark('a')));
+    const raw = values.get(store.key);
+    if (mismatch === 'version') live.page.versionHint = 'v2';
+    else live.page.documentSize.height += 700;
+    const proposed = [addAnnotation(saved.document, mark('b')), edit(saved, 'a', 'edited'), removeAnnotation(saved.document, 'a'), create()];
+    for (const next of proposed) {
+      await assert.rejects(store.commit(saved, next, { replace: true, restore: true }), /Page differs/);
+      assert.equal(values.get(store.key), raw, `${mismatch} must leave revisions, marks and tombstones untouched`);
+    }
+  }
+});
+
+test('page metadata changing between UI snapshot and locked reread refuses save', async () => {
+  const { tab, values } = setup();
+  let live = create(); live.page.versionHint = 'v1';
+  let beforeLock;
+  const locks = { request: async (_key, work) => { beforeLock?.(); return work(); } };
+  const store = tab({ create: () => structuredClone(live), locks });
+  const initial = store.read();
+  const saved = await store.commit(initial, addAnnotation(initial.document, mark('a')));
+  const raw = values.get(store.key);
+  for (const mutate of [() => { live.page.versionHint = 'v2'; }, () => { live.page.documentSize.width += 200; }]) {
+    beforeLock = mutate;
+    await assert.rejects(store.commit(saved, removeAnnotation(saved.document, 'a')), /Page differs/);
+    assert.equal(values.get(store.key), raw);
+  }
+});
+
 test('observed A-B-A navigation permanently blocks store writes in this mounted session', async () => {
   const { tab, values } = setup(), store = tab();
   const base = await store.commit(store.read(), addAnnotation(create(), mark('original')));

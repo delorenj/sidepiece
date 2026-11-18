@@ -7,13 +7,13 @@ export function mountSidepiece({ win = window, storage = window.localStorage, sl
   const url = win.location.href;
   const viewport = () => ({ width: win.innerWidth, height: win.innerHeight });
   const size = () => ({ width: Math.max(dom.documentElement.scrollWidth, win.innerWidth), height: Math.max(dom.documentElement.scrollHeight, win.innerHeight) });
-  const versionHint = dom.querySelector('meta[name="sidepiece-version"]')?.content || '';
-  const create = () => { const doc = newDocument(url, viewport(), size()); doc.page.versionHint = versionHint; return doc; };
+  const versionHint = () => dom.querySelector('meta[name="sidepiece-version"]')?.content || '';
+  const create = () => { const doc = newDocument(url, viewport(), size()); doc.page.versionHint = versionHint(); return doc; };
   const store = createLocalStore({ storage, locks: win.navigator.locks, url, create });
   let snapshot, loadError = '';
   try { snapshot = store.read(); } catch (err) { loadError = err.message; snapshot = { document: create(), revision: 0, tombstones: {}, records: { annotations: {}, assets: {} } }; }
   let state = snapshot.document;
-  const issues = () => !store.observeRoute(win.location.href) ? ['URL changed'] : compatibility(state, win.location.href, size(), versionHint);
+  const issues = () => !store.observeRoute(win.location.href) ? ['URL changed'] : compatibility(state, win.location.href, size(), versionHint());
   let currentAssetId = '';
   const history = [];
   let active = false, visible = true, dragging = null, tool = 'rectangle';
@@ -37,6 +37,11 @@ export function mountSidepiece({ win = window, storage = window.localStorage, sl
   function refresh() { snapshot = store.read(); state = snapshot.document; render(); }
   async function persist(next, base = snapshot, options = {}) {
     try {
+      const warnings = issues();
+      if (warnings.length) {
+        if (warnings.includes('URL changed')) throw new Error('URL differs: reload/reopen annotations on this page before saving.');
+        throw new Error(`Page differs: ${warnings.join(', ')}. Open the matching page before saving.`);
+      }
       const saved = await store.commit(base, next, { ...options, currentUrl: () => win.location.href });
       if (!options.undo) {
         // Invert only this operation, never the whole stale document.
@@ -146,11 +151,11 @@ export function mountSidepiece({ win = window, storage = window.localStorage, sl
       if (issues().includes('URL changed')) throw new Error('URL differs: reload/reopen annotations on this page before importing.');
       const base = snapshot;
       const raw = await file.files[0].text();
-      const proposed = validate(raw); const warnings = compatibility(proposed, win.location.href, size(), versionHint);
+      const proposed = validate(raw); const warnings = compatibility(proposed, win.location.href, size(), versionHint());
       if (warnings.length) { message(`Not imported: ${warnings.join(', ')}. Open the matching page.`); return; }
       const mode = win.prompt('Import mode: type merge or replace (Cancel makes no change)', 'merge');
       if (!mode) return;
-      const result = importDocument(base.document, proposed, mode, win.location.href, size(), versionHint);
+      const result = importDocument(base.document, proposed, mode, win.location.href, size(), versionHint());
       if (result.applied) { await persist(result.document, base, { replace: mode === 'replace' }); message(`Imported (${mode}).`); }
     } catch (err) { message(err.message); } finally { file.value = ''; }
   };

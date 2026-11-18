@@ -1,4 +1,4 @@
-import { pageIdentity, validate } from './core.mjs';
+import { compatibility, pageIdentity, validate } from './core.mjs';
 
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const conflict = () => { throw new Error('Save conflict: another tab changed this mark/document. Review the latest state and retry; your draft was not saved.'); };
@@ -29,6 +29,11 @@ export function createLocalStore({ storage, locks, url, create }) {
     return locks.request(key, () => {
       if (!observeRoute(currentUrl()) || next.page.identity !== identity) throw new Error('URL differs: reload/reopen annotations on this page before saving.');
       const latest = read();
+      // Recheck live page metadata under the lock, not only the UI's stale snapshot.
+      const page = create().page;
+      const warnings = compatibility(latest.document, currentUrl(), page.documentSize, page.versionHint);
+      if (warnings.length) throw new Error(`Page differs: ${warnings.join(', ')}. Open the matching page before saving.`);
+      if (compatibility(next, currentUrl(), page.documentSize, page.versionHint).length) throw new Error('Page differs: proposed document is incompatible with this page.');
       if (latest.document.page.identity !== base.document.page.identity || JSON.stringify(latest.document.page.documentSize) !== JSON.stringify(base.document.page.documentSize) || latest.document.page.versionHint !== base.document.page.versionHint) conflict();
       if (replace && latest.revision !== base.revision) conflict();
       const tombstones = { ...latest.tombstones };
