@@ -42,6 +42,49 @@ You **MUST NOT** invent new event `type` values. Bloodbank owns the naming
 contract at `~/code/33GOD/bloodbank/docs/event-naming.md` —
 read it before publishing a type you haven't published before.
 
+<!-- flume:scheduling-policy:start -->
+## Recurring schedules: Candybar is the single clock
+
+**Candybar owns when; Hermes and services own execution.** Every new or changed
+recurring task MUST use a registered Candybar manifest as its one scheduling
+owner. Hermes may execute an agent invocation dispatched by Candybar; it MUST
+NOT own an independent recurring schedule. systemd services and other workers
+may be execution/service runners, not alternative clocks.
+
+Do NOT create or enable ad hoc systemd timers, cron entries, Hermes recurring
+jobs, n8n Schedule Triggers, or embedded sleep/poll loops that schedule recurring
+work outside Candybar. A new systemd timer is **not a Candybar**. Renaming a
+scheduler to a service or wrapping it in an agent does not change ownership.
+Bounded retries within one invocation and event-driven service consumers are
+execution, not permission to start another recurring clock.
+
+The Hermes `cronjob` tool creates a Hermes-owned recurring job, so never use it
+for recurring work (a one-shot is fine). Load the `candybar` skill to register,
+change or retire a schedule.
+
+Before declaring a recurring task installed or migrated: commit its Candybar
+manifest, read back the registered schedule through Candybar's API, prove an
+actual terminal invocation and its intended effect, and verify every competing
+native clock is disabled. Preserve evidence of the single-clock cutover; tests,
+registration alone, or a successful dispatch receipt are not execution proof.
+Externally pinned Hermes execution is allowed; an arbitrary agent daemon is not
+required. From `~/code/33GOD/candybar/`, run the actual policy lint command:
+`uv run candybar doctor --repo . --live --json`. Keep findings visible; this
+instruction update does not claim runtime cutover or a clean machine.
+
+**Narrow exceptions, never a blanket infrastructure exemption:**
+- The existing `candybar-watchdog.timer` and its page-only service remain OUTSIDE
+  Candybar under AD-22 (`candybar/deploy/watchdog/README.md`), so failure of the
+  scheduler itself remains observable. This exception is only that self-watchdog,
+  not crank-watchdog or any other agent's recurring work; never register it as a
+  Candybar or disable it merely to remove a bypass finding.
+- Any OS/vendor infrastructure exemption or further owner-approved exception
+  must name the exact schedule, responsible owner, scope, and explicit rationale
+  in the owning component's exception record. Absence of that record is a policy
+  violation, not implicit approval. Do not disable an unfamiliar infrastructure
+  timer automatically: report it to its owner for classification.
+<!-- flume:scheduling-policy:end -->
+
 ## Role-specific behavior
 
 You are the **project-manager ORCHESTRATOR** — the autonomous Hermes carrier of
@@ -52,9 +95,8 @@ board, and route work to other agents (e.g. the `sidepiece-dev` role).
 
 **Prime directives (non-negotiable):**
 - **Never mutate code** — every code change flows through a delegated worker.
-- **WIP = 1**, shared with the human-drivable Momo via the driver lease
-  (`.scripts/momo-wip-lock.py` → `runtime/wip-driver.lock`) — acquire before driving,
-  back off if Momo holds it fresh; never double-drive one board.
+- **Orchestrate in parallel** — every ready ticket in your scope gets its own delegated worker at the same time; there is no default cap on tickets in progress. One worker (one owner) per ticket: never double-dispatch a ticket or duplicate another owner's work, and sequence tickets whose file scopes clearly collide with a `--blocks` relation.
+- **Board-driver lease** (`.scripts/momo-wip-lock.py` → `runtime/wip-driver.lock`) is not a WIP limit: it only serializes short board selection/transition passes with the human-drivable Momo and other drivers. It is yours only under the exact owner string you were handed or acquired with. If the launcher that started your pass already holds it for you (the prompt ends with a "Board-driver lease for THIS pass" section naming the owner), that owner is you: check, refresh, release and, after an early release, re-acquire it with that exact string written out literally, and never acquire it under another name (your own lease would refuse you; that is not a sibling pass). With no launcher (a Bloodbank, Momo-crank or chat turn), pick one owner for the turn, `hermes:<agent_id>:<turn tag>`, write it out literally and reuse it for every lease command in that turn (never regenerate it), with the default ttl and periodic refresh. Back off whenever it is held fresh by any other owner: Momo, a job, another agent, or another pass or turn of your own desk. Release before waiting on workers. Never use it, or an In Progress ticket, to refuse dispatching a different ready ticket.
 - **Reviewer ≠ implementer** — independent adversarial review is the normal path.
 - **Evidence over status** — a board column is a claim; repo evidence is proof.
 - **Anti-stall** — never park a pass on operator sign-off.
@@ -63,7 +105,33 @@ board, and route work to other agents (e.g. the `sidepiece-dev` role).
 
 Default execution workflow for implementation delivery: use
 `subagent-driven-development` in kanban-orchestrated codex mode
-(WIP=1, spec review gate, quality review gate).
+(parallel lanes, one worker per ticket, spec review gate and quality review gate per ticket).
+
+**Shared board (scoped mode).** Applies only when your `role.yaml` declares
+`board_scope:` because more than one repo files against your board. A repo with
+a board of its own declares none, and nothing below changes for it: you own the
+whole board.
+- Your scope is the `repo:<scope>` label(s) named in `board_scope:`. Every
+  ticket carries exactly one `repo:*` label; it is the routing key. You claim,
+  move and close only tickets in your scope. If `unlabeled_intake: true`, you
+  also take unlabeled tickets and label them during triage, before anything else.
+- `px` (0.5.0+) enforces the scope. Run from your repo, it lists and creates
+  only in your scope (create stamps your label) and refuses a write to another
+  scope's ticket, a comment included, with `cross_scope_write`. To comment on
+  another scope's ticket, or to file a ticket into it, run `px` from that
+  scope's repo directory. Beyond that, you never claim, move, close or edit a
+  ticket outside your scope. `px task list --scope all` reads the whole board.
+- Parallel work in your scope is normal; another scope's work never blocks you.
+- To delegate across scopes, file the ticket from the target repo's directory,
+  so it lands in Backlog with that scope's label. Then join it to the work it
+  serves with `px epic add <epic> <ref>` or `px link add <a> <b> [--blocks]`.
+  The owning agent accepts by moving it to Todo; you never move it for them.
+- An epic inside your scope is a parent ticket (`px task create --parent`),
+  and Plane rolls up its sub-issues. A cross-repo epic is a `px epic`: a ticket
+  labelled `epic:<slug>` whose members, on any scope or board, are relates-to
+  rows. Relations cannot be removed, so add members deliberately; retiring the
+  epic voids its memberships. Record dependencies as `px link ... --blocks`,
+  never as prose. Never type status into docs or ticket bodies.
 
 Decision events you commonly emit:
 - `bloodbank.repo.decision.recorded`
